@@ -37,6 +37,9 @@ type MemberImportUndoResult = {
   removed: number;
   kept: number;
 };
+type RestoreLeftMembersResult = {
+  restored: number;
+};
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -241,6 +244,8 @@ export default function Home() {
   );
   const [memberImportUndoResult, setMemberImportUndoResult] =
     useState<MemberImportUndoResult | null>(null);
+  const [restoreLeftMembersResult, setRestoreLeftMembersResult] =
+    useState<RestoreLeftMembersResult | null>(null);
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -262,6 +267,7 @@ export default function Home() {
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
   const activeMembers = members.filter((member) => member.status === "active");
+  const leftMembers = members.filter((member) => member.status === "left");
   const selectableMembers = members.filter(
     (member) =>
       member.status === "active" || selectedMemberIds.includes(member.id),
@@ -480,6 +486,36 @@ export default function Home() {
     setSelectedMemberIds((currentIds) =>
       currentIds.filter((selectedMemberId) => selectedMemberId !== memberId),
     );
+    setRestoreLeftMembersResult(null);
+    notifyMembersChanged();
+  };
+
+  const handleRestoreLeftMembers = () => {
+    if (leftMembers.length === 0) {
+      return;
+    }
+
+    const shouldRestore = window.confirm(
+      `탈퇴 상태인 길드원 ${leftMembers.length}명을 모두 활동중으로 복구할까요? 길드원 id와 기존 활동 기록 연결은 그대로 유지됩니다.`,
+    );
+
+    if (!shouldRestore) {
+      return;
+    }
+
+    const currentMembers = getMembers();
+    const nextMembers = currentMembers.map((member) =>
+      member.status === "left"
+        ? {
+            ...member,
+            status: "active" as const,
+            leftAt: null,
+          }
+        : member,
+    );
+
+    writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
+    setRestoreLeftMembersResult({ restored: leftMembers.length });
     notifyMembersChanged();
   };
 
@@ -707,6 +743,21 @@ export default function Home() {
             {activeMembers.length}명
           </span>
         </div>
+
+        {leftMembers.length > 0 ? (
+          <button
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            type="button"
+            onClick={handleRestoreLeftMembers}
+          >
+            탈퇴 길드원 {leftMembers.length}명 활동중으로 복구
+          </button>
+        ) : null}
+        {restoreLeftMembersResult ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            {restoreLeftMembersResult.restored}명을 활동중으로 복구했습니다.
+          </p>
+        ) : null}
 
         {activeMembers.length === 0 ? (
           <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
