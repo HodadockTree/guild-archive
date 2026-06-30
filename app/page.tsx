@@ -269,9 +269,35 @@ export default function Home() {
   const editingMember = members.find((member) => member.id === editingMemberId);
   const activeMembers = members.filter((member) => member.status === "active");
   const leftMembers = members.filter((member) => member.status === "left");
-  const selectableMembers = members.filter(
-    (member) =>
-      member.status === "active" || selectedMemberIds.includes(member.id),
+  const participationCounts = activities.reduce<Record<string, number>>(
+    (counts, activity) => {
+      activity.participantIds.forEach((memberId) => {
+        counts[memberId] = (counts[memberId] ?? 0) + 1;
+      });
+      return counts;
+    },
+    {},
+  );
+  const selectableMembers = members
+    .filter(
+      (member) =>
+        member.status === "active" || selectedMemberIds.includes(member.id),
+    )
+    .sort((a, b) => {
+      const countOrder =
+        (participationCounts[b.id] ?? 0) - (participationCounts[a.id] ?? 0);
+
+      if (countOrder !== 0) {
+        return countOrder;
+      }
+
+      return a.nickname.localeCompare(b.nickname, "ko");
+    });
+  const selectableActiveMembers = selectableMembers.filter(
+    (member) => member.status === "active",
+  );
+  const selectableLeftMembers = selectableMembers.filter(
+    (member) => member.status === "left",
   );
   const selectedHistoryMember =
     members.find((member) => member.id === historyMemberId) ?? null;
@@ -997,8 +1023,13 @@ export default function Home() {
                 먼저 활동중 길드원을 등록하면 참여자를 선택할 수 있습니다.
               </p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {selectableMembers.map((member) => (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-neutral-500">
+                    활동중 길드원
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {selectableActiveMembers.map((member) => (
                   <label
                     className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
                     key={member.id}
@@ -1010,6 +1041,9 @@ export default function Home() {
                       onChange={() => handleToggleParticipant(member.id)}
                     />
                     <span className="truncate">{member.nickname}</span>
+                    <span className="text-xs text-neutral-400">
+                      {participationCounts[member.id] ?? 0}회
+                    </span>
                     {member.status === "left" ? (
                       <span className="ml-auto text-xs text-neutral-400">
                         탈퇴
@@ -1017,6 +1051,38 @@ export default function Home() {
                     ) : null}
                   </label>
                 ))}
+              </div>
+                </div>
+
+                {selectableLeftMembers.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-neutral-500">
+                      탈퇴 길드원
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {selectableLeftMembers.map((member) => (
+                        <label
+                          className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
+                          key={member.id}
+                        >
+                          <input
+                            className="size-4"
+                            type="checkbox"
+                            checked={selectedMemberIds.includes(member.id)}
+                            onChange={() => handleToggleParticipant(member.id)}
+                          />
+                          <span className="truncate">{member.nickname}</span>
+                          <span className="text-xs text-neutral-400">
+                            {participationCounts[member.id] ?? 0}회
+                          </span>
+                          <span className="ml-auto text-xs text-neutral-400">
+                            탈퇴
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </fieldset>
