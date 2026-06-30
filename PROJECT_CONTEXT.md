@@ -1,208 +1,136 @@
-# 냥춘 길드 활동 아카이브
+# PROJECT_CONTEXT
 
-## 프로젝트 개요
+## 프로젝트 목적
 
-테일즈런너 길드 "냥춘"의 활동 기록을 보관하기 위한 개인용 웹앱입니다.
+이 프로젝트는 테일즈런너 길드 "냥춘"의 활동 기록을 보관하기 위한 개인용 웹앱입니다.
 
-이 프로젝트는 길드원 관리 시스템이 아니라 활동 기록 보관소(아카이브)를 목표로 합니다.
+핵심 목적은 길드원 관리 시스템을 만드는 것이 아니라, 길드 활동 아카이브를 만드는 것입니다. 누가 언제 어떤 활동에 참여했는지 남기고, 나중에 길드원별 활동 이력을 다시 확인할 수 있게 하는 데 집중합니다.
 
-현재는 구글 스프레드시트로 길드원 명부를 관리하고 있으나, 활동 기록 누적과 과거 이력 보관에 한계가 있어 개발을 진행합니다.
+## 중요한 개발 원칙
 
----
+- 개인 실사용 흐름을 우선합니다.
+- 서버, 로그인, 권한, 외부 연동은 현재 범위가 아닙니다.
+- 데이터는 브라우저 LocalStorage에 저장합니다.
+- 탈퇴 길드원은 삭제하지 않고 `left` 상태로 보존합니다.
+- 과거 활동 기록의 참여자 이력이 깨지지 않도록 기존 `id`를 유지합니다.
+- 구현되지 않은 기능을 문서나 UI에서 구현된 것처럼 표현하지 않습니다.
+- 기능은 필요한 만큼만 작게 추가합니다.
+- Next.js 관련 코드를 수정할 때는 `node_modules/next/dist/docs/`의 현재 버전 문서를 먼저 확인합니다.
 
-## 프로젝트 목표
+## 현재 구현 상태
 
-해결하고 싶은 문제
-
-1. 비공정 참여 기록 누적
-2. 점령전 기록 보관
-3. 탈퇴한 길드원 기록 보존
-4. 길드 활동 이력 조회
-5. 참여 통계 확인
-
----
-
-## 기술 스택
-
-- React
-- TypeScript
-- Vite
-- LocalStorage
-
-초기 버전은 서버 없이 LocalStorage 기반으로 개발합니다.
-
----
-
-## 프로젝트 성격
-
-이 프로젝트는 개인이 사용하는 소규모 프로젝트입니다.
-
-확장성보다 다음을 우선합니다.
-
-- 빠른 구현
-- 쉬운 유지보수
-- 실사용 가능 여부
-
-불필요한 추상화, 과도한 폴더 분리, 과설계는 지양합니다.
-
----
-
-## 활동 종류
-
-### 점령전
-
-주 1회 진행
-
-기록 항목
-
-- 날짜
-- 맵
-- 참여자
-- 메모
-
-### 오션헤븐
-
-정기 비공정
-
-기록 항목
-
-- 날짜
-- 참여자
-
-### 아우로라
-
-특별 비공정
-
-기록 항목
-
-- 날짜
-- 참여자
-
----
-
-## 데이터 모델
-
-### Member
-
-길드원
-
-속성
-
-- id
-- nickname
-- joinedAt
-- leftAt
-
-leftAt이 null이면 활동중인 길드원입니다.
-
----
-
-### Activity
-
-활동 기록
-
-속성
-
-- id
-- type
-- date
-- map (점령전만 사용)
-- memo (점령전만 사용)
-
-activity type
-
-- siege
-- oceanHeaven
-- aurora
-
----
-
-### Participation
-
-참여 기록
-
-속성
-
-- id
-- memberId
-- activityId
-
----
-
-## LocalStorage 구조
-
-### members
-
-길드원 목록
-
-### activities
-
-활동 목록
-
-### participations
-
-참여 기록 목록
-
----
-
-## MVP 범위
-
-### v0.1
+v1.0 기준 구현된 기능은 다음과 같습니다.
 
 - 길드원 등록
-- 길드원 목록
+- 길드원 탈퇴 처리
+- 탈퇴 길드원 기록 보존
+- 활동 기록 추가
+- 활동 종류 선택
+  - 비공정
+  - 점령전
+  - 길드퀘
+  - 이벤트
+  - 기타 메모
+- 활동 참여자 체크
+- 전체 활동 기록 목록 보기
+- 활동 종류별 필터
+- 활동 기록 수정
+- 활동 기록 삭제
+- 길드원별 활동 이력 보기
 - LocalStorage 저장
 
-### v0.2
+현재 구현은 단일 화면 중심입니다. 주요 화면 로직은 `app/page.tsx`에 있고, 저장 관련 함수는 `src/lib` 아래에 분리되어 있습니다.
 
-- 길드원 탈퇴 처리
-- 활동중 / 탈퇴 필터
+## 데이터 구조 요약
 
-### v0.3
+### GuildMember
 
-- 오션헤븐 등록
-- 아우로라 등록
-- 참여자 선택
-- 활동 목록
+위치: `src/types.ts`
 
-### v0.4
+```ts
+export type GuildMemberStatus = "active" | "left";
 
-- 점령전 등록
-- 맵 입력
-- 메모 입력
+export interface GuildMember {
+  id: string;
+  nickname: string;
+  status: GuildMemberStatus;
+  joinedAt: string;
+  leftAt: string | null;
+  memo?: string;
+}
+```
 
-### v0.5
+- `status: "active"`는 현재 활동 중인 길드원입니다.
+- `status: "left"`는 탈퇴 처리된 길드원입니다.
+- 탈퇴 처리 시 `leftAt`에 날짜가 저장됩니다.
+- 탈퇴 길드원도 LocalStorage에서 삭제하지 않습니다.
 
-- 활동 삭제
+### ActivityLog
 
-### v1.0
+위치: `src/types.ts`
 
-- 참여 통계
-- TOP 순위
-- 대시보드
+```ts
+export type ActivityType =
+  | "airship"
+  | "siege"
+  | "guildQuest"
+  | "event"
+  | "other";
 
----
+export interface ActivityLog {
+  id: string;
+  type: ActivityType;
+  date: string;
+  title?: string;
+  participantIds: string[];
+  memo?: string;
+}
+```
 
-## 개발 원칙
+- `participantIds`에 참여 길드원의 `id`를 저장합니다.
+- 길드원 닉네임은 활동 기록에 복사 저장하지 않고, 길드원 목록에서 `id`로 찾아 표시합니다.
+- `title`과 `memo`는 선택 입력입니다.
 
-- 저장하지 않아도 계산 가능한 값은 저장하지 않는다.
-- 통계 데이터는 Participation 기반으로 계산한다.
-- 탈퇴한 길드원도 삭제하지 않는다.
-- 실사용 후 필요한 기능만 추가한다.
-- 먼저 작게 만들고, 이후 점진적으로 확장한다.
+### LocalStorage 키
 
----
+- `guild-archive:members`
+- `guild-archive:activities`
 
-## 현재 우선순위
+참여 기록은 별도 테이블로 저장하지 않고, 각 `ActivityLog`의 `participantIds` 배열에 포함됩니다.
 
-현재 목표는 v0.1 완료입니다.
+## 주요 파일 구조
 
-구현 범위
+```text
+app/
+  layout.tsx       # Next.js 루트 레이아웃
+  page.tsx         # 메인 화면과 사용자 흐름
+  globals.css      # 전역 스타일
 
-- Member 타입 정의
-- LocalStorage 저장 구조
-- 길드원 등록
-- 길드원 목록 출력
-- 새로고침 후 데이터 유지 확인
+src/
+  types.ts         # GuildMember, ActivityLog 타입
+  types/member.ts  # Member 타입 re-export
+  lib/
+    storage.ts     # LocalStorage 읽기/쓰기 유틸
+    members.ts     # 길드원 조회, 등록, 수정, 탈퇴 처리
+    activities.ts  # 활동 기록 조회, 추가, 수정, 삭제
+```
 
-통계, 대시보드, 상세 페이지는 아직 구현하지 않습니다.
+## 다음 구현 후보
+
+- 깨진 화면 문구와 앱 메타데이터 정리
+- 길드원 정보 수정 기능
+- LocalStorage 데이터 내보내기/가져오기
+- 활동 목록 검색
+- 활동 기록 정렬 옵션
+- 간단한 참여 횟수 요약
+
+위 항목은 후보일 뿐이며 v1.0에 구현된 기능으로 문서화하지 않습니다.
+
+## 주의할 점
+
+- 현재 데이터는 브라우저 LocalStorage에만 있습니다.
+- 브라우저 저장소 초기화, 다른 브라우저 사용, 시크릿 모드에서는 기록이 유지되지 않을 수 있습니다.
+- 탈퇴 길드원을 삭제 기능으로 처리하면 과거 활동 이력이 깨질 수 있습니다.
+- 활동 기록 수정 시 탈퇴 길드원이 기존 참여자였으면 선택 목록에 계속 보여야 합니다.
+- `src/lib/activities.ts`는 과거 필드명 `participantMemberIds`를 `participantIds`로 읽어오는 호환 처리를 포함합니다.
+- 현재 화면의 일부 한글 문구가 인코딩 문제로 깨져 보일 수 있습니다. 문구 정리는 별도 작업으로 다루는 것이 좋습니다.

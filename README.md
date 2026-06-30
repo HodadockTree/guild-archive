@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 냥춘 길드 활동 아카이브
 
-## Getting Started
+테일즈런너 길드 "냥춘"의 활동 기록을 개인적으로 보관하기 위한 웹앱입니다.
 
-First, run the development server:
+길드원 관리 시스템을 목표로 하기보다는, 길드 활동이 언제 있었고 누가 참여했는지 남겨두는 가벼운 아카이브에 초점을 둡니다. 서버나 로그인 없이 브라우저의 LocalStorage에 데이터를 저장합니다.
+
+## 주요 기능
+
+- 길드원 등록
+- 길드원 탈퇴 처리 및 탈퇴 기록 보존
+- 활동 기록 추가
+- 활동 종류 선택: 비공정, 점령전, 길드퀘, 이벤트, 기타 메모
+- 활동 참여자 체크
+- 전체 활동 기록 목록 보기
+- 활동 종류별 필터
+- 활동 기록 수정 및 삭제
+- 길드원별 활동 이력 보기
+- LocalStorage 저장
+
+## 기술 스택
+
+- Next.js
+- React
+- TypeScript
+- LocalStorage
+
+## 실행 방법
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 `http://localhost:3000`을 열어 확인합니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 개발 원칙
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- 개인 실사용 흐름을 우선합니다.
+- 서버 없이 LocalStorage 기반으로 동작합니다.
+- 탈퇴한 길드원도 과거 활동 기록에서 삭제하지 않습니다.
+- 실제로 필요한 기능만 작게 추가합니다.
+- 기록 보존과 유지보수성을 과한 구조화보다 우선합니다.
 
-## Learn More
+## 현재 상태
 
-To learn more about Next.js, take a look at the following resources:
+v1.0 기준으로 길드원 등록, 탈퇴 처리, 활동 기록 CRUD, 활동 종류 필터, 길드원별 활동 이력 조회가 구현되어 있습니다.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+데이터는 현재 브라우저의 LocalStorage에만 저장되므로, 브라우저나 저장소를 초기화하면 기록이 사라질 수 있습니다.
