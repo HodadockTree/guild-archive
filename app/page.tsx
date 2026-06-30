@@ -1,6 +1,12 @@
 "use client";
 
-import { FormEvent, useRef, useState, useSyncExternalStore } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type {
   ActivityLog,
   ActivityType,
@@ -28,6 +34,8 @@ const MEMBERS_STORAGE_KEY = "guild-archive:members";
 const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
 const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
+const MAX_IMAGE_WIDTH = 1000;
+const IMAGE_JPEG_QUALITY = 0.72;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -42,10 +50,10 @@ const activityFilterLabels: Record<ActivityFilter, string> = {
   ...activityTypeLabels,
 };
 
-const memberStatusLabels = {
+const memberStatusLabels: Record<GuildMemberStatus, string> = {
   active: "활동중",
   left: "탈퇴",
-} as const;
+};
 
 let cachedMembersValue: string | null = null;
 let cachedMembersSnapshot: GuildMember[] = EMPTY_MEMBERS;
@@ -122,12 +130,60 @@ function getParticipantNames(activity: ActivityLog, members: Map<string, string>
     .filter((memberName): memberName is string => Boolean(memberName));
 }
 
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
+    image.src = src;
+  });
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("이미지를 읽지 못했습니다."));
+      }
+    };
+    reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeImageFile(file: File) {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(dataUrl);
+  const scale = Math.min(1, MAX_IMAGE_WIDTH / image.width);
+  const width = Math.round(image.width * scale);
+  const height = Math.round(image.height * scale);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("이미지를 처리하지 못했습니다.");
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", IMAGE_JPEG_QUALITY);
+}
+
 export default function Home() {
   const [nickname, setNickname] = useState("");
   const [activityDate, setActivityDate] = useState(today);
   const [activityType, setActivityType] = useState<ActivityType>("airship");
   const [activityTitle, setActivityTitle] = useState("");
   const [activityMemo, setActivityMemo] = useState("");
+  const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
+  const [activityImageError, setActivityImageError] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
@@ -143,6 +199,7 @@ export default function Home() {
   const [memberEditMemo, setMemberEditMemo] = useState("");
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
     getMembersSnapshot,
@@ -184,13 +241,22 @@ export default function Home() {
       )
     : [];
 
+  const clearImageInput = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  };
+
   const resetActivityForm = () => {
     setActivityDate(today());
     setActivityType("airship");
     setActivityTitle("");
     setActivityMemo("");
+    setActivityImageDataUrl("");
+    setActivityImageError("");
     setSelectedMemberIds([]);
     setEditingActivityId(null);
+    clearImageInput();
   };
 
   const resetMemberForm = () => {
@@ -272,6 +338,37 @@ export default function Home() {
     );
   };
 
+  const handleActivityImageChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setActivityImageError("이미지 파일만 첨부할 수 있습니다.");
+      clearImageInput();
+      return;
+    }
+
+    try {
+      setActivityImageError("");
+      const resizedImage = await resizeImageFile(file);
+      setActivityImageDataUrl(resizedImage);
+    } catch {
+      setActivityImageError("이미지를 압축하는 중 문제가 발생했습니다.");
+      clearImageInput();
+    }
+  };
+
+  const handleRemoveActivityImage = () => {
+    setActivityImageDataUrl("");
+    setActivityImageError("");
+    clearImageInput();
+  };
+
   const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -281,6 +378,7 @@ export default function Home() {
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
+      imageDataUrl: activityImageDataUrl || undefined,
     };
 
     if (editingActivityId) {
@@ -299,7 +397,10 @@ export default function Home() {
     setActivityType(activity.type);
     setActivityTitle(activity.title ?? "");
     setActivityMemo(activity.memo ?? "");
+    setActivityImageDataUrl(activity.imageDataUrl ?? "");
+    setActivityImageError("");
     setSelectedMemberIds(activity.participantIds);
+    clearImageInput();
     requestAnimationFrame(() => {
       activityFormRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -608,6 +709,43 @@ export default function Home() {
             />
           </label>
 
+          <div className="space-y-2">
+            <label className="block space-y-1 text-sm font-medium text-neutral-700">
+              <span>참고 스크린샷</span>
+              <input
+                ref={imageInputRef}
+                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                type="file"
+                accept="image/*"
+                onChange={handleActivityImageChange}
+              />
+            </label>
+            <p className="text-xs text-neutral-500">
+              선택한 이미지는 최대 너비 {MAX_IMAGE_WIDTH}px 이하의 JPEG로 압축해
+              저장합니다.
+            </p>
+            {activityImageError ? (
+              <p className="text-sm text-red-600">{activityImageError}</p>
+            ) : null}
+            {activityImageDataUrl ? (
+              <div className="space-y-2 rounded-md border border-neutral-200 p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="첨부 스크린샷 미리보기"
+                  className="max-h-64 rounded-md border border-neutral-200 object-contain"
+                  src={activityImageDataUrl}
+                />
+                <button
+                  className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                  type="button"
+                  onClick={handleRemoveActivityImage}
+                >
+                  첨부 이미지 제거
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <button
             className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
             type="submit"
@@ -734,6 +872,14 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
+                    {activity.imageDataUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        alt="첨부 스크린샷"
+                        className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
+                        src={activity.imageDataUrl}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -799,6 +945,11 @@ export default function Home() {
                     <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                       {activityTypeLabels[activity.type]}
                     </span>
+                    {activity.imageDataUrl ? (
+                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        이미지 첨부
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <h3 className="text-sm font-semibold text-neutral-950">
@@ -831,6 +982,14 @@ export default function Home() {
                     <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
                       {activity.memo}
                     </p>
+                  ) : null}
+                  {activity.imageDataUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      alt="첨부 스크린샷"
+                      className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
+                      src={activity.imageDataUrl}
+                    />
                   ) : null}
                 </li>
               );
