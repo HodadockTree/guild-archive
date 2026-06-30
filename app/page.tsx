@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  ClipboardEvent,
   FormEvent,
   useRef,
   useState,
@@ -592,6 +593,35 @@ export default function Home() {
     }
   };
 
+  const handleActivityImagePaste = async (
+    event: ClipboardEvent<HTMLFormElement>,
+  ) => {
+    const imageItem = Array.from(event.clipboardData.items).find((item) =>
+      item.type.startsWith("image/"),
+    );
+
+    if (!imageItem) {
+      return;
+    }
+
+    const file = imageItem.getAsFile();
+
+    if (!file) {
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      setActivityImageError("");
+      const resizedImage = await resizeImageFile(file);
+      setActivityImageDataUrl(resizedImage);
+      clearImageInput();
+    } catch {
+      setActivityImageError("붙여넣은 이미지를 압축하는 중 문제가 발생했습니다.");
+    }
+  };
+
   const handleRemoveActivityImage = () => {
     setActivityImageDataUrl("");
     setActivityImageError("");
@@ -909,6 +939,7 @@ export default function Home() {
         </div>
         <form
           className="space-y-4 rounded-md border border-neutral-200 p-4"
+          onPaste={handleActivityImagePaste}
           onSubmit={handleSubmitActivity}
         >
           {isEditingActivity ? (
@@ -1014,6 +1045,10 @@ export default function Home() {
             <p className="text-xs text-neutral-500">
               선택한 이미지는 최대 너비 {MAX_IMAGE_WIDTH}px 이하의 JPEG로 압축해
               저장합니다.
+            </p>
+            <p className="text-xs text-neutral-500">
+              디스코드 이미지 복사 후 이 활동 기록 폼 안에서 Ctrl+V로 첨부할 수
+              있습니다.
             </p>
             {activityImageError ? (
               <p className="text-sm text-red-600">{activityImageError}</p>
