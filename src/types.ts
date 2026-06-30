@@ -16,6 +16,6 @@ export interface ActivityLog {
   type: ActivityType;
   date: string;
   title?: string;
-  participantMemberIds: string[];
+  participantIds: string[];
   memo?: string;
 }

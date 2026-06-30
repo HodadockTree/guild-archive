@@ -159,7 +159,7 @@ export default function Home() {
       date: activityDate,
       type: activityType,
       title: activityTitle.trim() || undefined,
-      participantMemberIds: selectedMemberIds,
+      participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
     });
 
@@ -376,9 +376,9 @@ export default function Home() {
                 </div>
                 <p className="mt-2 text-sm text-neutral-600">
                   참여자{" "}
-                  {activity.participantMemberIds.length === 0
+                  {activity.participantIds.length === 0
                     ? "없음"
-                    : activity.participantMemberIds
+                    : activity.participantIds
                         .map((memberId) => memberNamesById.get(memberId))
                         .filter(Boolean)
                         .join(", ")}

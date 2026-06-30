@@ -9,12 +9,21 @@ type NewActivityLog = Omit<ActivityLog, "id"> & {
 
 type ActivityLogUpdate = Partial<Omit<ActivityLog, "id">>;
 
+type StoredActivityLog = ActivityLog & {
+  participantMemberIds?: string[];
+};
+
 function createId() {
   return crypto.randomUUID();
 }
 
 export function getActivityLogs() {
-  return readStorageList<ActivityLog>(ACTIVITIES_STORAGE_KEY);
+  return readStorageList<StoredActivityLog>(ACTIVITIES_STORAGE_KEY).map(
+    ({ participantMemberIds, ...activity }) => ({
+      ...activity,
+      participantIds: activity.participantIds ?? participantMemberIds ?? [],
+    }),
+  );
 }
 
 export function addActivityLog(activity: NewActivityLog) {
@@ -22,7 +31,7 @@ export function addActivityLog(activity: NewActivityLog) {
   const newActivity: ActivityLog = {
     ...activity,
     id: activity.id ?? createId(),
-    participantMemberIds: [...activity.participantMemberIds],
+    participantIds: [...activity.participantIds],
   };
 
   writeStorageList(ACTIVITIES_STORAGE_KEY, [...activities, newActivity]);
@@ -39,8 +48,7 @@ export function updateActivityLog(activityId: string, update: ActivityLogUpdate)
     updatedActivity = {
       ...activity,
       ...update,
-      participantMemberIds:
-        update.participantMemberIds ?? activity.participantMemberIds,
+      participantIds: update.participantIds ?? activity.participantIds,
     };
     return updatedActivity;
   });
