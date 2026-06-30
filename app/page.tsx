@@ -32,6 +32,11 @@ const activityFilterLabels: Record<ActivityFilter, string> = {
   ...activityTypeLabels,
 };
 
+const memberStatusLabels = {
+  active: "활동중",
+  left: "탈퇴",
+} as const;
+
 let cachedMembersValue: string | null = null;
 let cachedMembersSnapshot: GuildMember[] = EMPTY_MEMBERS;
 let cachedActivitiesValue: string | null = null;
@@ -118,6 +123,7 @@ export default function Home() {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
     null,
   );
+  const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
   const activityFormRef = useRef<HTMLElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
@@ -139,6 +145,8 @@ export default function Home() {
     (member) =>
       member.status === "active" || selectedMemberIds.includes(member.id),
   );
+  const selectedHistoryMember =
+    members.find((member) => member.id === historyMemberId) ?? null;
   const memberNamesById = new Map(
     members.map((member) => [member.id, member.nickname]),
   );
@@ -150,6 +158,11 @@ export default function Home() {
     activityFilter === "all"
       ? sortedActivities
       : sortedActivities.filter((activity) => activity.type === activityFilter);
+  const selectedMemberActivities = selectedHistoryMember
+    ? sortedActivities.filter((activity) =>
+        activity.participantIds.includes(selectedHistoryMember.id),
+      )
+    : [];
 
   const resetActivityForm = () => {
     setActivityDate(today());
@@ -432,6 +445,122 @@ export default function Home() {
             {isEditingActivity ? "활동 기록 수정" : "활동 기록 저장"}
           </button>
         </form>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              길드원별 활동 이력
+            </h2>
+            <p className="text-sm text-neutral-500">
+              탈퇴한 길드원도 선택해서 과거 참여 기록을 확인합니다.
+            </p>
+          </div>
+          {selectedHistoryMember ? (
+            <button
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              type="button"
+              onClick={() => setHistoryMemberId(null)}
+            >
+              선택 해제
+            </button>
+          ) : null}
+        </div>
+
+        {members.length === 0 ? (
+          <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+            길드원을 등록하면 활동 이력을 확인할 수 있습니다.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {members.map((member) => {
+              const isSelected = selectedHistoryMember?.id === member.id;
+
+              return (
+                <button
+                  className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                    isSelected
+                      ? "border-neutral-950 bg-neutral-950 text-white"
+                      : "border-neutral-200 text-neutral-800 hover:border-neutral-900"
+                  }`}
+                  key={member.id}
+                  type="button"
+                  onClick={() => setHistoryMemberId(member.id)}
+                >
+                  <span className="block truncate font-medium">
+                    {member.nickname}
+                  </span>
+                  <span
+                    className={`text-xs ${
+                      isSelected ? "text-neutral-200" : "text-neutral-500"
+                    }`}
+                  >
+                    {memberStatusLabels[member.status]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedHistoryMember ? (
+          <div className="space-y-3 rounded-md border border-neutral-200 p-4">
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-neutral-950">
+                  {selectedHistoryMember.nickname}
+                </h3>
+                <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                  {memberStatusLabels[selectedHistoryMember.status]}
+                </span>
+              </div>
+              <p className="text-sm text-neutral-500">
+                가입일 {selectedHistoryMember.joinedAt}
+                {selectedHistoryMember.leftAt
+                  ? ` · 탈퇴일 ${selectedHistoryMember.leftAt}`
+                  : ""}
+              </p>
+              {selectedHistoryMember.memo ? (
+                <p className="text-sm text-neutral-600">
+                  {selectedHistoryMember.memo}
+                </p>
+              ) : null}
+            </div>
+
+            {selectedMemberActivities.length === 0 ? (
+              <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+                이 길드원이 참여한 활동 기록이 없습니다.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {selectedMemberActivities.map((activity) => (
+                  <li
+                    className="rounded-md border border-neutral-200 px-4 py-3"
+                    key={activity.id}
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-xs text-neutral-500">
+                        {activity.date}
+                      </span>
+                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        {activityTypeLabels[activity.type]}
+                      </span>
+                    </div>
+                    <h4 className="mt-1 text-sm font-semibold text-neutral-950">
+                      {activity.title || activityTypeLabels[activity.type]}
+                    </h4>
+                    {activity.memo ? (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                        {activity.memo}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-3">
