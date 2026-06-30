@@ -2,15 +2,10 @@
 
 import { FormEvent, useState, useSyncExternalStore } from "react";
 import type { ActivityLog, ActivityType, GuildMember } from "@/src/types";
-import {
-  addActivityLog,
-  getActivityLogs,
-} from "@/src/lib/activities";
-import {
-  addMember,
-  getMembers,
-  markMemberAsLeft,
-} from "@/src/lib/members";
+import { addActivityLog, getActivityLogs } from "@/src/lib/activities";
+import { addMember, getMembers, markMemberAsLeft } from "@/src/lib/members";
+
+type ActivityFilter = "all" | ActivityType;
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -25,6 +20,11 @@ const activityTypeLabels: Record<ActivityType, string> = {
   guildQuest: "길드퀘",
   event: "이벤트",
   other: "기타 메모",
+};
+
+const activityFilterLabels: Record<ActivityFilter, string> = {
+  all: "전체",
+  ...activityTypeLabels,
 };
 
 let cachedMembersValue: string | null = null;
@@ -96,6 +96,12 @@ function notifyActivitiesChanged() {
   window.dispatchEvent(new Event(ACTIVITIES_CHANGED_EVENT));
 }
 
+function getParticipantNames(activity: ActivityLog, members: Map<string, string>) {
+  return activity.participantIds
+    .map((memberId) => members.get(memberId))
+    .filter((memberName): memberName is string => Boolean(memberName));
+}
+
 export default function Home() {
   const [nickname, setNickname] = useState("");
   const [activityDate, setActivityDate] = useState(today);
@@ -103,6 +109,7 @@ export default function Home() {
   const [activityTitle, setActivityTitle] = useState("");
   const [activityMemo, setActivityMemo] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
     getMembersSnapshot,
@@ -118,9 +125,14 @@ export default function Home() {
   const memberNamesById = new Map(
     members.map((member) => [member.id, member.nickname]),
   );
-  const recentActivities = [...activities]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
+  const sortedActivities = [...activities].sort((a, b) => {
+    const dateOrder = b.date.localeCompare(a.date);
+    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
+  });
+  const filteredActivities =
+    activityFilter === "all"
+      ? sortedActivities
+      : sortedActivities.filter((activity) => activity.type === activityFilter);
 
   const handleAddMember = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -343,53 +355,80 @@ export default function Home() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
-            최근 활동 기록
-          </h2>
-          <span className="text-sm text-neutral-500">
-            {activities.length}개
-          </span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              전체 활동 기록
+            </h2>
+            <p className="text-sm text-neutral-500">
+              날짜 최신순으로 {filteredActivities.length}개 표시 중
+            </p>
+          </div>
+
+          <label className="space-y-1 text-sm font-medium text-neutral-700">
+            <span>활동 종류 필터</span>
+            <select
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-40"
+              value={activityFilter}
+              onChange={(event) =>
+                setActivityFilter(event.target.value as ActivityFilter)
+              }
+            >
+              {Object.entries(activityFilterLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        {recentActivities.length === 0 ? (
+        {activities.length === 0 ? (
           <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
             아직 저장된 활동 기록이 없습니다.
           </p>
+        ) : filteredActivities.length === 0 ? (
+          <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+            선택한 활동 종류에 해당하는 기록이 없습니다.
+          </p>
         ) : (
           <ul className="space-y-2">
-            {recentActivities.map((activity) => (
-              <li
-                className="rounded-md border border-neutral-200 px-4 py-3"
-                key={activity.id}
-              >
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-sm font-semibold text-neutral-950">
+            {filteredActivities.map((activity) => {
+              const participantNames = getParticipantNames(
+                activity,
+                memberNamesById,
+              );
+
+              return (
+                <li
+                  className="rounded-md border border-neutral-200 px-4 py-3"
+                  key={activity.id}
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-xs text-neutral-500">
+                      {activity.date}
+                    </span>
+                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                      {activityTypeLabels[activity.type]}
+                    </span>
+                  </div>
+                  <h3 className="mt-1 text-sm font-semibold text-neutral-950">
                     {activity.title || activityTypeLabels[activity.type]}
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    {activity.date}
-                  </span>
-                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                    {activityTypeLabels[activity.type]}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-neutral-600">
-                  참여자{" "}
-                  {activity.participantIds.length === 0
-                    ? "없음"
-                    : activity.participantIds
-                        .map((memberId) => memberNamesById.get(memberId))
-                        .filter(Boolean)
-                        .join(", ")}
-                </p>
-                {activity.memo ? (
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {activity.memo}
+                  </h3>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    참여자{" "}
+                    {participantNames.length === 0
+                      ? "없음"
+                      : participantNames.join(", ")}
                   </p>
-                ) : null}
-              </li>
-            ))}
+                  {activity.memo ? (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                      {activity.memo}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
