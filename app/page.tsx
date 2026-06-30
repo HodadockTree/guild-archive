@@ -25,8 +25,18 @@ import {
   markMemberAsLeft,
   updateMember,
 } from "@/src/lib/members";
+import { writeStorageList } from "@/src/lib/storage";
 
 type ActivityFilter = "all" | ActivityType;
+type MemberImportResult = {
+  added: number;
+  skipped: number;
+  failed: number;
+};
+type MemberImportUndoResult = {
+  removed: number;
+  kept: number;
+};
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -130,6 +140,32 @@ function getParticipantNames(activity: ActivityLog, members: Map<string, string>
     .filter((memberName): memberName is string => Boolean(memberName));
 }
 
+function normalizeHeader(header: string) {
+  return header.replace(/\s/g, "").toLowerCase();
+}
+
+function normalizeDate(value: string) {
+  const match = value.trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+
+  if (!match) {
+    return "";
+  }
+
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function looksLikeDate(value: string) {
+  return Boolean(normalizeDate(value));
+}
+
+function parseSpreadsheetRows(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((row) => row.split("\t").map((cell) => cell.trim()))
+    .filter((row) => row.some(Boolean));
+}
+
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -197,6 +233,14 @@ export default function Home() {
   const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
   const [memberEditLeftAt, setMemberEditLeftAt] = useState("");
   const [memberEditMemo, setMemberEditMemo] = useState("");
+  const [memberImportText, setMemberImportText] = useState("");
+  const [memberImportResult, setMemberImportResult] =
+    useState<MemberImportResult | null>(null);
+  const [lastImportedMemberIds, setLastImportedMemberIds] = useState<string[]>(
+    [],
+  );
+  const [memberImportUndoResult, setMemberImportUndoResult] =
+    useState<MemberImportUndoResult | null>(null);
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -279,6 +323,155 @@ export default function Home() {
 
     addMember({ nickname: trimmedNickname });
     setNickname("");
+    notifyMembersChanged();
+  };
+
+  const handleImportMembers = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const rows = parseSpreadsheetRows(memberImportText);
+    const [headers, ...dataRows] = rows;
+
+    if (!headers || dataRows.length === 0) {
+      setMemberImportResult({ added: 0, skipped: 0, failed: rows.length });
+      setLastImportedMemberIds([]);
+      setMemberImportUndoResult(null);
+      return;
+    }
+
+    const normalizedHeaders = headers.map(normalizeHeader);
+    const nicknameIndex = normalizedHeaders.findIndex(
+      (header) =>
+        header.includes("닉네임") ||
+        header.includes("닉넴") ||
+        header === "닉" ||
+        header.includes("이름"),
+    );
+    const joinedAtHeaderIndex = normalizedHeaders.findIndex((header) =>
+      header.includes("가입일") || (header.includes("가입") && header.includes("일")),
+    );
+
+    if (nicknameIndex === -1) {
+      setMemberImportResult({ added: 0, skipped: 0, failed: dataRows.length });
+      setLastImportedMemberIds([]);
+      setMemberImportUndoResult(null);
+      return;
+    }
+
+    let added = 0;
+    let skipped = 0;
+    let failed = 0;
+    const importedMemberIds: string[] = [];
+    const knownNicknames = new Set(
+      members.map((member) => member.nickname.trim().toLowerCase()),
+    );
+
+    dataRows.forEach((row) => {
+      const nicknameValue = row[nicknameIndex]?.trim();
+
+      if (!nicknameValue) {
+        failed += 1;
+        return;
+      }
+
+      const nicknameKey = nicknameValue.toLowerCase();
+
+      if (knownNicknames.has(nicknameKey)) {
+        skipped += 1;
+        return;
+      }
+
+      let joinedAtIndex = joinedAtHeaderIndex;
+      let joinedAt = "";
+
+      if (joinedAtIndex !== -1) {
+        joinedAt = normalizeDate(row[joinedAtIndex] ?? "");
+      }
+
+      if (!joinedAt) {
+        const dateIndexAfterNickname = row.findIndex(
+          (cell, index) => index > nicknameIndex && looksLikeDate(cell),
+        );
+        joinedAtIndex = dateIndexAfterNickname === -1 ? row.findIndex(
+          (cell, index) => index !== nicknameIndex && looksLikeDate(cell),
+        ) : dateIndexAfterNickname;
+        joinedAt = joinedAtIndex === -1 ? "" : normalizeDate(row[joinedAtIndex]);
+      }
+
+      const memo = row
+        .map((cell, index) => {
+          if (!cell || index === nicknameIndex || index === joinedAtIndex) {
+            return "";
+          }
+
+          const header = headers[index]?.trim() || `${index + 1}열`;
+          return `${header}: ${cell}`;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      const addedMember = addMember({
+        nickname: nicknameValue,
+        joinedAt: joinedAt || undefined,
+        memo: memo || undefined,
+      });
+      importedMemberIds.push(addedMember.id);
+      knownNicknames.add(nicknameKey);
+      added += 1;
+    });
+
+    setMemberImportResult({ added, skipped, failed });
+    setLastImportedMemberIds(importedMemberIds);
+    setMemberImportUndoResult(null);
+    setMemberImportText("");
+    notifyMembersChanged();
+  };
+
+  const handleUndoLastImport = () => {
+    if (lastImportedMemberIds.length === 0) {
+      return;
+    }
+
+    const shouldUndo = window.confirm(
+      `방금 가져온 ${lastImportedMemberIds.length}명을 되돌릴까요? 활동 기록에 이미 사용된 길드원은 유지됩니다.`,
+    );
+
+    if (!shouldUndo) {
+      return;
+    }
+
+    const undoTargetIds = new Set(lastImportedMemberIds);
+    const usedMemberIds = new Set(
+      activities.flatMap((activity) => activity.participantIds),
+    );
+    const currentMembers = getMembers();
+    const removableIds = new Set(
+      currentMembers
+        .filter(
+          (member) =>
+            undoTargetIds.has(member.id) && !usedMemberIds.has(member.id),
+        )
+        .map((member) => member.id),
+    );
+    const kept = currentMembers.filter(
+      (member) => undoTargetIds.has(member.id) && usedMemberIds.has(member.id),
+    ).length;
+    const nextMembers = currentMembers.filter(
+      (member) => !removableIds.has(member.id),
+    );
+
+    writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
+
+    if (historyMemberId && removableIds.has(historyMemberId)) {
+      setHistoryMemberId(null);
+    }
+
+    if (editingMemberId && removableIds.has(editingMemberId)) {
+      resetMemberForm();
+    }
+
+    setLastImportedMemberIds([]);
+    setMemberImportUndoResult({ removed: removableIds.size, kept });
     notifyMembersChanged();
   };
 
@@ -456,6 +649,53 @@ export default function Home() {
             등록
           </button>
         </form>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">
+            스프레드시트에서 가져오기
+          </h2>
+          <p className="text-sm text-neutral-500">
+            첫 줄은 헤더로 보고, 탭으로 구분된 표 데이터를 읽어 여러 길드원을
+            한 번에 등록합니다.
+          </p>
+        </div>
+        <form className="space-y-3" onSubmit={handleImportMembers}>
+          <textarea
+            className="min-h-36 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+            placeholder={"닉네임\t나이\t성별\t가입일\n냥춘\t20\t여\t2026. 1. 22"}
+            value={memberImportText}
+            onChange={(event) => setMemberImportText(event.target.value)}
+          />
+          <button
+            className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+            type="submit"
+          >
+            길드원 일괄 가져오기
+          </button>
+        </form>
+        {lastImportedMemberIds.length > 0 ? (
+          <button
+            className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+            type="button"
+            onClick={handleUndoLastImport}
+          >
+            방금 가져온 {lastImportedMemberIds.length}명 되돌리기
+          </button>
+        ) : null}
+        {memberImportResult ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            추가 {memberImportResult.added}명 · 중복 건너뜀{" "}
+            {memberImportResult.skipped}명 · 실패 {memberImportResult.failed}행
+          </p>
+        ) : null}
+        {memberImportUndoResult ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            되돌리기 완료: 삭제 {memberImportUndoResult.removed}명 · 활동
+            기록에 사용 중이라 유지 {memberImportUndoResult.kept}명
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-3">
