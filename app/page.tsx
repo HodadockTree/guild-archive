@@ -1,14 +1,24 @@
 "use client";
 
 import { FormEvent, useRef, useState, useSyncExternalStore } from "react";
-import type { ActivityLog, ActivityType, GuildMember } from "@/src/types";
+import type {
+  ActivityLog,
+  ActivityType,
+  GuildMember,
+  GuildMemberStatus,
+} from "@/src/types";
 import {
   addActivityLog,
   deleteActivityLog,
   getActivityLogs,
   updateActivityLog,
 } from "@/src/lib/activities";
-import { addMember, getMembers, markMemberAsLeft } from "@/src/lib/members";
+import {
+  addMember,
+  getMembers,
+  markMemberAsLeft,
+  updateMember,
+} from "@/src/lib/members";
 
 type ActivityFilter = "all" | ActivityType;
 
@@ -124,7 +134,15 @@ export default function Home() {
     null,
   );
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberEditNickname, setMemberEditNickname] = useState("");
+  const [memberEditStatus, setMemberEditStatus] =
+    useState<GuildMemberStatus>("active");
+  const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
+  const [memberEditLeftAt, setMemberEditLeftAt] = useState("");
+  const [memberEditMemo, setMemberEditMemo] = useState("");
   const activityFormRef = useRef<HTMLElement>(null);
+  const memberFormRef = useRef<HTMLElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
     getMembersSnapshot,
@@ -140,6 +158,8 @@ export default function Home() {
   const editingActivity = activities.find(
     (activity) => activity.id === editingActivityId,
   );
+  const isEditingMember = editingMemberId !== null;
+  const editingMember = members.find((member) => member.id === editingMemberId);
   const activeMembers = members.filter((member) => member.status === "active");
   const selectableMembers = members.filter(
     (member) =>
@@ -173,6 +193,15 @@ export default function Home() {
     setEditingActivityId(null);
   };
 
+  const resetMemberForm = () => {
+    setEditingMemberId(null);
+    setMemberEditNickname("");
+    setMemberEditStatus("active");
+    setMemberEditJoinedAt("");
+    setMemberEditLeftAt("");
+    setMemberEditMemo("");
+  };
+
   const handleAddMember = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -192,6 +221,46 @@ export default function Home() {
     setSelectedMemberIds((currentIds) =>
       currentIds.filter((selectedMemberId) => selectedMemberId !== memberId),
     );
+    notifyMembersChanged();
+  };
+
+  const handleEditMember = (member: GuildMember) => {
+    setEditingMemberId(member.id);
+    setMemberEditNickname(member.nickname);
+    setMemberEditStatus(member.status);
+    setMemberEditJoinedAt(member.joinedAt);
+    setMemberEditLeftAt(member.leftAt ?? "");
+    setMemberEditMemo(member.memo ?? "");
+    requestAnimationFrame(() => {
+      memberFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
+  const handleSubmitMemberEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingMemberId) {
+      return;
+    }
+
+    const trimmedNickname = memberEditNickname.trim();
+
+    if (!trimmedNickname) {
+      return;
+    }
+
+    updateMember(editingMemberId, {
+      nickname: trimmedNickname,
+      status: memberEditStatus,
+      joinedAt: memberEditJoinedAt,
+      leftAt: memberEditStatus === "left" ? memberEditLeftAt || null : null,
+      memo: memberEditMemo.trim() || undefined,
+    });
+
+    resetMemberForm();
     notifyMembersChanged();
   };
 
@@ -317,18 +386,119 @@ export default function Home() {
                     가입일 {member.joinedAt}
                   </p>
                 </div>
-                <button
-                  className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                  type="button"
-                  onClick={() => handleLeaveMember(member.id)}
-                >
-                  탈퇴 처리
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                    type="button"
+                    onClick={() => handleEditMember(member)}
+                  >
+                    수정
+                  </button>
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                    type="button"
+                    onClick={() => handleLeaveMember(member.id)}
+                  >
+                    탈퇴 처리
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {isEditingMember ? (
+        <section className="space-y-4" ref={memberFormRef}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-neutral-900">
+              길드원 정보 수정
+            </h2>
+            <button
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              type="button"
+              onClick={resetMemberForm}
+            >
+              수정 취소
+            </button>
+          </div>
+          <form
+            className="space-y-4 rounded-md border border-neutral-200 p-4"
+            onSubmit={handleSubmitMemberEdit}
+          >
+            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+              {editingMember?.nickname || "선택한 길드원"} 정보를 수정 중입니다.
+            </p>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>닉네임</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  type="text"
+                  value={memberEditNickname}
+                  onChange={(event) => setMemberEditNickname(event.target.value)}
+                  required
+                />
+              </label>
+
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>상태</span>
+                <select
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  value={memberEditStatus}
+                  onChange={(event) =>
+                    setMemberEditStatus(event.target.value as GuildMemberStatus)
+                  }
+                >
+                  <option value="active">활동중</option>
+                  <option value="left">탈퇴</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>가입일</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  type="date"
+                  value={memberEditJoinedAt}
+                  onChange={(event) => setMemberEditJoinedAt(event.target.value)}
+                />
+              </label>
+
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>탈퇴일</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400"
+                  type="date"
+                  value={memberEditLeftAt}
+                  onChange={(event) => setMemberEditLeftAt(event.target.value)}
+                  disabled={memberEditStatus === "active"}
+                />
+              </label>
+            </div>
+
+            <label className="block space-y-1 text-sm font-medium text-neutral-700">
+              <span>메모</span>
+              <textarea
+                className="min-h-24 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                placeholder="가입 경로, 닉네임 변경 이력, 참고할 내용을 남겨주세요."
+                value={memberEditMemo}
+                onChange={(event) => setMemberEditMemo(event.target.value)}
+              />
+            </label>
+
+            <button
+              className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              type="submit"
+            >
+              길드원 정보 저장
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="space-y-4" ref={activityFormRef}>
         <div className="flex items-center justify-between gap-3">
@@ -507,13 +677,22 @@ export default function Home() {
         {selectedHistoryMember ? (
           <div className="space-y-3 rounded-md border border-neutral-200 p-4">
             <div className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-semibold text-neutral-950">
-                  {selectedHistoryMember.nickname}
-                </h3>
-                <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                  {memberStatusLabels[selectedHistoryMember.status]}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold text-neutral-950">
+                    {selectedHistoryMember.nickname}
+                  </h3>
+                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                    {memberStatusLabels[selectedHistoryMember.status]}
+                  </span>
+                </div>
+                <button
+                  className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                  type="button"
+                  onClick={() => handleEditMember(selectedHistoryMember)}
+                >
+                  정보 수정
+                </button>
               </div>
               <p className="text-sm text-neutral-500">
                 가입일 {selectedHistoryMember.joinedAt}
