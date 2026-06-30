@@ -1,8 +1,13 @@
 "use client";
 
-import { FormEvent, useState, useSyncExternalStore } from "react";
+import { FormEvent, useRef, useState, useSyncExternalStore } from "react";
 import type { ActivityLog, ActivityType, GuildMember } from "@/src/types";
-import { addActivityLog, getActivityLogs } from "@/src/lib/activities";
+import {
+  addActivityLog,
+  deleteActivityLog,
+  getActivityLogs,
+  updateActivityLog,
+} from "@/src/lib/activities";
 import { addMember, getMembers, markMemberAsLeft } from "@/src/lib/members";
 
 type ActivityFilter = "all" | ActivityType;
@@ -110,6 +115,10 @@ export default function Home() {
   const [activityMemo, setActivityMemo] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(
+    null,
+  );
+  const activityFormRef = useRef<HTMLElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
     getMembersSnapshot,
@@ -121,7 +130,15 @@ export default function Home() {
     getServerActivitiesSnapshot,
   );
 
+  const isEditingActivity = editingActivityId !== null;
+  const editingActivity = activities.find(
+    (activity) => activity.id === editingActivityId,
+  );
   const activeMembers = members.filter((member) => member.status === "active");
+  const selectableMembers = members.filter(
+    (member) =>
+      member.status === "active" || selectedMemberIds.includes(member.id),
+  );
   const memberNamesById = new Map(
     members.map((member) => [member.id, member.nickname]),
   );
@@ -133,6 +150,15 @@ export default function Home() {
     activityFilter === "all"
       ? sortedActivities
       : sortedActivities.filter((activity) => activity.type === activityFilter);
+
+  const resetActivityForm = () => {
+    setActivityDate(today());
+    setActivityType("airship");
+    setActivityTitle("");
+    setActivityMemo("");
+    setSelectedMemberIds([]);
+    setEditingActivityId(null);
+  };
 
   const handleAddMember = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -164,22 +190,55 @@ export default function Home() {
     );
   };
 
-  const handleAddActivity = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    addActivityLog({
+    const activityData = {
       date: activityDate,
       type: activityType,
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
-    });
+    };
 
-    setActivityDate(today());
-    setActivityType("airship");
-    setActivityTitle("");
-    setActivityMemo("");
-    setSelectedMemberIds([]);
+    if (editingActivityId) {
+      updateActivityLog(editingActivityId, activityData);
+    } else {
+      addActivityLog(activityData);
+    }
+
+    resetActivityForm();
+    notifyActivitiesChanged();
+  };
+
+  const handleEditActivity = (activity: ActivityLog) => {
+    setEditingActivityId(activity.id);
+    setActivityDate(activity.date);
+    setActivityType(activity.type);
+    setActivityTitle(activity.title ?? "");
+    setActivityMemo(activity.memo ?? "");
+    setSelectedMemberIds(activity.participantIds);
+    requestAnimationFrame(() => {
+      activityFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
+  const handleDeleteActivity = (activityId: string) => {
+    const shouldDelete = window.confirm("이 활동 기록을 삭제할까요?");
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    deleteActivityLog(activityId);
+
+    if (editingActivityId === activityId) {
+      resetActivityForm();
+    }
+
     notifyActivitiesChanged();
   };
 
@@ -258,14 +317,30 @@ export default function Home() {
         )}
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-neutral-900">
-          활동 기록 추가
-        </h2>
+      <section className="space-y-4" ref={activityFormRef}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-neutral-900">
+            {isEditingActivity ? "활동 기록 수정" : "활동 기록 추가"}
+          </h2>
+          {isEditingActivity ? (
+            <button
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              type="button"
+              onClick={resetActivityForm}
+            >
+              수정 취소
+            </button>
+          ) : null}
+        </div>
         <form
           className="space-y-4 rounded-md border border-neutral-200 p-4"
-          onSubmit={handleAddActivity}
+          onSubmit={handleSubmitActivity}
         >
+          {isEditingActivity ? (
+            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+              {editingActivity?.title || "선택한 활동 기록"}을 수정 중입니다.
+            </p>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>활동 날짜</span>
@@ -311,13 +386,13 @@ export default function Home() {
             <legend className="text-sm font-medium text-neutral-700">
               참여 길드원
             </legend>
-            {activeMembers.length === 0 ? (
+            {selectableMembers.length === 0 ? (
               <p className="rounded-md border border-dashed border-neutral-300 px-3 py-4 text-sm text-neutral-500">
                 먼저 활동중 길드원을 등록하면 참여자를 선택할 수 있습니다.
               </p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
-                {activeMembers.map((member) => (
+                {selectableMembers.map((member) => (
                   <label
                     className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
                     key={member.id}
@@ -329,6 +404,11 @@ export default function Home() {
                       onChange={() => handleToggleParticipant(member.id)}
                     />
                     <span className="truncate">{member.nickname}</span>
+                    {member.status === "left" ? (
+                      <span className="ml-auto text-xs text-neutral-400">
+                        탈퇴
+                      </span>
+                    ) : null}
                   </label>
                 ))}
               </div>
@@ -349,7 +429,7 @@ export default function Home() {
             className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
             type="submit"
           >
-            활동 기록 저장
+            {isEditingActivity ? "활동 기록 수정" : "활동 기록 저장"}
           </button>
         </form>
       </section>
@@ -412,9 +492,27 @@ export default function Home() {
                       {activityTypeLabels[activity.type]}
                     </span>
                   </div>
-                  <h3 className="mt-1 text-sm font-semibold text-neutral-950">
-                    {activity.title || activityTypeLabels[activity.type]}
-                  </h3>
+                  <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <h3 className="text-sm font-semibold text-neutral-950">
+                      {activity.title || activityTypeLabels[activity.type]}
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                        type="button"
+                        onClick={() => handleEditActivity(activity)}
+                      >
+                        수정
+                      </button>
+                      <button
+                        className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-700 transition hover:border-red-700"
+                        type="button"
+                        onClick={() => handleDeleteActivity(activity.id)}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
                   <p className="mt-2 text-sm text-neutral-600">
                     참여자{" "}
                     {participantNames.length === 0
