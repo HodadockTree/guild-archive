@@ -4,6 +4,7 @@ import {
   ChangeEvent,
   ClipboardEvent,
   FormEvent,
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -28,13 +29,11 @@ import {
   updateMember,
 } from "@/src/lib/members";
 import { writeStorageList } from "@/src/lib/storage";
-import {
-  getMemberActivityStats,
-  getMemberRecentActivities,
-} from "@/src/lib/activityStats";
+import { getMemberActivityStats } from "@/src/lib/activityStats";
 
 type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
+type ActivitySortOrder = "latest" | "oldest";
 type MemberMemoClearScope = "active" | "left" | "all";
 type MemberImportFailure = {
   rowNumber: number;
@@ -92,6 +91,11 @@ const activityFilterLabels: Record<ActivityFilter, string> = {
   airship: activityTypeLabels.airship,
   siege: activityTypeLabels.siege,
   other: "기타",
+};
+
+const activitySortOrderLabels: Record<ActivitySortOrder, string> = {
+  latest: "최신순",
+  oldest: "오래된순",
 };
 
 const memberStatusLabels: Record<GuildMemberStatus, string> = {
@@ -317,6 +321,9 @@ export default function Home() {
   const [isParticipantActiveOpen, setIsParticipantActiveOpen] = useState(true);
   const [isParticipantLeftOpen, setIsParticipantLeftOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [activitySortOrder, setActivitySortOrder] =
+    useState<ActivitySortOrder>("latest");
+  const [activityFeedbackMessage, setActivityFeedbackMessage] = useState("");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
     null,
   );
@@ -413,8 +420,18 @@ export default function Home() {
     members.map((member) => [member.id, member.nickname]),
   );
   const sortedActivities = [...activities].sort((a, b) => {
-    const dateOrder = b.date.localeCompare(a.date);
-    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
+    const dateOrder =
+      activitySortOrder === "latest"
+        ? b.date.localeCompare(a.date)
+        : a.date.localeCompare(b.date);
+
+    if (dateOrder !== 0) {
+      return dateOrder;
+    }
+
+    return activitySortOrder === "latest"
+      ? b.id.localeCompare(a.id)
+      : a.id.localeCompare(b.id);
   });
   const filteredActivities =
     activityFilter === "all"
@@ -433,6 +450,18 @@ export default function Home() {
   const hiddenMemberImportFailureCount = memberImportResult
     ? Math.max(0, memberImportResult.failures.length - visibleMemberImportFailures.length)
     : 0;
+
+  useEffect(() => {
+    if (!activityFeedbackMessage) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setActivityFeedbackMessage("");
+    }, 3500);
+
+    return () => window.clearTimeout(timerId);
+  }, [activityFeedbackMessage]);
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -905,7 +934,6 @@ export default function Home() {
 
   const renderMemberActivityPreview = (member: GuildMember) => {
     const stats = getMemberActivityStats(activities, member.id);
-    const recentActivities = getMemberRecentActivities(activities, member.id, 5);
 
     return (
       <div className="mt-3 space-y-3 border-t border-neutral-200 pt-3">
@@ -917,37 +945,6 @@ export default function Home() {
           <p>오션헤븐 {stats.airshipOcean}회</p>
           <p>아우로라 {stats.airshipAurora}회</p>
         </div>
-
-        {recentActivities.length === 0 ? (
-          <p className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-sm text-neutral-500">
-            최근 활동 기록이 없습니다.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {recentActivities.map((activity) => (
-              <li
-                className="rounded-md border border-neutral-200 px-3 py-2 text-sm"
-                key={activity.id}
-              >
-                <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                  <span>{activity.date}</span>
-                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-neutral-600">
-                    {getActivityTypeLabel(activity)}
-                  </span>
-                  {getVisibleActivityType(activity.type) === "airship" &&
-                  getAirshipTypeLabel(activity.airshipType) ? (
-                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-neutral-600">
-                      {getAirshipTypeLabel(activity.airshipType)}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 font-medium text-neutral-900">
-                  {activity.title || getActivityTypeLabel(activity)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     );
   };
@@ -971,6 +968,8 @@ export default function Home() {
       imageDataUrl: activityImageDataUrl || undefined,
     };
 
+    const wasEditingActivity = Boolean(editingActivityId);
+
     if (editingActivityId) {
       updateActivityLog(editingActivityId, activityData);
     } else {
@@ -978,6 +977,11 @@ export default function Home() {
     }
 
     resetActivityForm();
+    setActivityFeedbackMessage(
+      wasEditingActivity
+        ? "활동 기록을 수정했습니다."
+        : "활동 기록을 추가했습니다.",
+    );
     notifyActivitiesChanged();
   };
 
@@ -1021,6 +1025,7 @@ export default function Home() {
       resetActivityForm();
     }
 
+    setActivityFeedbackMessage("활동 기록을 삭제했습니다.");
     notifyActivitiesChanged();
   };
 
@@ -1180,6 +1185,30 @@ export default function Home() {
                 </p>
               ) : null}
             </div>
+
+            <div className="space-y-3 border-t border-neutral-200 pt-4">
+              <h3 className="text-base font-semibold text-neutral-900">
+                탈퇴 길드원 복구
+              </h3>
+              {leftMembers.length > 0 ? (
+                <button
+                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                  type="button"
+                  onClick={handleRestoreLeftMembers}
+                >
+                  탈퇴 길드원 {leftMembers.length}명 활동중으로 복구
+                </button>
+              ) : (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  복구할 탈퇴 길드원이 없습니다.
+                </p>
+              )}
+              {restoreLeftMembersResult ? (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  {restoreLeftMembersResult.restored}명을 활동중으로 복구했습니다.
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>
@@ -1193,21 +1222,6 @@ export default function Home() {
             &#51204;&#52404; {members.length}&#47749;
           </span>
         </div>
-
-        {leftMembers.length > 0 ? (
-          <button
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            type="button"
-            onClick={handleRestoreLeftMembers}
-          >
-            &#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749; &#54876;&#46041;&#51473;&#51004;&#47196; &#48373;&#44396;
-          </button>
-        ) : null}
-        {restoreLeftMembersResult ? (
-          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            {restoreLeftMembersResult.restored}&#47749;&#51012; &#54876;&#46041;&#51473;&#51004;&#47196; &#48373;&#44396;&#54664;&#49845;&#45768;&#45796;.
-          </p>
-        ) : null}
 
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-neutral-900">
@@ -1474,6 +1488,11 @@ export default function Home() {
             </button>
           ) : null}
         </div>
+        {activityFeedbackMessage ? (
+          <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+            {activityFeedbackMessage}
+          </p>
+        ) : null}
         <form
           className="space-y-4 rounded-md border border-neutral-200 p-4"
           onPaste={handleActivityImagePaste}
@@ -1870,26 +1889,47 @@ export default function Home() {
               전체 활동 기록
             </h2>
             <p className="text-sm text-neutral-500">
-              날짜 최신순으로 {filteredActivities.length}개 표시 중
+              {activitySortOrderLabels[activitySortOrder]}으로{" "}
+              {filteredActivities.length}개 표시 중
             </p>
           </div>
 
-          <label className="space-y-1 text-sm font-medium text-neutral-700">
-            <span>활동 종류 필터</span>
-            <select
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-40"
-              value={activityFilter}
-              onChange={(event) =>
-                setActivityFilter(event.target.value as ActivityFilter)
-              }
-            >
-              {Object.entries(activityFilterLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <span>정렬</span>
+              <select
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-36"
+                value={activitySortOrder}
+                onChange={(event) =>
+                  setActivitySortOrder(event.target.value as ActivitySortOrder)
+                }
+              >
+                {Object.entries(activitySortOrderLabels).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <span>활동 종류 필터</span>
+              <select
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-40"
+                value={activityFilter}
+                onChange={(event) =>
+                  setActivityFilter(event.target.value as ActivityFilter)
+                }
+              >
+                {Object.entries(activityFilterLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
         {activities.length === 0 ? (
@@ -1936,16 +1976,16 @@ export default function Home() {
                     <h3 className="text-sm font-semibold text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-3">
                       <button
-                        className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                        className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                         type="button"
                         onClick={() => handleEditActivity(activity)}
                       >
                         수정
                       </button>
                       <button
-                        className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-700 transition hover:border-red-700"
+                        className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
                         type="button"
                         onClick={() => handleDeleteActivity(activity.id)}
                       >
