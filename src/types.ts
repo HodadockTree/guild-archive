@@ -10,10 +10,12 @@ export interface GuildMember {
 }
 
 export type ActivityType = "airship" | "siege" | "guildQuest" | "event" | "other";
+export type AirshipType = "ocean" | "aurora";
 
 export interface ActivityLog {
   id: string;
   type: ActivityType;
+  airshipType?: AirshipType;
   date: string;
   title?: string;
   participantIds: string[];

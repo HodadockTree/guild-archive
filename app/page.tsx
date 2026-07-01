@@ -11,6 +11,7 @@ import {
 import type {
   ActivityLog,
   ActivityType,
+  AirshipType,
   GuildMember,
   GuildMemberStatus,
 } from "@/src/types";
@@ -27,8 +28,13 @@ import {
   updateMember,
 } from "@/src/lib/members";
 import { writeStorageList } from "@/src/lib/storage";
+import {
+  getMemberActivityStats,
+  getMemberRecentActivities,
+} from "@/src/lib/activityStats";
 
-type ActivityFilter = "all" | ActivityType;
+type VisibleActivityType = "airship" | "siege" | "other";
+type ActivityFilter = "all" | VisibleActivityType;
 type MemberMemoClearScope = "active" | "left" | "all";
 type MemberImportFailure = {
   rowNumber: number;
@@ -66,19 +72,26 @@ const activityTypeLabels: Record<ActivityType, string> = {
   siege: "점령전",
   guildQuest: "길드퀘",
   event: "이벤트",
-  other: "기타 메모",
+  other: "기타",
 };
 
-const activityTitlePresets: Partial<Record<ActivityType, string[]>> = {
+const visibleActivityTypes: VisibleActivityType[] = ["siege", "airship", "other"];
+
+const airshipTypeLabels: Record<AirshipType, string> = {
+  ocean: "오션헤븐",
+  aurora: "아우로라",
+};
+
+const activityTitlePresets: Partial<Record<VisibleActivityType, string[]>> = {
   airship: ["오션헤븐 비공정", "아우로라 비공정"],
   siege: ["점령전 참여", "점령전 미참여"],
-  guildQuest: ["22시 길드퀘"],
-  event: ["길드 이벤트", "합동 달리기"],
 };
 
 const activityFilterLabels: Record<ActivityFilter, string> = {
   all: "전체",
-  ...activityTypeLabels,
+  airship: activityTypeLabels.airship,
+  siege: activityTypeLabels.siege,
+  other: "기타",
 };
 
 const memberStatusLabels: Record<GuildMemberStatus, string> = {
@@ -91,6 +104,38 @@ const memberMemoClearScopeLabels: Record<MemberMemoClearScope, string> = {
   left: "탈퇴 길드원",
   all: "전체 길드원",
 };
+
+function getVisibleActivityType(type: ActivityType): VisibleActivityType {
+  if (type === "airship" || type === "siege") {
+    return type;
+  }
+
+  return "other";
+}
+
+function getActivityTypeLabel(activity: ActivityLog) {
+  return activityTypeLabels[getVisibleActivityType(activity.type)];
+}
+
+function getKnownAirshipType(airshipType: unknown): AirshipType | undefined {
+  return airshipType === "ocean" || airshipType === "aurora"
+    ? airshipType
+    : undefined;
+}
+
+function getAirshipTypeLabel(airshipType: unknown) {
+  const knownAirshipType = getKnownAirshipType(airshipType);
+  return knownAirshipType ? airshipTypeLabels[knownAirshipType] : "";
+}
+
+function getMemberActivityStatsSummary(
+  activities: ActivityLog[],
+  memberId: string,
+) {
+  const stats = getMemberActivityStats(activities, memberId);
+
+  return `총 ${stats.total}회 · 점령전 ${stats.siege} · 비공정 ${stats.airship} · 기타 ${stats.other}`;
+}
 
 let cachedMembersValue: string | null = null;
 let cachedMembersSnapshot: GuildMember[] = EMPTY_MEMBERS;
@@ -242,17 +287,25 @@ async function resizeImageFile(file: File) {
 export default function Home() {
   const [nickname, setNickname] = useState("");
   const [activityDate, setActivityDate] = useState(today);
-  const [activityType, setActivityType] = useState<ActivityType>("airship");
+  const [activityType, setActivityType] = useState<VisibleActivityType>("airship");
+  const [activityAirshipType, setActivityAirshipType] =
+    useState<AirshipType>("ocean");
   const [activityTitle, setActivityTitle] = useState("");
   const [activityMemo, setActivityMemo] = useState("");
   const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
   const [activityImageError, setActivityImageError] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [isParticipantActiveOpen, setIsParticipantActiveOpen] = useState(true);
+  const [isParticipantLeftOpen, setIsParticipantLeftOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
     null,
   );
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
+  const [expandedHistoryMemberId, setExpandedHistoryMemberId] = useState<
+    string | null
+  >(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEditNickname, setMemberEditNickname] = useState("");
   const [memberEditStatus, setMemberEditStatus] =
@@ -307,12 +360,7 @@ export default function Home() {
     },
     {},
   );
-  const selectableMembers = members
-    .filter(
-      (member) =>
-        member.status === "active" || selectedMemberIds.includes(member.id),
-    )
-    .sort((a, b) => {
+  const selectableMembers = [...members].sort((a, b) => {
       const countOrder =
         (participationCounts[b.id] ?? 0) - (participationCounts[a.id] ?? 0);
 
@@ -322,12 +370,24 @@ export default function Home() {
 
       return a.nickname.localeCompare(b.nickname, "ko");
     });
-  const selectableActiveMembers = selectableMembers.filter(
+  const normalizedParticipantSearch = participantSearch.trim().toLowerCase();
+  const filteredSelectableMembers = normalizedParticipantSearch
+    ? selectableMembers.filter((member) =>
+        member.nickname.toLowerCase().includes(normalizedParticipantSearch),
+      )
+    : selectableMembers;
+  const selectableActiveMembers = filteredSelectableMembers.filter(
     (member) => member.status === "active",
   );
-  const selectableLeftMembers = selectableMembers.filter(
+  const selectableLeftMembers = filteredSelectableMembers.filter(
     (member) => member.status === "left",
   );
+  const hasParticipantSearch = normalizedParticipantSearch.length > 0;
+  const shouldShowActiveParticipants =
+    isParticipantActiveOpen || hasParticipantSearch;
+  const shouldShowLeftParticipants =
+    isParticipantLeftOpen ||
+    (hasParticipantSearch && selectableLeftMembers.length > 0);
   const selectedHistoryMember =
     members.find((member) => member.id === historyMemberId) ?? null;
   const memberNamesById = new Map(
@@ -340,7 +400,9 @@ export default function Home() {
   const filteredActivities =
     activityFilter === "all"
       ? sortedActivities
-      : sortedActivities.filter((activity) => activity.type === activityFilter);
+      : sortedActivities.filter(
+          (activity) => getVisibleActivityType(activity.type) === activityFilter,
+        );
   const selectedMemberActivities = selectedHistoryMember
     ? sortedActivities.filter((activity) =>
         activity.participantIds.includes(selectedHistoryMember.id),
@@ -362,11 +424,15 @@ export default function Home() {
   const resetActivityForm = () => {
     setActivityDate(today());
     setActivityType("airship");
+    setActivityAirshipType("ocean");
     setActivityTitle("");
     setActivityMemo("");
     setActivityImageDataUrl("");
     setActivityImageError("");
     setSelectedMemberIds([]);
+    setParticipantSearch("");
+    setIsParticipantActiveOpen(true);
+    setIsParticipantLeftOpen(false);
     setEditingActivityId(null);
     clearImageInput();
   };
@@ -622,6 +688,10 @@ export default function Home() {
       setHistoryMemberId(null);
     }
 
+    if (expandedHistoryMemberId && removableIds.has(expandedHistoryMemberId)) {
+      setExpandedHistoryMemberId(null);
+    }
+
     if (editingMemberId && removableIds.has(editingMemberId)) {
       resetMemberForm();
     }
@@ -641,6 +711,9 @@ export default function Home() {
   };
 
   const handleViewMemberHistory = (memberId: string) => {
+    setExpandedHistoryMemberId((currentMemberId) =>
+      currentMemberId === memberId ? null : memberId,
+    );
     setHistoryMemberId(memberId);
   };
 
@@ -811,6 +884,55 @@ export default function Home() {
     }
   };
 
+  const renderMemberActivityPreview = (member: GuildMember) => {
+    const stats = getMemberActivityStats(activities, member.id);
+    const recentActivities = getMemberRecentActivities(activities, member.id, 5);
+
+    return (
+      <div className="mt-3 space-y-3 border-t border-neutral-200 pt-3">
+        <div className="grid gap-2 text-xs text-neutral-600 sm:grid-cols-2">
+          <p>총 참여 {stats.total}회</p>
+          <p>점령전 {stats.siege}회</p>
+          <p>비공정 {stats.airship}회</p>
+          <p>기타 {stats.other}회</p>
+          <p>오션헤븐 {stats.airshipOcean}회</p>
+          <p>아우로라 {stats.airshipAurora}회</p>
+        </div>
+
+        {recentActivities.length === 0 ? (
+          <p className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-sm text-neutral-500">
+            최근 활동 기록이 없습니다.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {recentActivities.map((activity) => (
+              <li
+                className="rounded-md border border-neutral-200 px-3 py-2 text-sm"
+                key={activity.id}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                  <span>{activity.date}</span>
+                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-neutral-600">
+                    {getActivityTypeLabel(activity)}
+                  </span>
+                  {getVisibleActivityType(activity.type) === "airship" &&
+                  getAirshipTypeLabel(activity.airshipType) ? (
+                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-neutral-600">
+                      {getAirshipTypeLabel(activity.airshipType)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 font-medium text-neutral-900">
+                  {activity.title || getActivityTypeLabel(activity)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
   const handleRemoveActivityImage = () => {
     setActivityImageDataUrl("");
     setActivityImageError("");
@@ -823,6 +945,7 @@ export default function Home() {
     const activityData = {
       date: activityDate,
       type: activityType,
+      airshipType: activityType === "airship" ? activityAirshipType : undefined,
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
@@ -842,12 +965,21 @@ export default function Home() {
   const handleEditActivity = (activity: ActivityLog) => {
     setEditingActivityId(activity.id);
     setActivityDate(activity.date);
-    setActivityType(activity.type);
+    setActivityType(getVisibleActivityType(activity.type));
+    setActivityAirshipType(getKnownAirshipType(activity.airshipType) ?? "ocean");
     setActivityTitle(activity.title ?? "");
     setActivityMemo(activity.memo ?? "");
     setActivityImageDataUrl(activity.imageDataUrl ?? "");
     setActivityImageError("");
     setSelectedMemberIds(activity.participantIds);
+    setParticipantSearch("");
+    setIsParticipantActiveOpen(true);
+    setIsParticipantLeftOpen(
+      members.some(
+        (member) =>
+          member.status === "left" && activity.participantIds.includes(member.id),
+      ),
+    );
     clearImageInput();
     requestAnimationFrame(() => {
       activityFormRef.current?.scrollIntoView({
@@ -1066,11 +1198,17 @@ export default function Home() {
                         &#44032;&#51077;&#51068; {member.joinedAt}
                       </p>
                     ) : null}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {getMemberActivityStatsSummary(activities, member.id)}
+                    </p>
                     {member.memo ? (
                       <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600">
                         {member.memo}
                       </p>
                     ) : null}
+                    {expandedHistoryMemberId === member.id
+                      ? renderMemberActivityPreview(member)
+                      : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <button
@@ -1085,7 +1223,9 @@ export default function Home() {
                       type="button"
                       onClick={() => handleViewMemberHistory(member.id)}
                     >
-                      &#54876;&#46041; &#51060;&#47141; &#48372;&#44592;
+                      {expandedHistoryMemberId === member.id
+                        ? "이력 접기"
+                        : "활동 이력 보기"}
                     </button>
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
@@ -1145,11 +1285,17 @@ export default function Home() {
                         &#53448;&#53748;&#51068; {member.leftAt}
                       </p>
                     ) : null}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {getMemberActivityStatsSummary(activities, member.id)}
+                    </p>
                     {member.memo ? (
                       <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
                         {member.memo}
                       </p>
                     ) : null}
+                    {expandedHistoryMemberId === member.id
+                      ? renderMemberActivityPreview(member)
+                      : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <button
@@ -1164,7 +1310,9 @@ export default function Home() {
                       type="button"
                       onClick={() => handleViewMemberHistory(member.id)}
                     >
-                      &#54876;&#46041; &#51060;&#47141; &#48372;&#44592;
+                      {expandedHistoryMemberId === member.id
+                        ? "이력 접기"
+                        : "활동 이력 보기"}
                     </button>
                   </div>
                 </li>
@@ -1308,17 +1456,41 @@ export default function Home() {
               <select
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
                 value={activityType}
-                onChange={(event) =>
-                  setActivityType(event.target.value as ActivityType)
-                }
+                onChange={(event) => {
+                  const nextType = event.target.value as VisibleActivityType;
+                  setActivityType(nextType);
+
+                  if (nextType !== "airship") {
+                    setActivityAirshipType("ocean");
+                  }
+                }}
               >
-                {Object.entries(activityTypeLabels).map(([value, label]) => (
+                {visibleActivityTypes.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {activityTypeLabels[value]}
                   </option>
                 ))}
               </select>
             </label>
+
+            {activityType === "airship" ? (
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>비공정 종류</span>
+                <select
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  value={activityAirshipType}
+                  onChange={(event) =>
+                    setActivityAirshipType(event.target.value as AirshipType)
+                  }
+                >
+                  {Object.entries(airshipTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
 
           {quickActivityTitles.length > 0 ? (
@@ -1356,69 +1528,115 @@ export default function Home() {
             </legend>
             {selectableMembers.length === 0 ? (
               <p className="rounded-md border border-dashed border-neutral-300 px-3 py-4 text-sm text-neutral-500">
-                먼저 활동중 길드원을 등록하면 참여자를 선택할 수 있습니다.
+                먼저 길드원을 등록하면 참여자를 선택할 수 있습니다.
               </p>
             ) : (
               <div className="space-y-4">
+                <label className="block space-y-1 text-sm font-medium text-neutral-700">
+                  <span>참여자 검색</span>
+                  <input
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                    type="search"
+                    placeholder="닉네임 검색"
+                    value={participantSearch}
+                    onChange={(event) => setParticipantSearch(event.target.value)}
+                  />
+                </label>
+
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-neutral-500">
-                    활동중 길드원
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {selectableActiveMembers.map((member) => (
-                  <label
-                    className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
-                    key={member.id}
-                  >
-                    <input
-                      className="size-4"
-                      type="checkbox"
-                      checked={selectedMemberIds.includes(member.id)}
-                      onChange={() => handleToggleParticipant(member.id)}
-                    />
-                    <span className="truncate">{member.nickname}</span>
-                    <span className="text-xs text-neutral-400">
-                      {participationCounts[member.id] ?? 0}회
-                    </span>
-                    {member.status === "left" ? (
-                      <span className="ml-auto text-xs text-neutral-400">
-                        탈퇴
-                      </span>
-                    ) : null}
-                  </label>
-                ))}
-              </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-neutral-500">
+                      활동중 길드원 {activeMembers.length}명
+                      {hasParticipantSearch
+                        ? ` · 검색 ${selectableActiveMembers.length}명`
+                        : ""}
+                    </p>
+                    <button
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() =>
+                        setIsParticipantActiveOpen((value) => !value)
+                      }
+                    >
+                      {isParticipantActiveOpen ? "접기" : "펼치기"}
+                    </button>
+                  </div>
+                  {shouldShowActiveParticipants ? (
+                    selectableActiveMembers.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-neutral-300 px-3 py-3 text-sm text-neutral-500">
+                        표시할 활동중 길드원이 없습니다.
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectableActiveMembers.map((member) => (
+                          <label
+                            className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
+                            key={member.id}
+                          >
+                            <input
+                              className="size-4"
+                              type="checkbox"
+                              checked={selectedMemberIds.includes(member.id)}
+                              onChange={() => handleToggleParticipant(member.id)}
+                            />
+                            <span className="truncate">{member.nickname}</span>
+                            <span className="text-xs text-neutral-400">
+                              {participationCounts[member.id] ?? 0}회
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  ) : null}
                 </div>
 
-                {selectableLeftMembers.length > 0 ? (
-                  <div className="space-y-2">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-neutral-500">
-                      탈퇴 길드원
+                      탈퇴 길드원 {leftMembers.length}명
+                      {hasParticipantSearch
+                        ? ` · 검색 ${selectableLeftMembers.length}명`
+                        : ""}
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {selectableLeftMembers.map((member) => (
-                        <label
-                          className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
-                          key={member.id}
-                        >
-                          <input
-                            className="size-4"
-                            type="checkbox"
-                            checked={selectedMemberIds.includes(member.id)}
-                            onChange={() => handleToggleParticipant(member.id)}
-                          />
-                          <span className="truncate">{member.nickname}</span>
-                          <span className="text-xs text-neutral-400">
-                            {participationCounts[member.id] ?? 0}회
-                          </span>
-                          <span className="ml-auto text-xs text-neutral-400">
-                            탈퇴
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    <button
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => setIsParticipantLeftOpen((value) => !value)}
+                    >
+                      {isParticipantLeftOpen ? "접기" : "펼치기"}
+                    </button>
                   </div>
-                ) : null}
+                  {shouldShowLeftParticipants ? (
+                    selectableLeftMembers.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-neutral-300 px-3 py-3 text-sm text-neutral-500">
+                        표시할 탈퇴 길드원이 없습니다.
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectableLeftMembers.map((member) => (
+                          <label
+                            className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
+                            key={member.id}
+                          >
+                            <input
+                              className="size-4"
+                              type="checkbox"
+                              checked={selectedMemberIds.includes(member.id)}
+                              onChange={() => handleToggleParticipant(member.id)}
+                            />
+                            <span className="truncate">{member.nickname}</span>
+                            <span className="text-xs text-neutral-400">
+                              {participationCounts[member.id] ?? 0}회
+                            </span>
+                            <span className="ml-auto text-xs text-neutral-400">
+                              탈퇴
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  ) : null}
+                </div>
               </div>
             )}
           </fieldset>
@@ -1559,11 +1777,17 @@ export default function Home() {
                         {activity.date}
                       </span>
                       <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                        {activityTypeLabels[activity.type]}
+                        {getActivityTypeLabel(activity)}
                       </span>
+                      {getVisibleActivityType(activity.type) === "airship" &&
+                      getAirshipTypeLabel(activity.airshipType) ? (
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          {getAirshipTypeLabel(activity.airshipType)}
+                        </span>
+                      ) : null}
                     </div>
                     <h4 className="mt-1 text-sm font-semibold text-neutral-950">
-                      {activity.title || activityTypeLabels[activity.type]}
+                      {activity.title || getActivityTypeLabel(activity)}
                     </h4>
                     {activity.memo ? (
                       <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
@@ -1641,8 +1865,14 @@ export default function Home() {
                       {activity.date}
                     </span>
                     <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                      {activityTypeLabels[activity.type]}
+                      {getActivityTypeLabel(activity)}
                     </span>
+                    {getVisibleActivityType(activity.type) === "airship" &&
+                    getAirshipTypeLabel(activity.airshipType) ? (
+                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        {getAirshipTypeLabel(activity.airshipType)}
+                      </span>
+                    ) : null}
                     {activity.imageDataUrl ? (
                       <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                         이미지 첨부
@@ -1651,7 +1881,7 @@ export default function Home() {
                   </div>
                   <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <h3 className="text-sm font-semibold text-neutral-950">
-                      {activity.title || activityTypeLabels[activity.type]}
+                      {activity.title || getActivityTypeLabel(activity)}
                     </h3>
                     <div className="flex gap-2">
                       <button
