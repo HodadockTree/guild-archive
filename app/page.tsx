@@ -247,6 +247,8 @@ export default function Home() {
     useState<MemberImportUndoResult | null>(null);
   const [restoreLeftMembersResult, setRestoreLeftMembersResult] =
     useState<RestoreLeftMembersResult | null>(null);
+  const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
+  const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -515,6 +517,10 @@ export default function Home() {
     );
     setRestoreLeftMembersResult(null);
     notifyMembersChanged();
+  };
+
+  const handleViewMemberHistory = (memberId: string) => {
+    setHistoryMemberId(memberId);
   };
 
   const handleRestoreLeftMembers = () => {
@@ -790,13 +796,13 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
-            활동중 길드원
+            &#44600;&#46300;&#50896; &#44288;&#47532;
           </h2>
           <span className="text-sm text-neutral-500">
-            {activeMembers.length}명
+            &#51204;&#52404; {members.length}&#47749;
           </span>
         </div>
 
@@ -806,54 +812,155 @@ export default function Home() {
             type="button"
             onClick={handleRestoreLeftMembers}
           >
-            탈퇴 길드원 {leftMembers.length}명 활동중으로 복구
+            &#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749; &#54876;&#46041;&#51473;&#51004;&#47196; &#48373;&#44396;
           </button>
         ) : null}
         {restoreLeftMembersResult ? (
           <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            {restoreLeftMembersResult.restored}명을 활동중으로 복구했습니다.
+            {restoreLeftMembersResult.restored}&#47749;&#51012; &#54876;&#46041;&#51473;&#51004;&#47196; &#48373;&#44396;&#54664;&#49845;&#45768;&#45796;.
           </p>
         ) : null}
 
-        {activeMembers.length === 0 ? (
-          <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-            아직 등록된 활동중 길드원이 없습니다.
-          </p>
-        ) : (
-          <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
-            {activeMembers.map((member) => (
-              <li
-                className="flex items-center justify-between gap-3 px-4 py-3"
-                key={member.id}
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-neutral-950">
-                    {member.nickname}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    가입일 {member.joinedAt}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                    type="button"
-                    onClick={() => handleEditMember(member)}
-                  >
-                    수정
-                  </button>
-                  <button
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                    type="button"
-                    onClick={() => handleLeaveMember(member.id)}
-                  >
-                    탈퇴 처리
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-neutral-900">
+            &#54876;&#46041;&#51473; &#44600;&#46300;&#50896; {activeMembers.length}&#47749;
+          </h3>
+          <button
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            type="button"
+            onClick={() => setIsActiveMembersOpen((value) => !value)}
+          >
+            {isActiveMembersOpen ? "\uC811\uAE30" : "\uD3BC\uCE58\uAE30"}
+          </button>
+        </div>
+
+        {isActiveMembersOpen ? (
+          activeMembers.length === 0 ? (
+            <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+              &#50500;&#51649; &#46321;&#47197;&#46108; &#54876;&#46041;&#51473; &#44600;&#46300;&#50896;&#51060; &#50630;&#49845;&#45768;&#45796;.
+            </p>
+          ) : (
+            <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
+              {activeMembers.map((member) => (
+                <li
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  key={member.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-neutral-950">
+                      {member.nickname}
+                    </p>
+                    {member.joinedAt ? (
+                      <p className="text-xs text-neutral-500">
+                        &#44032;&#51077;&#51068; {member.joinedAt}
+                      </p>
+                    ) : null}
+                    {member.memo ? (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600">
+                        {member.memo}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleEditMember(member)}
+                    >
+                      &#49688;&#51221;
+                    </button>
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleViewMemberHistory(member.id)}
+                    >
+                      &#54876;&#46041; &#51060;&#47141; &#48372;&#44592;
+                    </button>
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleLeaveMember(member.id)}
+                    >
+                      &#53448;&#53748; &#52376;&#47532;
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <h3 className="text-base font-semibold text-neutral-900">
+            &#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749;
+          </h3>
+          <button
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            type="button"
+            onClick={() => setIsLeftMembersOpen((value) => !value)}
+          >
+            {isLeftMembersOpen ? "\uC811\uAE30" : "\uD3BC\uCE58\uAE30"}
+          </button>
+        </div>
+
+        {isLeftMembersOpen ? (
+          leftMembers.length === 0 ? (
+            <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+              &#53448;&#53748; &#49345;&#53468;&#51064; &#44600;&#46300;&#50896;&#51060; &#50630;&#49845;&#45768;&#45796;.
+            </p>
+          ) : (
+            <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-neutral-50">
+              {leftMembers.map((member) => (
+                <li
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  key={member.id}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-medium text-neutral-700">
+                        {member.nickname}
+                      </p>
+                      <span className="rounded-sm bg-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
+                        &#53448;&#53748;
+                      </span>
+                    </div>
+                    {member.joinedAt ? (
+                      <p className="text-xs text-neutral-500">
+                        &#44032;&#51077;&#51068; {member.joinedAt}
+                      </p>
+                    ) : null}
+                    {member.leftAt ? (
+                      <p className="text-xs text-neutral-500">
+                        &#53448;&#53748;&#51068; {member.leftAt}
+                      </p>
+                    ) : null}
+                    {member.memo ? (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                        {member.memo}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleEditMember(member)}
+                    >
+                      &#49688;&#51221;
+                    </button>
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleViewMemberHistory(member.id)}
+                    >
+                      &#54876;&#46041; &#51060;&#47141; &#48372;&#44592;
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
       </section>
 
       {isEditingMember ? (
@@ -1168,41 +1275,11 @@ export default function Home() {
           ) : null}
         </div>
 
-        {members.length === 0 ? (
+        {!selectedHistoryMember ? (
           <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-            길드원을 등록하면 활동 이력을 확인할 수 있습니다.
+            &#44600;&#46300;&#50896; &#52852;&#46300;&#51032; &#54876;&#46041; &#51060;&#47141; &#48372;&#44592; &#48260;&#53948;&#51012; &#45580;&#47084; &#52280;&#50668; &#44592;&#47197;&#51012; &#54869;&#51064;&#54616;&#49464;&#50836;.
           </p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {members.map((member) => {
-              const isSelected = selectedHistoryMember?.id === member.id;
-
-              return (
-                <button
-                  className={`rounded-md border px-3 py-2 text-left text-sm transition ${
-                    isSelected
-                      ? "border-neutral-950 bg-neutral-950 text-white"
-                      : "border-neutral-200 text-neutral-800 hover:border-neutral-900"
-                  }`}
-                  key={member.id}
-                  type="button"
-                  onClick={() => setHistoryMemberId(member.id)}
-                >
-                  <span className="block truncate font-medium">
-                    {member.nickname}
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      isSelected ? "text-neutral-200" : "text-neutral-500"
-                    }`}
-                  >
-                    {memberStatusLabels[member.status]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        ) : null}
 
         {selectedHistoryMember ? (
           <div className="space-y-3 rounded-md border border-neutral-200 p-4">
