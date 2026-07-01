@@ -29,10 +29,17 @@ import {
 import { writeStorageList } from "@/src/lib/storage";
 
 type ActivityFilter = "all" | ActivityType;
+type MemberMemoClearScope = "active" | "left" | "all";
+type MemberImportFailure = {
+  rowNumber: number;
+  reason: string;
+};
 type MemberImportResult = {
   added: number;
-  skipped: number;
+  updated: number;
+  left: number;
   failed: number;
+  failures: MemberImportFailure[];
 };
 type MemberImportUndoResult = {
   removed: number;
@@ -40,6 +47,9 @@ type MemberImportUndoResult = {
 };
 type RestoreLeftMembersResult = {
   restored: number;
+};
+type MemberMemoClearResult = {
+  cleared: number;
 };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
@@ -74,6 +84,12 @@ const activityFilterLabels: Record<ActivityFilter, string> = {
 const memberStatusLabels: Record<GuildMemberStatus, string> = {
   active: "활동중",
   left: "탈퇴",
+};
+
+const memberMemoClearScopeLabels: Record<MemberMemoClearScope, string> = {
+  active: "활동중 길드원",
+  left: "탈퇴 길드원",
+  all: "전체 길드원",
 };
 
 let cachedMembersValue: string | null = null;
@@ -254,6 +270,10 @@ export default function Home() {
     useState<MemberImportUndoResult | null>(null);
   const [restoreLeftMembersResult, setRestoreLeftMembersResult] =
     useState<RestoreLeftMembersResult | null>(null);
+  const [memberMemoClearScope, setMemberMemoClearScope] =
+    useState<MemberMemoClearScope>("all");
+  const [memberMemoClearResult, setMemberMemoClearResult] =
+    useState<MemberMemoClearResult | null>(null);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const activityFormRef = useRef<HTMLElement>(null);
@@ -327,6 +347,11 @@ export default function Home() {
       )
     : [];
   const quickActivityTitles = activityTitlePresets[activityType] ?? [];
+  const visibleMemberImportFailures =
+    memberImportResult?.failures.slice(0, 5) ?? [];
+  const hiddenMemberImportFailureCount = memberImportResult
+    ? Math.max(0, memberImportResult.failures.length - visibleMemberImportFailures.length)
+    : 0;
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -376,7 +401,13 @@ export default function Home() {
     const [headers, ...dataRows] = rows;
 
     if (!headers || dataRows.length === 0) {
-      setMemberImportResult({ added: 0, skipped: 0, failed: rows.length });
+      setMemberImportResult({
+        added: 0,
+        updated: 0,
+        left: 0,
+        failed: rows.length,
+        failures: [],
+      });
       setLastImportedMemberIds([]);
       setMemberImportUndoResult(null);
       return;
@@ -393,42 +424,68 @@ export default function Home() {
     const joinedAtHeaderIndex = normalizedHeaders.findIndex((header) =>
       header.includes("가입일") || (header.includes("가입") && header.includes("일")),
     );
+    const leftAtHeaderIndex = normalizedHeaders.findIndex((header) =>
+      header.includes("탈퇴일") || (header.includes("탈퇴") && header.includes("일")),
+    );
 
     if (nicknameIndex === -1) {
-      setMemberImportResult({ added: 0, skipped: 0, failed: dataRows.length });
+      const failures = dataRows.map((_, index) => ({
+        rowNumber: index + 2,
+        reason: "닉네임 컬럼을 찾을 수 없음",
+      }));
+
+      setMemberImportResult({
+        added: 0,
+        updated: 0,
+        left: 0,
+        failed: failures.length,
+        failures,
+      });
       setLastImportedMemberIds([]);
       setMemberImportUndoResult(null);
       return;
     }
 
     let added = 0;
-    let skipped = 0;
+    let updated = 0;
+    let left = 0;
     let failed = 0;
     const importedMemberIds: string[] = [];
-    const knownNicknames = new Set(
-      members.map((member) => member.nickname.trim().toLowerCase()),
+    const failures: MemberImportFailure[] = [];
+    const membersByNickname = new Map(
+      members.map((member) => [member.nickname.trim().toLowerCase(), member]),
     );
 
-    dataRows.forEach((row) => {
+    dataRows.forEach((row, rowIndex) => {
+      const rowNumber = rowIndex + 2;
       const nicknameValue = row[nicknameIndex]?.trim();
 
       if (!nicknameValue) {
         failed += 1;
+        failures.push({
+          rowNumber,
+          reason: "닉네임이 비어 있음",
+        });
         return;
       }
 
       const nicknameKey = nicknameValue.toLowerCase();
 
-      if (knownNicknames.has(nicknameKey)) {
-        skipped += 1;
-        return;
-      }
-
       let joinedAtIndex = joinedAtHeaderIndex;
+      const joinedAtValue =
+        joinedAtIndex === -1 ? "" : (row[joinedAtIndex] ?? "").trim();
       let joinedAt = "";
 
       if (joinedAtIndex !== -1) {
-        joinedAt = normalizeDate(row[joinedAtIndex] ?? "");
+        joinedAt = normalizeDate(joinedAtValue);
+        if (joinedAtValue && !joinedAt) {
+          failed += 1;
+          failures.push({
+            rowNumber,
+            reason: "가입일 날짜 형식이 올바르지 않음",
+          });
+          return;
+        }
       }
 
       if (!joinedAt) {
@@ -441,9 +498,52 @@ export default function Home() {
         joinedAt = joinedAtIndex === -1 ? "" : normalizeDate(row[joinedAtIndex]);
       }
 
+      const leftAtValue =
+        leftAtHeaderIndex === -1 ? "" : (row[leftAtHeaderIndex] ?? "").trim();
+      const leftAt = leftAtHeaderIndex === -1 ? "" : normalizeDate(leftAtValue);
+
+      if (leftAtValue && !leftAt) {
+        failed += 1;
+        failures.push({
+          rowNumber,
+          reason: "탈퇴일 날짜 형식이 올바르지 않음",
+        });
+        return;
+      }
+
+      const existingMember = membersByNickname.get(nicknameKey);
+
+      if (existingMember) {
+        const memberUpdate: Partial<
+          Pick<GuildMember, "joinedAt" | "leftAt" | "status">
+        > = {};
+
+        if (joinedAt) {
+          memberUpdate.joinedAt = joinedAt;
+        }
+
+        if (leftAt) {
+          memberUpdate.status = "left";
+          memberUpdate.leftAt = leftAt;
+          left += 1;
+        }
+
+        if (Object.keys(memberUpdate).length > 0) {
+          updateMember(existingMember.id, memberUpdate);
+          updated += 1;
+        }
+
+        return;
+      }
+
       const memo = row
         .map((cell, index) => {
-          if (!cell || index === nicknameIndex || index === joinedAtIndex) {
+          if (
+            !cell ||
+            index === nicknameIndex ||
+            index === joinedAtIndex ||
+            index === leftAtHeaderIndex
+          ) {
             return "";
           }
 
@@ -458,12 +558,25 @@ export default function Home() {
         joinedAt: joinedAt || undefined,
         memo: memo || undefined,
       });
+
+      if (leftAt) {
+        updateMember(addedMember.id, {
+          status: "left",
+          leftAt,
+        });
+        left += 1;
+      }
+
       importedMemberIds.push(addedMember.id);
-      knownNicknames.add(nicknameKey);
+      membersByNickname.set(nicknameKey, {
+        ...addedMember,
+        status: leftAt ? "left" : addedMember.status,
+        leftAt: leftAt || addedMember.leftAt,
+      });
       added += 1;
     });
 
-    setMemberImportResult({ added, skipped, failed });
+    setMemberImportResult({ added, updated, left, failed, failures });
     setLastImportedMemberIds(importedMemberIds);
     setMemberImportUndoResult(null);
     setMemberImportText("");
@@ -557,6 +670,42 @@ export default function Home() {
 
     writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
     setRestoreLeftMembersResult({ restored: leftMembers.length });
+    notifyMembersChanged();
+  };
+
+  const handleClearMemberMemos = () => {
+    const currentMembers = getMembers();
+    const isInScope = (member: GuildMember) =>
+      memberMemoClearScope === "all" || member.status === memberMemoClearScope;
+    const membersWithMemo = currentMembers.filter(
+      (member) => isInScope(member) && Boolean(member.memo?.trim()),
+    );
+
+    if (membersWithMemo.length === 0) {
+      setMemberMemoClearResult({ cleared: 0 });
+      return;
+    }
+
+    const scopeLabel = memberMemoClearScopeLabels[memberMemoClearScope];
+    const shouldClear = window.confirm(
+      `${scopeLabel} 메모를 모두 삭제하시겠습니까?`,
+    );
+
+    if (!shouldClear) {
+      return;
+    }
+
+    const nextMembers = currentMembers.map((member) =>
+      isInScope(member) && member.memo?.trim()
+        ? {
+            ...member,
+            memo: undefined,
+          }
+        : member,
+    );
+
+    writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
+    setMemberMemoClearResult({ cleared: membersWithMemo.length });
     notifyMembersChanged();
   };
 
@@ -791,10 +940,30 @@ export default function Home() {
           </button>
         ) : null}
         {memberImportResult ? (
-          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            추가 {memberImportResult.added}명 · 중복 건너뜀{" "}
-            {memberImportResult.skipped}명 · 실패 {memberImportResult.failed}행
-          </p>
+          <div className="space-y-2 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            <p className="font-medium text-neutral-900">가져오기 완료:</p>
+            <ul className="space-y-1">
+              <li>추가 {memberImportResult.added}명</li>
+              <li>업데이트 {memberImportResult.updated}명</li>
+              <li>탈퇴 처리 {memberImportResult.left}명</li>
+              <li>실패 {memberImportResult.failed}건</li>
+            </ul>
+            {visibleMemberImportFailures.length > 0 ? (
+              <div className="space-y-1 border-t border-neutral-200 pt-2">
+                <p className="font-medium text-neutral-900">실패 사유</p>
+                <ul className="space-y-1">
+                  {visibleMemberImportFailures.map((failure) => (
+                    <li key={`${failure.rowNumber}-${failure.reason}`}>
+                      {failure.rowNumber}행: {failure.reason}
+                    </li>
+                  ))}
+                </ul>
+                {hiddenMemberImportFailureCount > 0 ? (
+                  <p>외 {hiddenMemberImportFailureCount}건</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
         {memberImportUndoResult ? (
           <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
@@ -813,6 +982,40 @@ export default function Home() {
             &#51204;&#52404; {members.length}&#47749;
           </span>
         </div>
+
+        <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+            <span>메모 삭제 범위</span>
+            <select
+              className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none transition focus:border-neutral-900"
+              value={memberMemoClearScope}
+              onChange={(event) => {
+                setMemberMemoClearScope(
+                  event.target.value as MemberMemoClearScope,
+                );
+                setMemberMemoClearResult(null);
+              }}
+            >
+              <option value="active">활동중</option>
+              <option value="left">탈퇴</option>
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <button
+            className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+            type="button"
+            onClick={handleClearMemberMemos}
+          >
+            메모 일괄 삭제
+          </button>
+        </div>
+        {memberMemoClearResult ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            {memberMemoClearResult.cleared === 0
+              ? "삭제할 메모가 없습니다."
+              : `총 ${memberMemoClearResult.cleared}명의 메모를 삭제했습니다.`}
+          </p>
+        ) : null}
 
         {leftMembers.length > 0 ? (
           <button
