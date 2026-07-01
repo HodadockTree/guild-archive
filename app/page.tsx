@@ -87,6 +87,11 @@ const activityTitlePresets: Partial<Record<VisibleActivityType, string[]>> = {
   siege: ["점령전 참여", "점령전 미참여"],
 };
 
+const airshipAutoTitles: Record<AirshipType, string> = {
+  ocean: "오션헤븐 비공정",
+  aurora: "아우로라 비공정",
+};
+
 const activityFilterLabels: Record<ActivityFilter, string> = {
   all: "전체",
   airship: activityTypeLabels.airship,
@@ -131,6 +136,10 @@ function getKnownAirshipType(airshipType: unknown): AirshipType | undefined {
 function getAirshipTypeLabel(airshipType: unknown) {
   const knownAirshipType = getKnownAirshipType(airshipType);
   return knownAirshipType ? airshipTypeLabels[knownAirshipType] : "";
+}
+
+function getAirshipAutoTitle(airshipType: AirshipType) {
+  return airshipAutoTitles[airshipType];
 }
 
 function getMemberActivityStatsSummary(
@@ -1647,7 +1656,12 @@ export default function Home() {
                   const nextType = event.target.value as VisibleActivityType;
                   setActivityType(nextType);
 
-                  if (nextType !== "airship") {
+                  if (nextType === "airship") {
+                    const nextAutoTitle = getAirshipAutoTitle(activityAirshipType);
+                    setActivityTitle((currentTitle) =>
+                      currentTitle.trim() ? currentTitle : nextAutoTitle,
+                    );
+                  } else {
                     setActivityAirshipType("ocean");
                   }
                 }}
@@ -1666,9 +1680,23 @@ export default function Home() {
                 <select
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
                   value={activityAirshipType}
-                  onChange={(event) =>
-                    setActivityAirshipType(event.target.value as AirshipType)
-                  }
+                  onChange={(event) => {
+                    const previousAutoTitle =
+                      getAirshipAutoTitle(activityAirshipType);
+                    const nextAirshipType = event.target.value as AirshipType;
+                    const nextAutoTitle = getAirshipAutoTitle(nextAirshipType);
+
+                    setActivityAirshipType(nextAirshipType);
+                    setActivityTitle((currentTitle) => {
+                      if (!currentTitle.trim()) {
+                        return nextAutoTitle;
+                      }
+
+                      return currentTitle === previousAutoTitle
+                        ? nextAutoTitle
+                        : currentTitle;
+                    });
+                  }}
                 >
                   {Object.entries(airshipTypeLabels).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -1710,8 +1738,11 @@ export default function Home() {
           </label>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-neutral-700">
-              참여 길드원
+            <legend className="space-x-2 text-sm font-medium text-neutral-700">
+              <span>참여 길드원</span>
+              <span className="text-xs font-semibold text-neutral-500">
+                선택 {selectedMemberIds.length}명
+              </span>
             </legend>
             {selectableMembers.length === 0 ? (
               <p className="rounded-md border border-dashed border-neutral-300 px-3 py-4 text-sm text-neutral-500">
