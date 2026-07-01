@@ -83,7 +83,6 @@ const airshipTypeLabels: Record<AirshipType, string> = {
 };
 
 const activityTitlePresets: Partial<Record<VisibleActivityType, string[]>> = {
-  airship: ["오션헤븐 비공정", "아우로라 비공정"],
   siege: ["점령전 참여", "점령전 미참여"],
 };
 
@@ -975,6 +974,11 @@ export default function Home() {
     );
   };
 
+  const handleSelectAirshipPreset = (airshipType: AirshipType) => {
+    setActivityAirshipType(airshipType);
+    setActivityTitle(getAirshipAutoTitle(airshipType));
+  };
+
   const handleActivityImageChange = async (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
@@ -1656,12 +1660,7 @@ export default function Home() {
                   const nextType = event.target.value as VisibleActivityType;
                   setActivityType(nextType);
 
-                  if (nextType === "airship") {
-                    const nextAutoTitle = getAirshipAutoTitle(activityAirshipType);
-                    setActivityTitle((currentTitle) =>
-                      currentTitle.trim() ? currentTitle : nextAutoTitle,
-                    );
-                  } else {
+                  if (nextType !== "airship") {
                     setActivityAirshipType("ocean");
                   }
                 }}
@@ -1675,36 +1674,30 @@ export default function Home() {
             </label>
 
             {activityType === "airship" ? (
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
-                <span>비공정 종류</span>
-                <select
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                  value={activityAirshipType}
-                  onChange={(event) => {
-                    const previousAutoTitle =
-                      getAirshipAutoTitle(activityAirshipType);
-                    const nextAirshipType = event.target.value as AirshipType;
-                    const nextAutoTitle = getAirshipAutoTitle(nextAirshipType);
+              <div className="space-y-1 text-sm font-medium text-neutral-700">
+                <p>비공정 빠른 입력</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.keys(airshipAutoTitles).map((value) => {
+                    const airshipType = value as AirshipType;
+                    const isSelected = activityAirshipType === airshipType;
 
-                    setActivityAirshipType(nextAirshipType);
-                    setActivityTitle((currentTitle) => {
-                      if (!currentTitle.trim()) {
-                        return nextAutoTitle;
-                      }
-
-                      return currentTitle === previousAutoTitle
-                        ? nextAutoTitle
-                        : currentTitle;
-                    });
-                  }}
-                >
-                  {Object.entries(airshipTypeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                    return (
+                      <button
+                        className={
+                          isSelected
+                            ? "rounded-md bg-neutral-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                            : "rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                        }
+                        key={airshipType}
+                        type="button"
+                        onClick={() => handleSelectAirshipPreset(airshipType)}
+                      >
+                        {getAirshipAutoTitle(airshipType)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ) : null}
           </div>
 
