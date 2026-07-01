@@ -24,6 +24,7 @@ import {
 } from "@/src/lib/activities";
 import {
   addMember,
+  deleteMember,
   getMembers,
   markMemberAsLeft,
   updateMember,
@@ -234,6 +235,24 @@ function getParticipantNames(activity: ActivityLog, members: Map<string, string>
     .filter((memberName): memberName is string => Boolean(memberName));
 }
 
+function findMemberByNickname(
+  members: GuildMember[],
+  nickname: string,
+  excludeMemberId?: string,
+) {
+  const normalizedNickname = nickname.trim().toLowerCase();
+
+  return members.find(
+    (member) =>
+      member.id !== excludeMemberId &&
+      member.nickname.trim().toLowerCase() === normalizedNickname,
+  );
+}
+
+function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
+  return activities.some((activity) => activity.participantIds.includes(memberId));
+}
+
 function normalizeHeader(header: string) {
   return header.replace(/\s/g, "").toLowerCase();
 }
@@ -338,6 +357,7 @@ export default function Home() {
   const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
   const [memberEditLeftAt, setMemberEditLeftAt] = useState("");
   const [memberEditMemo, setMemberEditMemo] = useState("");
+  const [memberFeedbackMessage, setMemberFeedbackMessage] = useState("");
   const [memberImportText, setMemberImportText] = useState("");
   const [memberImportResult, setMemberImportResult] =
     useState<MemberImportResult | null>(null);
@@ -463,6 +483,18 @@ export default function Home() {
     return () => window.clearTimeout(timerId);
   }, [activityFeedbackMessage]);
 
+  useEffect(() => {
+    if (!memberFeedbackMessage) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setMemberFeedbackMessage("");
+    }, 3500);
+
+    return () => window.clearTimeout(timerId);
+  }, [memberFeedbackMessage]);
+
   const clearImageInput = () => {
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
@@ -503,8 +535,16 @@ export default function Home() {
       return;
     }
 
+    if (findMemberByNickname(members, trimmedNickname)) {
+      setMemberFeedbackMessage(
+        "이미 같은 닉네임의 길드원이 있습니다.",
+      );
+      return;
+    }
+
     addMember({ nickname: trimmedNickname });
     setNickname("");
+    setMemberFeedbackMessage("");
     notifyMembersChanged();
   };
 
@@ -858,6 +898,13 @@ export default function Home() {
       return;
     }
 
+    if (findMemberByNickname(members, trimmedNickname, editingMemberId)) {
+      setMemberFeedbackMessage(
+        "이미 같은 닉네임의 길드원이 있습니다.",
+      );
+      return;
+    }
+
     updateMember(editingMemberId, {
       nickname: trimmedNickname,
       status: memberEditStatus,
@@ -867,6 +914,47 @@ export default function Home() {
     });
 
     resetMemberForm();
+    setMemberFeedbackMessage("");
+    notifyMembersChanged();
+  };
+
+  const clearMemberReferences = (memberId: string) => {
+    if (editingMemberId === memberId) {
+      resetMemberForm();
+    }
+
+    if (historyMemberId === memberId) {
+      setHistoryMemberId(null);
+    }
+
+    if (expandedHistoryMemberId === memberId) {
+      setExpandedHistoryMemberId(null);
+    }
+
+    setSelectedMemberIds((currentIds) =>
+      currentIds.filter((selectedMemberId) => selectedMemberId !== memberId),
+    );
+  };
+
+  const handleDeleteMember = (memberId: string) => {
+    if (memberHasActivityRecords(activities, memberId)) {
+      setMemberFeedbackMessage(
+        "활동 기록이 있는 길드원은 삭제할 수 없습니다.",
+      );
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      "정말 이 길드원을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    deleteMember(memberId);
+    clearMemberReferences(memberId);
+    setMemberFeedbackMessage("길드원을 삭제했습니다.");
     notifyMembersChanged();
   };
 
@@ -1060,6 +1148,11 @@ export default function Home() {
             등록
           </button>
         </form>
+        {memberFeedbackMessage ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            {memberFeedbackMessage}
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -1223,6 +1316,12 @@ export default function Home() {
           </span>
         </div>
 
+        {memberFeedbackMessage ? (
+          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+            {memberFeedbackMessage}
+          </p>
+        ) : null}
+
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-neutral-900">
             &#54876;&#46041;&#51473; &#44600;&#46300;&#50896; {activeMembers.length}&#47749;
@@ -1244,57 +1343,66 @@ export default function Home() {
           ) : (
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
               {activeMembers.map((member) => (
-                <li
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  key={member.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-neutral-950">
-                      {member.nickname}
-                    </p>
-                    {member.joinedAt ? (
-                      <p className="text-xs text-neutral-500">
-                        &#44032;&#51077;&#51068; {member.joinedAt}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {getMemberActivityStatsSummary(activities, member.id)}
-                    </p>
-                    {member.memo ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600">
-                        {member.memo}
-                      </p>
-                    ) : null}
-                    {expandedHistoryMemberId === member.id
-                      ? renderMemberActivityPreview(member)
-                      : null}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <button
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                      type="button"
-                      onClick={() => handleEditMember(member)}
-                    >
-                      &#49688;&#51221;
-                    </button>
-                    <button
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                      type="button"
-                      onClick={() => handleViewMemberHistory(member.id)}
-                    >
-                      {expandedHistoryMemberId === member.id
-                        ? "이력 접기"
-                        : "활동 이력 보기"}
-                    </button>
-                    <button
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                      type="button"
-                      onClick={() => handleLeaveMember(member.id)}
-                    >
-                      &#53448;&#53748; &#52376;&#47532;
-                    </button>
-                  </div>
-                </li>
+                  <li
+                    className="flex flex-col gap-3 px-4 py-3"
+                    key={member.id}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-neutral-950">
+                          {member.nickname}
+                        </p>
+                        {member.joinedAt ? (
+                          <p className="text-xs text-neutral-500">
+                            &#44032;&#51077;&#51068; {member.joinedAt}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-neutral-500">
+                          {getMemberActivityStatsSummary(activities, member.id)}
+                        </p>
+                        {member.memo ? (
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600">
+                            {member.memo}
+                          </p>
+                        ) : null}
+                        {expandedHistoryMemberId === member.id
+                          ? renderMemberActivityPreview(member)
+                          : null}
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <button
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                          type="button"
+                          onClick={() => handleEditMember(member)}
+                        >
+                          &#49688;&#51221;
+                        </button>
+                        <button
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                          type="button"
+                          onClick={() => handleViewMemberHistory(member.id)}
+                        >
+                          {expandedHistoryMemberId === member.id
+                            ? "이력 접기"
+                            : "활동 이력 보기"}
+                        </button>
+                        <button
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                          type="button"
+                          onClick={() => handleLeaveMember(member.id)}
+                        >
+                          &#53448;&#53748; &#52376;&#47532;
+                        </button>
+                        <button
+                          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                          type="button"
+                          onClick={() => handleDeleteMember(member.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  </li>
               ))}
             </ul>
           )
@@ -1321,60 +1429,69 @@ export default function Home() {
           ) : (
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-neutral-50">
               {leftMembers.map((member) => (
-                <li
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  key={member.id}
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium text-neutral-700">
-                        {member.nickname}
-                      </p>
-                      <span className="rounded-sm bg-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
-                        &#53448;&#53748;
-                      </span>
+                  <li
+                    className="flex flex-col gap-3 px-4 py-3"
+                    key={member.id}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-medium text-neutral-700">
+                            {member.nickname}
+                          </p>
+                          <span className="rounded-sm bg-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
+                            &#53448;&#53748;
+                          </span>
+                        </div>
+                        {member.joinedAt ? (
+                          <p className="text-xs text-neutral-500">
+                            &#44032;&#51077;&#51068; {member.joinedAt}
+                          </p>
+                        ) : null}
+                        {member.leftAt ? (
+                          <p className="text-xs text-neutral-500">
+                            &#53448;&#53748;&#51068; {member.leftAt}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-neutral-500">
+                          {getMemberActivityStatsSummary(activities, member.id)}
+                        </p>
+                        {member.memo ? (
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                            {member.memo}
+                          </p>
+                        ) : null}
+                        {expandedHistoryMemberId === member.id
+                          ? renderMemberActivityPreview(member)
+                          : null}
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <button
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                          type="button"
+                          onClick={() => handleEditMember(member)}
+                        >
+                          &#49688;&#51221;
+                        </button>
+                        <button
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                          type="button"
+                          onClick={() => handleViewMemberHistory(member.id)}
+                        >
+                          {expandedHistoryMemberId === member.id
+                            ? "이력 접기"
+                            : "활동 이력 보기"}
+                        </button>
+                        <button
+                          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                          type="button"
+                          onClick={() => handleDeleteMember(member.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
-                    {member.joinedAt ? (
-                      <p className="text-xs text-neutral-500">
-                        &#44032;&#51077;&#51068; {member.joinedAt}
-                      </p>
-                    ) : null}
-                    {member.leftAt ? (
-                      <p className="text-xs text-neutral-500">
-                        &#53448;&#53748;&#51068; {member.leftAt}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {getMemberActivityStatsSummary(activities, member.id)}
-                    </p>
-                    {member.memo ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
-                        {member.memo}
-                      </p>
-                    ) : null}
-                    {expandedHistoryMemberId === member.id
-                      ? renderMemberActivityPreview(member)
-                      : null}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <button
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                      type="button"
-                      onClick={() => handleEditMember(member)}
-                    >
-                      &#49688;&#51221;
-                    </button>
-                    <button
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                      type="button"
-                      onClick={() => handleViewMemberHistory(member.id)}
-                    >
-                      {expandedHistoryMemberId === member.id
-                        ? "이력 접기"
-                        : "활동 이력 보기"}
-                    </button>
-                  </div>
-                </li>
+                  </li>
               ))}
             </ul>
           )
@@ -1402,6 +1519,12 @@ export default function Home() {
             <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
               {editingMember?.nickname || "선택한 길드원"} 정보를 수정 중입니다.
             </p>
+
+            {memberFeedbackMessage ? (
+              <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                {memberFeedbackMessage}
+              </p>
+            ) : null}
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1 text-sm font-medium text-neutral-700">

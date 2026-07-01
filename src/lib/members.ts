@@ -65,3 +65,10 @@ export function markMemberAsLeft(memberId: string, leftAt = today()) {
     leftAt,
   });
 }
+
+export function deleteMember(memberId: string) {
+  const members = getMembers();
+  const nextMembers = members.filter((member) => member.id !== memberId);
+
+  writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
+}
