@@ -31,6 +31,7 @@ import {
 } from "@/src/lib/members";
 import { writeStorageList } from "@/src/lib/storage";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
+import { matchesMemberKeyword } from "@/src/lib/koreanSearch";
 
 type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
@@ -424,10 +425,10 @@ export default function Home() {
 
       return a.nickname.localeCompare(b.nickname, "ko");
     });
-  const normalizedParticipantSearch = participantSearch.trim().toLowerCase();
-  const filteredSelectableMembers = normalizedParticipantSearch
+  const participantSearchKeyword = participantSearch.trim();
+  const filteredSelectableMembers = participantSearchKeyword
     ? selectableMembers.filter((member) =>
-        member.nickname.toLowerCase().includes(normalizedParticipantSearch),
+        matchesMemberKeyword(member.nickname, participantSearchKeyword),
       )
     : selectableMembers;
   const selectableActiveMembers = filteredSelectableMembers.filter(
@@ -436,7 +437,7 @@ export default function Home() {
   const selectableLeftMembers = filteredSelectableMembers.filter(
     (member) => member.status === "left",
   );
-  const hasParticipantSearch = normalizedParticipantSearch.length > 0;
+  const hasParticipantSearch = participantSearchKeyword.length > 0;
   const shouldShowActiveParticipants =
     isParticipantActiveOpen || hasParticipantSearch;
   const shouldShowLeftParticipants =
