@@ -59,6 +59,13 @@ const activityTypeLabels: Record<ActivityType, string> = {
   other: "기타 메모",
 };
 
+const activityTitlePresets: Partial<Record<ActivityType, string[]>> = {
+  airship: ["오션헤븐 비공정", "아우로라 비공정"],
+  siege: ["점령전 참여", "점령전 미참여"],
+  guildQuest: ["22시 길드퀘"],
+  event: ["길드 이벤트", "합동 달리기"],
+};
+
 const activityFilterLabels: Record<ActivityFilter, string> = {
   all: "전체",
   ...activityTypeLabels,
@@ -319,6 +326,7 @@ export default function Home() {
         activity.participantIds.includes(selectedHistoryMember.id),
       )
     : [];
+  const quickActivityTitles = activityTitlePresets[activityType] ?? [];
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -1109,6 +1117,24 @@ export default function Home() {
               </select>
             </label>
           </div>
+
+          {quickActivityTitles.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-neutral-700">빠른 제목</p>
+              <div className="flex flex-wrap gap-2">
+                {quickActivityTitles.map((title) => (
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                    key={title}
+                    type="button"
+                    onClick={() => setActivityTitle(title)}
+                  >
+                    {title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <label className="block space-y-1 text-sm font-medium text-neutral-700">
             <span>제목</span>
