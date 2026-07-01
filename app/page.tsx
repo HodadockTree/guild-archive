@@ -327,6 +327,7 @@ export default function Home() {
     useState<MemberMemoClearScope>("all");
   const [memberMemoClearResult, setMemberMemoClearResult] =
     useState<MemberMemoClearResult | null>(null);
+  const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const activityFormRef = useRef<HTMLElement>(null);
@@ -1039,69 +1040,129 @@ export default function Home() {
       </section>
 
       <section className="space-y-3">
-        <div>
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
-            스프레드시트에서 가져오기
+            데이터 관리 도구
           </h2>
-          <p className="text-sm text-neutral-500">
-            첫 줄은 헤더로 보고, 탭으로 구분된 표 데이터를 읽어 여러 길드원을
-            한 번에 등록합니다.
-          </p>
-        </div>
-        <form className="space-y-3" onSubmit={handleImportMembers}>
-          <textarea
-            className="min-h-36 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-            placeholder={"닉네임\t나이\t성별\t가입일\n냥춘\t20\t여\t2026. 1. 22"}
-            value={memberImportText}
-            onChange={(event) => setMemberImportText(event.target.value)}
-          />
           <button
-            className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-            type="submit"
-          >
-            길드원 일괄 가져오기
-          </button>
-        </form>
-        {lastImportedMemberIds.length > 0 ? (
-          <button
-            className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
             type="button"
-            onClick={handleUndoLastImport}
+            onClick={() => setIsDataToolsOpen((value) => !value)}
           >
-            방금 가져온 {lastImportedMemberIds.length}명 되돌리기
+            {isDataToolsOpen ? "접기" : "펼치기"}
           </button>
-        ) : null}
-        {memberImportResult ? (
-          <div className="space-y-2 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            <p className="font-medium text-neutral-900">가져오기 완료:</p>
-            <ul className="space-y-1">
-              <li>추가 {memberImportResult.added}명</li>
-              <li>업데이트 {memberImportResult.updated}명</li>
-              <li>탈퇴 처리 {memberImportResult.left}명</li>
-              <li>실패 {memberImportResult.failed}건</li>
-            </ul>
-            {visibleMemberImportFailures.length > 0 ? (
-              <div className="space-y-1 border-t border-neutral-200 pt-2">
-                <p className="font-medium text-neutral-900">실패 사유</p>
-                <ul className="space-y-1">
-                  {visibleMemberImportFailures.map((failure) => (
-                    <li key={`${failure.rowNumber}-${failure.reason}`}>
-                      {failure.rowNumber}행: {failure.reason}
-                    </li>
-                  ))}
-                </ul>
-                {hiddenMemberImportFailureCount > 0 ? (
-                  <p>외 {hiddenMemberImportFailureCount}건</p>
-                ) : null}
+        </div>
+
+        {isDataToolsOpen ? (
+          <div className="space-y-5 rounded-md border border-neutral-200 p-4">
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">
+                  스프레드시트에서 가져오기
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  첫 줄은 헤더로 보고, 탭으로 구분된 표 데이터를 읽어 여러 길드원을
+                  한 번에 등록합니다.
+                </p>
               </div>
-            ) : null}
+              <form className="space-y-3" onSubmit={handleImportMembers}>
+                <textarea
+                  className="min-h-36 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  placeholder={
+                    "닉네임\t나이\t성별\t가입일\n냥춘\t20\t여\t2026. 1. 22"
+                  }
+                  value={memberImportText}
+                  onChange={(event) => setMemberImportText(event.target.value)}
+                />
+                <button
+                  className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                  type="submit"
+                >
+                  길드원 일괄 가져오기
+                </button>
+              </form>
+              {lastImportedMemberIds.length > 0 ? (
+                <button
+                  className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+                  type="button"
+                  onClick={handleUndoLastImport}
+                >
+                  방금 가져온 {lastImportedMemberIds.length}명 되돌리기
+                </button>
+              ) : null}
+              {memberImportResult ? (
+                <div className="space-y-2 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  <p className="font-medium text-neutral-900">가져오기 완료:</p>
+                  <ul className="space-y-1">
+                    <li>추가 {memberImportResult.added}명</li>
+                    <li>업데이트 {memberImportResult.updated}명</li>
+                    <li>탈퇴 처리 {memberImportResult.left}명</li>
+                    <li>실패 {memberImportResult.failed}건</li>
+                  </ul>
+                  {visibleMemberImportFailures.length > 0 ? (
+                    <div className="space-y-1 border-t border-neutral-200 pt-2">
+                      <p className="font-medium text-neutral-900">실패 사유</p>
+                      <ul className="space-y-1">
+                        {visibleMemberImportFailures.map((failure) => (
+                          <li key={`${failure.rowNumber}-${failure.reason}`}>
+                            {failure.rowNumber}행: {failure.reason}
+                          </li>
+                        ))}
+                      </ul>
+                      {hiddenMemberImportFailureCount > 0 ? (
+                        <p>외 {hiddenMemberImportFailureCount}건</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {memberImportUndoResult ? (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  되돌리기 완료: 삭제 {memberImportUndoResult.removed}명 · 활동
+                  기록에 사용 중이라 유지 {memberImportUndoResult.kept}명
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 border-t border-neutral-200 pt-4">
+              <h3 className="text-base font-semibold text-neutral-900">
+                메모 일괄 삭제
+              </h3>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+                  <span>메모 삭제 범위</span>
+                  <select
+                    className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none transition focus:border-neutral-900"
+                    value={memberMemoClearScope}
+                    onChange={(event) => {
+                      setMemberMemoClearScope(
+                        event.target.value as MemberMemoClearScope,
+                      );
+                      setMemberMemoClearResult(null);
+                    }}
+                  >
+                    <option value="active">활동중</option>
+                    <option value="left">탈퇴</option>
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <button
+                  className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+                  type="button"
+                  onClick={handleClearMemberMemos}
+                >
+                  메모 일괄 삭제
+                </button>
+              </div>
+              {memberMemoClearResult ? (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  {memberMemoClearResult.cleared === 0
+                    ? "삭제할 메모가 없습니다."
+                    : `총 ${memberMemoClearResult.cleared}명의 메모를 삭제했습니다.`}
+                </p>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-        {memberImportUndoResult ? (
-          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            되돌리기 완료: 삭제 {memberImportUndoResult.removed}명 · 활동
-            기록에 사용 중이라 유지 {memberImportUndoResult.kept}명
-          </p>
         ) : null}
       </section>
 
@@ -1114,40 +1175,6 @@ export default function Home() {
             &#51204;&#52404; {members.length}&#47749;
           </span>
         </div>
-
-        <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-            <span>메모 삭제 범위</span>
-            <select
-              className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none transition focus:border-neutral-900"
-              value={memberMemoClearScope}
-              onChange={(event) => {
-                setMemberMemoClearScope(
-                  event.target.value as MemberMemoClearScope,
-                );
-                setMemberMemoClearResult(null);
-              }}
-            >
-              <option value="active">활동중</option>
-              <option value="left">탈퇴</option>
-              <option value="all">전체</option>
-            </select>
-          </label>
-          <button
-            className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
-            type="button"
-            onClick={handleClearMemberMemos}
-          >
-            메모 일괄 삭제
-          </button>
-        </div>
-        {memberMemoClearResult ? (
-          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            {memberMemoClearResult.cleared === 0
-              ? "삭제할 메모가 없습니다."
-              : `총 ${memberMemoClearResult.cleared}명의 메모를 삭제했습니다.`}
-          </p>
-        ) : null}
 
         {leftMembers.length > 0 ? (
           <button
