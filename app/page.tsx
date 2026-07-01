@@ -137,6 +137,24 @@ function getMemberActivityStatsSummary(
   return `총 ${stats.total}회 · 점령전 ${stats.siege} · 비공정 ${stats.airship} · 기타 ${stats.other}`;
 }
 
+function getParticipantActivityCountLabel(
+  activities: ActivityLog[],
+  memberId: string,
+  activityType: VisibleActivityType,
+) {
+  const stats = getMemberActivityStats(activities, memberId);
+
+  if (activityType === "siege") {
+    return `점령전 ${stats.siege}회`;
+  }
+
+  if (activityType === "airship") {
+    return `비공정 ${stats.airship}회`;
+  }
+
+  return `기타 ${stats.other}회`;
+}
+
 let cachedMembersValue: string | null = null;
 let cachedMembersSnapshot: GuildMember[] = EMPTY_MEMBERS;
 let cachedActivitiesValue: string | null = null;
@@ -1608,7 +1626,11 @@ export default function Home() {
                             />
                             <span className="truncate">{member.nickname}</span>
                             <span className="text-xs text-neutral-400">
-                              {participationCounts[member.id] ?? 0}회
+                              {getParticipantActivityCountLabel(
+                                activities,
+                                member.id,
+                                activityType,
+                              )}
                             </span>
                           </label>
                         ))}
@@ -1653,7 +1675,11 @@ export default function Home() {
                             />
                             <span className="truncate">{member.nickname}</span>
                             <span className="text-xs text-neutral-400">
-                              {participationCounts[member.id] ?? 0}회
+                              {getParticipantActivityCountLabel(
+                                activities,
+                                member.id,
+                                activityType,
+                              )}
                             </span>
                             <span className="ml-auto text-xs text-neutral-400">
                               탈퇴
