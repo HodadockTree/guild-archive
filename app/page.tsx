@@ -1233,13 +1233,7 @@ export default function Home() {
 
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="rounded-md bg-neutral-950 px-4 py-3 text-white">
-            <p className="text-xs text-neutral-300">전체 활동</p>
-            <p className="text-2xl font-bold">
-              {monthlyReport.totalActivities}회
-            </p>
-          </div>
-          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
-            <p className="text-xs text-neutral-500">총 참여 횟수</p>
+            <p className="text-xs text-neutral-300">총 참여 횟수</p>
             <p className="text-2xl font-bold">
               {monthlyReport.totalParticipationCount}회
             </p>
@@ -1248,6 +1242,12 @@ export default function Home() {
             <p className="text-xs text-neutral-500">참여 길드원</p>
             <p className="text-2xl font-bold">
               {monthlyReport.participantMemberCount}명
+            </p>
+          </div>
+          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
+            <p className="text-xs text-neutral-500">전체 활동</p>
+            <p className="text-2xl font-bold">
+              {monthlyReport.totalActivities}회
             </p>
           </div>
         </div>
@@ -1309,7 +1309,9 @@ export default function Home() {
         <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="rounded-md border border-neutral-200 p-4">
             <h3 className="text-sm font-semibold text-neutral-900">
-              월간 참여 TOP 5
+              {monthlyReport.topParticipants.length > 0
+                ? `월간 참여 TOP ${monthlyReport.topParticipants.length}`
+                : "월간 참여 TOP"}
             </h3>
             {monthlyReport.topParticipants.length === 0 ? (
               <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
@@ -1346,11 +1348,22 @@ export default function Home() {
               <ul className="mt-3 divide-y divide-neutral-200">
                 {monthlyReport.activitySummaries.map((activity) => (
                   <li
-                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                    className={`flex items-center justify-between gap-3 py-2 text-sm ${
+                      activity.isMostParticipated
+                        ? "rounded-md bg-neutral-100 px-2"
+                        : ""
+                    }`}
                     key={activity.id}
                   >
-                    <span className="min-w-0 truncate text-neutral-900">
-                      {activity.displayDate} {activity.label}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-neutral-900">
+                        {activity.displayDate} {activity.label}
+                      </span>
+                      {activity.isMostParticipated ? (
+                        <span className="shrink-0 rounded-sm bg-neutral-950 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                          최다 참여
+                        </span>
+                      ) : null}
                     </span>
                     <span className="shrink-0 text-neutral-500">
                       {activity.participantCount}명

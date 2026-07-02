@@ -7,6 +7,7 @@ export type MonthlyActivitySummary = {
   displayDate: string;
   label: string;
   participantCount: number;
+  isMostParticipated: boolean;
 };
 
 export type MonthlyTopParticipant = {
@@ -27,6 +28,7 @@ export type MonthlyReport = {
   totalParticipationCount: number;
   participantMemberCount: number;
   participationCountsByMemberId: Record<string, number>;
+  topParticipantLimit: number;
   topParticipants: MonthlyTopParticipant[];
   activitySummaries: MonthlyActivitySummary[];
 };
@@ -137,6 +139,15 @@ export function getMonthlyReport(
     },
   );
 
+  const topParticipantLimit = Math.min(
+    monthlyActivities.length,
+    participantMemberIds.size,
+    15,
+  );
+  const maxActivityParticipantCount = monthlyActivities.reduce(
+    (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
+    0,
+  );
   const topParticipants = Object.entries(participationCountsByMemberId)
     .map(([memberId, count]) => ({
       memberId,
@@ -147,7 +158,7 @@ export function getMonthlyReport(
       const countOrder = b.count - a.count;
       return countOrder === 0 ? a.nickname.localeCompare(b.nickname, "ko") : countOrder;
     })
-    .slice(0, 5);
+    .slice(0, topParticipantLimit);
 
   return {
     month,
@@ -155,6 +166,7 @@ export function getMonthlyReport(
     ...report,
     participantMemberCount: participantMemberIds.size,
     participationCountsByMemberId,
+    topParticipantLimit,
     topParticipants,
     activitySummaries: monthlyActivities.map((activity) => ({
       id: activity.id,
@@ -162,6 +174,9 @@ export function getMonthlyReport(
       displayDate: getDisplayDate(activity.date),
       label: getMonthlyActivityLabel(activity),
       participantCount: activity.participantIds.length,
+      isMostParticipated:
+        maxActivityParticipantCount > 0 &&
+        activity.participantIds.length === maxActivityParticipantCount,
     })),
   };
 }
