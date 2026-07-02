@@ -1,5 +1,6 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType, getKnownAirshipType } from "@/src/lib/activityStats";
+import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 
 export type MonthlyActivitySummary = {
   id: string;
@@ -33,32 +34,12 @@ export type MonthlyReport = {
   activitySummaries: MonthlyActivitySummary[];
 };
 
-const airshipLabels = {
-  ocean: "오션헤븐",
-  aurora: "아우로라",
-} as const;
-
 function getMonthKey(date: string) {
   return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : "";
 }
 
 function getDisplayDate(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
-}
-
-function getMonthlyActivityLabel(activity: ActivityLog) {
-  const statsType = getActivityStatsType(activity.type);
-
-  if (statsType === "siege") {
-    return "점령전";
-  }
-
-  if (statsType === "airship") {
-    const airshipType = getKnownAirshipType(activity.airshipType);
-    return airshipType ? airshipLabels[airshipType] : "비공정";
-  }
-
-  return "기타";
 }
 
 function getUnknownMemberName(memberId: string) {

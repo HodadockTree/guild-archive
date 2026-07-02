@@ -13,6 +13,7 @@ import type {
   ActivityLog,
   ActivityType,
   AirshipType,
+  ConquestType,
   GuildMember,
   GuildMemberStatus,
 } from "@/src/types";
@@ -31,6 +32,11 @@ import {
 } from "@/src/lib/members";
 import { writeStorageList } from "@/src/lib/storage";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
+import {
+  conquestTypes,
+  getKnownConquestTypes,
+  getSiegeActivityLabel,
+} from "@/src/lib/activityLabels";
 import { matchesMemberKeyword } from "@/src/lib/koreanSearch";
 import {
   getAvailableActivityMonths,
@@ -72,7 +78,7 @@ const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
 const MAX_IMAGE_WIDTH = 1000;
 const IMAGE_JPEG_QUALITY = 0.72;
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.3.1";
 const BACKUP_SCHEMA_VERSION = 1;
 
 const activityTypeLabels: Record<ActivityType, string> = {
@@ -131,6 +137,10 @@ function getVisibleActivityType(type: ActivityType): VisibleActivityType {
 }
 
 function getActivityTypeLabel(activity: ActivityLog) {
+  if (getVisibleActivityType(activity.type) === "siege") {
+    return getSiegeActivityLabel(activity);
+  }
+
   return activityTypeLabels[getVisibleActivityType(activity.type)];
 }
 
@@ -352,6 +362,9 @@ export default function Home() {
   const [activityType, setActivityType] = useState<VisibleActivityType>("airship");
   const [activityAirshipType, setActivityAirshipType] =
     useState<AirshipType>("ocean");
+  const [activityConquestTypes, setActivityConquestTypes] = useState<
+    ConquestType[]
+  >([]);
   const [activityTitle, setActivityTitle] = useState("");
   const [activityMemo, setActivityMemo] = useState("");
   const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
@@ -547,6 +560,7 @@ export default function Home() {
     setActivityDate(today());
     setActivityType("airship");
     setActivityAirshipType("ocean");
+    setActivityConquestTypes([]);
     setActivityTitle("");
     setActivityMemo("");
     setActivityImageDataUrl("");
@@ -1036,6 +1050,14 @@ export default function Home() {
     setActivityTitle(getAirshipAutoTitle(airshipType));
   };
 
+  const handleToggleConquestType = (conquestType: ConquestType) => {
+    setActivityConquestTypes((currentTypes) =>
+      currentTypes.includes(conquestType)
+        ? currentTypes.filter((currentType) => currentType !== conquestType)
+        : [...currentTypes, conquestType],
+    );
+  };
+
   const handleActivityImageChange = async (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
@@ -1120,6 +1142,10 @@ export default function Home() {
       date: activityDate,
       type: activityType,
       airshipType: activityType === "airship" ? activityAirshipType : undefined,
+      conquestTypes:
+        activityType === "siege" && activityConquestTypes.length > 0
+          ? activityConquestTypes
+          : undefined,
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
@@ -1148,6 +1174,7 @@ export default function Home() {
     setActivityDate(activity.date);
     setActivityType(getVisibleActivityType(activity.type));
     setActivityAirshipType(getKnownAirshipType(activity.airshipType) ?? "ocean");
+    setActivityConquestTypes(getKnownConquestTypes(activity.conquestTypes));
     setActivityTitle(activity.title ?? "");
     setActivityMemo(activity.memo ?? "");
     setActivityImageDataUrl(activity.imageDataUrl ?? "");
@@ -1911,6 +1938,10 @@ export default function Home() {
                   if (nextType !== "airship") {
                     setActivityAirshipType("ocean");
                   }
+
+                  if (nextType !== "siege") {
+                    setActivityConquestTypes([]);
+                  }
                 }}
               >
                 {visibleActivityTypes.map((value) => (
@@ -1941,6 +1972,33 @@ export default function Home() {
                         onClick={() => handleSelectAirshipPreset(airshipType)}
                       >
                         {getAirshipAutoTitle(airshipType)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {activityType === "siege" ? (
+              <div className="space-y-2 text-sm font-medium text-neutral-700 md:col-span-2">
+                <p>점령전 세부 카테고리</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {conquestTypes.map((conquestType) => {
+                    const isSelected =
+                      activityConquestTypes.includes(conquestType);
+
+                    return (
+                      <button
+                        className={
+                          isSelected
+                            ? "rounded-md bg-neutral-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                            : "rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                        }
+                        key={conquestType}
+                        type="button"
+                        onClick={() => handleToggleConquestType(conquestType)}
+                      >
+                        {conquestType}
                       </button>
                     );
                   })}
