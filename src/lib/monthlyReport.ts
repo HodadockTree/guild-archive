@@ -42,6 +42,15 @@ function getDisplayDate(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
 }
 
+function getShareDisplayDate(date: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", ".") : date;
+}
+
+function getMonthNumberLabel(month: string) {
+  const [, monthNumber] = month.split("-");
+  return monthNumber ? String(Number(monthNumber)) : month;
+}
+
 function getUnknownMemberName(memberId: string) {
   const shortId = memberId.trim().slice(0, 6);
   return shortId ? `알 수 없는 길드원 ${shortId}` : "알 수 없는 길드원";
@@ -160,4 +169,50 @@ export function getMonthlyReport(
         activity.participantIds.length === maxActivityParticipantCount,
     })),
   };
+}
+
+export function getMonthlyShareText(report: MonthlyReport): string {
+  const monthNumber = getMonthNumberLabel(report.month);
+  const lines: string[] = [];
+
+  lines.push(`[냥춘 ${monthNumber}월 활동 정산]`);
+  lines.push("");
+  lines.push(`${monthNumber}월 활동 기록을 정리했어요.`);
+  lines.push("");
+  lines.push(`- 전체 활동: ${report.totalActivities}회`);
+  lines.push(`- 총 참여 횟수: ${report.totalParticipationCount}회`);
+  lines.push(`- 참여 길드원: ${report.participantMemberCount}명`);
+  lines.push("");
+  lines.push("활동별 기록");
+  lines.push(`- 비공정: ${report.airshipCount}회`);
+  lines.push(`- 점령전: ${report.siegeCount}회`);
+  lines.push(`- 이벤트: ${report.otherCount}회`);
+  lines.push("");
+  lines.push("참여 TOP");
+
+  if (report.topParticipants.length === 0) {
+    lines.push("참여 기록이 없습니다.");
+  } else {
+    report.topParticipants.forEach((participant, index) => {
+      lines.push(`${index + 1}. ${participant.nickname} ${participant.count}회`);
+    });
+  }
+
+  lines.push("");
+  lines.push("이번 달 이벤트");
+
+  const eventActivities = report.activities.filter(
+    (activity) => getActivityStatsType(activity.type) === "other",
+  );
+
+  if (eventActivities.length === 0) {
+    lines.push("기록된 이벤트가 없습니다.");
+  } else {
+    eventActivities.forEach((activity) => {
+      const title = activity.title?.trim() || "이벤트";
+      lines.push(`- ${getShareDisplayDate(activity.date)} ${title}`);
+    });
+  }
+
+  return lines.join("\n");
 }

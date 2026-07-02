@@ -54,5 +54,5 @@ export function getMonthlyActivityLabel(activity: ActivityLog) {
     return airshipType ? airshipSummaryLabels[airshipType] : "비공정";
   }
 
-  return "기타";
+  return "이벤트";
 }

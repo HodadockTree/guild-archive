@@ -48,6 +48,7 @@ import {
   getAvailableActivityMonths,
   getDefaultReportMonth,
   getMonthlyReport,
+  getMonthlyShareText,
 } from "@/src/lib/monthlyReport";
 
 type VisibleActivityType = "airship" | "siege" | "other";
@@ -79,7 +80,7 @@ const activityTypeLabels: Record<ActivityType, string> = {
   siege: "점령전",
   guildQuest: "길드퀘",
   event: "이벤트",
-  other: "기타",
+  other: "이벤트",
 };
 
 const visibleActivityTypes: VisibleActivityType[] = ["siege", "airship", "other"];
@@ -87,10 +88,6 @@ const visibleActivityTypes: VisibleActivityType[] = ["siege", "airship", "other"
 const airshipTypeLabels: Record<AirshipType, string> = {
   ocean: "오션헤븐",
   aurora: "아우로라",
-};
-
-const activityTitlePresets: Partial<Record<VisibleActivityType, string[]>> = {
-  siege: ["점령전 참여", "점령전 미참여"],
 };
 
 const airshipAutoTitles: Record<AirshipType, string> = {
@@ -102,7 +99,7 @@ const activityFilterLabels: Record<ActivityFilter, string> = {
   all: "전체",
   airship: activityTypeLabels.airship,
   siege: activityTypeLabels.siege,
-  other: "기타",
+  other: "이벤트",
 };
 
 const activitySortOrderLabels: Record<ActivitySortOrder, string> = {
@@ -158,7 +155,7 @@ function getMemberActivityStatsSummary(
 ) {
   const stats = getMemberActivityStats(activities, memberId);
 
-  return `총 ${stats.total}회 · 점령전 ${stats.siege} · 비공정 ${stats.airship} · 기타 ${stats.other}`;
+  return `총 ${stats.total}회 · 점령전 ${stats.siege} · 비공정 ${stats.airship} · 이벤트 ${stats.other}`;
 }
 
 function getParticipantActivityCountLabel(
@@ -176,7 +173,7 @@ function getParticipantActivityCountLabel(
     return `비공정 ${stats.airship}회`;
   }
 
-  return `기타 ${stats.other}회`;
+  return `이벤트 ${stats.other}회`;
 }
 
 let cachedMembersValue: string | null = null;
@@ -363,9 +360,6 @@ export default function Home() {
     null,
   );
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
-  const [expandedHistoryMemberId, setExpandedHistoryMemberId] = useState<
-    string | null
-  >(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEditNickname, setMemberEditNickname] = useState("");
   const [memberEditStatus, setMemberEditStatus] =
@@ -381,6 +375,7 @@ export default function Home() {
   const [memberMemoClearResult, setMemberMemoClearResult] =
     useState<MemberMemoClearResult | null>(null);
   const [selectedReportMonth, setSelectedReportMonth] = useState("");
+  const [shareFeedbackMessage, setShareFeedbackMessage] = useState("");
   const [backupFeedbackMessage, setBackupFeedbackMessage] = useState("");
   const [backupImportState, setBackupImportState] = useState<BackupImportState>({
     status: "idle",
@@ -486,7 +481,6 @@ export default function Home() {
         activity.participantIds.includes(selectedHistoryMember.id),
       )
     : [];
-  const quickActivityTitles = activityTitlePresets[activityType] ?? [];
 
   useEffect(() => {
     if (!activityFeedbackMessage) {
@@ -535,6 +529,33 @@ export default function Home() {
 
     return () => window.clearTimeout(timerId);
   }, [restoreResultMessage]);
+
+  useEffect(() => {
+    if (!shareFeedbackMessage) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setShareFeedbackMessage("");
+    }, 3500);
+
+    return () => window.clearTimeout(timerId);
+  }, [shareFeedbackMessage]);
+
+  useEffect(() => {
+    if (!historyMemberId) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setHistoryMemberId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [historyMemberId]);
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -600,10 +621,11 @@ export default function Home() {
   };
 
   const handleViewMemberHistory = (memberId: string) => {
-    setExpandedHistoryMemberId((currentMemberId) =>
-      currentMemberId === memberId ? null : memberId,
-    );
     setHistoryMemberId(memberId);
+  };
+
+  const handleCloseMemberHistory = () => {
+    setHistoryMemberId(null);
   };
 
   const handleRestoreLeftMembers = () => {
@@ -832,10 +854,6 @@ export default function Home() {
       setHistoryMemberId(null);
     }
 
-    if (expandedHistoryMemberId === memberId) {
-      setExpandedHistoryMemberId(null);
-    }
-
     setSelectedMemberIds((currentIds) =>
       currentIds.filter((selectedMemberId) => selectedMemberId !== memberId),
     );
@@ -938,23 +956,6 @@ export default function Home() {
     }
   };
 
-  const renderMemberActivityPreview = (member: GuildMember) => {
-    const stats = getMemberActivityStats(activities, member.id);
-
-    return (
-      <div className="mt-3 space-y-3 border-t border-neutral-200 pt-3">
-        <div className="grid gap-2 text-xs text-neutral-600 sm:grid-cols-2">
-          <p>총 참여 {stats.total}회</p>
-          <p>점령전 {stats.siege}회</p>
-          <p>비공정 {stats.airship}회</p>
-          <p>기타 {stats.other}회</p>
-          <p>오션헤븐 {stats.airshipOcean}회</p>
-          <p>아우로라 {stats.airshipAurora}회</p>
-        </div>
-      </div>
-    );
-  };
-
   const handleRemoveActivityImage = () => {
     setActivityImageDataUrl("");
     setActivityImageError("");
@@ -1040,7 +1041,25 @@ export default function Home() {
     notifyActivitiesChanged();
   };
 
+  const handleCopyMonthlyShareText = async () => {
+    const shareText = getMonthlyShareText(monthlyReport);
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareFeedbackMessage("공유 문구를 클립보드에 복사했습니다.");
+    } catch {
+      setShareFeedbackMessage(
+        "클립보드 복사에 실패했습니다. 문구를 직접 선택해 복사해주세요.",
+      );
+    }
+  };
+
+  const historyMemberStats = selectedHistoryMember
+    ? getMemberActivityStats(activities, selectedHistoryMember.id)
+    : null;
+
   return (
+    <>
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-5 py-10">
       <header className="space-y-2">
         <p className="text-sm font-medium text-neutral-500">
@@ -1058,20 +1077,35 @@ export default function Home() {
         <h2 className="text-lg font-semibold text-neutral-900">
           월별 정산 설정
         </h2>
-        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:max-w-xs">
-          <span>월 선택</span>
-          <select
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-            value={reportMonth}
-            onChange={(event) => setSelectedReportMonth(event.target.value)}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:max-w-xs sm:flex-1">
+            <span>월 선택</span>
+            <select
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+              value={reportMonth}
+              onChange={(event) => setSelectedReportMonth(event.target.value)}
+            >
+              {reportMonthOptions.map((month) => (
+                <option key={month} value={month}>
+                  {getMonthLabel(month)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="shrink-0 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            type="button"
+            onClick={handleCopyMonthlyShareText}
           >
-            {reportMonthOptions.map((month) => (
-              <option key={month} value={month}>
-                {getMonthLabel(month)}
-              </option>
-            ))}
-          </select>
-        </label>
+            공유 문구 복사
+          </button>
+        </div>
+
+        {shareFeedbackMessage ? (
+          <p className="rounded-md bg-white px-3 py-2 text-sm text-neutral-700">
+            {shareFeedbackMessage}
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-4 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
@@ -1126,7 +1160,7 @@ export default function Home() {
               </div>
               {monthlyReport.otherCount > 0 ? (
                 <div className="rounded-md bg-neutral-100 px-3 py-2">
-                  <dt className="text-neutral-500">기타</dt>
+                  <dt className="text-neutral-500">이벤트</dt>
                   <dd className="font-semibold text-neutral-950">
                     {monthlyReport.otherCount}회
                   </dd>
@@ -1516,9 +1550,6 @@ export default function Home() {
                             {member.memo}
                           </p>
                         ) : null}
-                        {expandedHistoryMemberId === member.id
-                          ? renderMemberActivityPreview(member)
-                          : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
                         <button
@@ -1533,9 +1564,7 @@ export default function Home() {
                           type="button"
                           onClick={() => handleViewMemberHistory(member.id)}
                         >
-                          {expandedHistoryMemberId === member.id
-                            ? "이력 접기"
-                            : "활동 이력 보기"}
+                          활동 이력 보기
                         </button>
                         <button
                           className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
@@ -1612,9 +1641,6 @@ export default function Home() {
                             {member.memo}
                           </p>
                         ) : null}
-                        {expandedHistoryMemberId === member.id
-                          ? renderMemberActivityPreview(member)
-                          : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
                         <button
@@ -1629,9 +1655,7 @@ export default function Home() {
                           type="button"
                           onClick={() => handleViewMemberHistory(member.id)}
                         >
-                          {expandedHistoryMemberId === member.id
-                            ? "이력 접기"
-                            : "활동 이력 보기"}
+                          활동 이력 보기
                         </button>
                         <button
                           className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
@@ -1870,24 +1894,6 @@ export default function Home() {
             ) : null}
           </div>
 
-          {quickActivityTitles.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-neutral-700">빠른 제목</p>
-              <div className="flex flex-wrap gap-2">
-                {quickActivityTitles.map((title) => (
-                  <button
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                    key={title}
-                    type="button"
-                    onClick={() => setActivityTitle(title)}
-                  >
-                    {title}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <label className="block space-y-1 text-sm font-medium text-neutral-700">
             <span>제목</span>
             <input
@@ -2090,118 +2096,6 @@ export default function Home() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-neutral-900">
-              길드원별 활동 이력
-            </h2>
-            <p className="text-sm text-neutral-500">
-              탈퇴한 길드원도 선택해서 과거 참여 기록을 확인합니다.
-            </p>
-          </div>
-          {selectedHistoryMember ? (
-            <button
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-              type="button"
-              onClick={() => setHistoryMemberId(null)}
-            >
-              선택 해제
-            </button>
-          ) : null}
-        </div>
-
-        {!selectedHistoryMember ? (
-          <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-            &#44600;&#46300;&#50896; &#52852;&#46300;&#51032; &#54876;&#46041; &#51060;&#47141; &#48372;&#44592; &#48260;&#53948;&#51012; &#45580;&#47084; &#52280;&#50668; &#44592;&#47197;&#51012; &#54869;&#51064;&#54616;&#49464;&#50836;.
-          </p>
-        ) : null}
-
-        {selectedHistoryMember ? (
-          <div className="space-y-3 rounded-md border border-neutral-200 p-4">
-            <div className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold text-neutral-950">
-                    {selectedHistoryMember.nickname}
-                  </h3>
-                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                    {memberStatusLabels[selectedHistoryMember.status]}
-                  </span>
-                </div>
-                <button
-                  className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                  type="button"
-                  onClick={() => handleEditMember(selectedHistoryMember)}
-                >
-                  정보 수정
-                </button>
-              </div>
-              <p className="text-sm text-neutral-500">
-                가입일 {selectedHistoryMember.joinedAt}
-                {selectedHistoryMember.leftAt
-                  ? ` · 탈퇴일 ${selectedHistoryMember.leftAt}`
-                  : ""}
-              </p>
-              {selectedHistoryMember.memo ? (
-                <p className="text-sm text-neutral-600">
-                  {selectedHistoryMember.memo}
-                </p>
-              ) : null}
-            </div>
-
-            {selectedMemberActivities.length === 0 ? (
-              <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-                이 길드원이 참여한 활동 기록이 없습니다.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {selectedMemberActivities.map((activity) => (
-                  <li
-                    className="rounded-md border border-neutral-200 px-4 py-3"
-                    key={activity.id}
-                  >
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-xs text-neutral-500">
-                        {activity.date}
-                      </span>
-                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                        {getActivityTypeLabel(activity)}
-                      </span>
-                      {getVisibleActivityType(activity.type) === "airship" &&
-                      getAirshipTypeLabel(activity.airshipType) ? (
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                          {getAirshipTypeLabel(activity.airshipType)}
-                        </span>
-                      ) : null}
-                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                        참여 {activity.participantIds.length}명
-                      </span>
-                    </div>
-                    <h4 className="mt-1 text-sm font-semibold text-neutral-950">
-                      {activity.title || getActivityTypeLabel(activity)}
-                    </h4>
-                    {activity.memo ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
-                        {activity.memo}
-                      </p>
-                    ) : null}
-                    {activity.imageDataUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        alt="첨부 스크린샷"
-                        className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
-                        src={activity.imageDataUrl}
-                      />
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">
@@ -2341,5 +2235,149 @@ export default function Home() {
         )}
       </section>
     </main>
+
+    {selectedHistoryMember && historyMemberStats ? (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={handleCloseMemberHistory}
+        role="presentation"
+      >
+        <div
+          className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-md bg-white shadow-lg"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selectedHistoryMember.nickname} 활동 이력`}
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-neutral-200 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-semibold text-neutral-950">
+                {selectedHistoryMember.nickname} 활동 이력
+              </h3>
+              <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                {memberStatusLabels[selectedHistoryMember.status]}
+              </span>
+            </div>
+            <button
+              className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              type="button"
+              onClick={handleCloseMemberHistory}
+            >
+              닫기
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+            <div className="space-y-1">
+              <p className="text-sm text-neutral-500">
+                가입일 {selectedHistoryMember.joinedAt}
+                {selectedHistoryMember.leftAt
+                  ? ` · 탈퇴일 ${selectedHistoryMember.leftAt}`
+                  : ""}
+              </p>
+              {selectedHistoryMember.memo ? (
+                <p className="text-sm text-neutral-600">
+                  {selectedHistoryMember.memo}
+                </p>
+              ) : null}
+              <button
+                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                type="button"
+                onClick={() => handleEditMember(selectedHistoryMember)}
+              >
+                정보 수정
+              </button>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-900">
+                활동 요약
+              </h4>
+              <dl className="mt-2 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
+                <div className="rounded-md bg-neutral-100 px-3 py-2">
+                  <dt className="text-xs text-neutral-500">전체 참여</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {historyMemberStats.total}회
+                  </dd>
+                </div>
+                <div className="rounded-md bg-neutral-100 px-3 py-2">
+                  <dt className="text-xs text-neutral-500">비공정</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {historyMemberStats.airship}회
+                  </dd>
+                </div>
+                <div className="rounded-md bg-neutral-100 px-3 py-2">
+                  <dt className="text-xs text-neutral-500">점령전</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {historyMemberStats.siege}회
+                  </dd>
+                </div>
+                <div className="rounded-md bg-neutral-100 px-3 py-2">
+                  <dt className="text-xs text-neutral-500">이벤트</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {historyMemberStats.other}회
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-900">
+                활동 이력
+              </h4>
+              {selectedMemberActivities.length === 0 ? (
+                <p className="mt-2 rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+                  이 길드원이 참여한 활동 기록이 없습니다.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {selectedMemberActivities.map((activity) => (
+                    <li
+                      className="rounded-md border border-neutral-200 px-4 py-3"
+                      key={activity.id}
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-xs text-neutral-500">
+                          {activity.date}
+                        </span>
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          {getActivityTypeLabel(activity)}
+                        </span>
+                        {getVisibleActivityType(activity.type) === "airship" &&
+                        getAirshipTypeLabel(activity.airshipType) ? (
+                          <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                            {getAirshipTypeLabel(activity.airshipType)}
+                          </span>
+                        ) : null}
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          참여 {activity.participantIds.length}명
+                        </span>
+                      </div>
+                      <h5 className="mt-1 text-sm font-semibold text-neutral-950">
+                        {activity.title || getActivityTypeLabel(activity)}
+                      </h5>
+                      {activity.memo ? (
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                          {activity.memo}
+                        </p>
+                      ) : null}
+                      {activity.imageDataUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          alt="첨부 스크린샷"
+                          className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
+                          src={activity.imageDataUrl}
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
