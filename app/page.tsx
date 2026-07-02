@@ -32,6 +32,11 @@ import {
 import { writeStorageList } from "@/src/lib/storage";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { matchesMemberKeyword } from "@/src/lib/koreanSearch";
+import {
+  getAvailableActivityMonths,
+  getDefaultReportMonth,
+  getMonthlyReport,
+} from "@/src/lib/monthlyReport";
 
 type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
@@ -67,6 +72,8 @@ const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
 const MAX_IMAGE_WIDTH = 1000;
 const IMAGE_JPEG_QUALITY = 0.72;
+const APP_VERSION = "1.3";
+const BACKUP_SCHEMA_VERSION = 1;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -176,6 +183,11 @@ let cachedActivitiesSnapshot: ActivityLog[] = EMPTY_ACTIVITIES;
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function getMonthLabel(month: string) {
+  const [year, monthNumber] = month.split("-");
+  return year && monthNumber ? `${year}년 ${Number(monthNumber)}월` : month;
 }
 
 function subscribeMembers(onStoreChange: () => void) {
@@ -381,6 +393,8 @@ export default function Home() {
     useState<MemberMemoClearScope>("all");
   const [memberMemoClearResult, setMemberMemoClearResult] =
     useState<MemberMemoClearResult | null>(null);
+  const [selectedReportMonth, setSelectedReportMonth] = useState("");
+  const [backupFeedbackMessage, setBackupFeedbackMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
@@ -448,6 +462,13 @@ export default function Home() {
   const memberNamesById = new Map(
     members.map((member) => [member.id, member.nickname]),
   );
+  const availableReportMonths = getAvailableActivityMonths(activities);
+  const defaultReportMonth = getDefaultReportMonth(activities, today());
+  const reportMonth = selectedReportMonth || defaultReportMonth;
+  const reportMonthOptions = availableReportMonths.includes(reportMonth)
+    ? availableReportMonths
+    : [reportMonth, ...availableReportMonths].filter(Boolean);
+  const monthlyReport = getMonthlyReport(activities, members, reportMonth);
   const sortedActivities = [...activities].sort((a, b) => {
     const dateOrder =
       activitySortOrder === "latest"
@@ -503,6 +524,18 @@ export default function Home() {
 
     return () => window.clearTimeout(timerId);
   }, [memberFeedbackMessage]);
+
+  useEffect(() => {
+    if (!backupFeedbackMessage) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setBackupFeedbackMessage("");
+    }, 3500);
+
+    return () => window.clearTimeout(timerId);
+  }, [backupFeedbackMessage]);
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -879,6 +912,29 @@ export default function Home() {
     notifyMembersChanged();
   };
 
+  const handleExportBackup = () => {
+    const backup = {
+      app: "nyangchun-guild-archive",
+      version: APP_VERSION,
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      members,
+      activityLogs: activities,
+    };
+    const backupJson = JSON.stringify(backup, null, 2);
+    const blob = new Blob([backupJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `nyangchun-archive-backup-${today()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setBackupFeedbackMessage("JSON 백업 파일을 내보냈습니다.");
+  };
+
   const handleEditMember = (member: GuildMember) => {
     setEditingMemberId(member.id);
     setMemberEditNickname(member.nickname);
@@ -1145,6 +1201,168 @@ export default function Home() {
         </p>
       </header>
 
+      <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4">
+        <h2 className="text-lg font-semibold text-neutral-900">
+          월별 정산 설정
+        </h2>
+        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:max-w-xs">
+          <span>월 선택</span>
+          <select
+            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+            value={reportMonth}
+            onChange={(event) => setSelectedReportMonth(event.target.value)}
+          >
+            {reportMonthOptions.map((month) => (
+              <option key={month} value={month}>
+                {getMonthLabel(month)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="space-y-4 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-neutral-500">
+            이 영역을 캡처해서 길드 톡방에 공유할 수 있어요.
+          </p>
+          <h2 className="text-2xl font-bold text-neutral-950">
+            냥춘 {getMonthLabel(reportMonth)} 활동 정산
+          </h2>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-md bg-neutral-950 px-4 py-3 text-white">
+            <p className="text-xs text-neutral-300">전체 활동</p>
+            <p className="text-2xl font-bold">
+              {monthlyReport.totalActivities}회
+            </p>
+          </div>
+          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
+            <p className="text-xs text-neutral-500">총 참여 횟수</p>
+            <p className="text-2xl font-bold">
+              {monthlyReport.totalParticipationCount}회
+            </p>
+          </div>
+          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
+            <p className="text-xs text-neutral-500">참여 길드원</p>
+            <p className="text-2xl font-bold">
+              {monthlyReport.participantMemberCount}명
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              활동 종류별 통계
+            </h3>
+            <dl
+              className={`mt-3 grid gap-2 text-center text-sm ${
+                monthlyReport.otherCount > 0 ? "grid-cols-3" : "grid-cols-2"
+              }`}
+            >
+              <div className="rounded-md bg-neutral-100 px-3 py-2">
+                <dt className="text-neutral-500">점령전</dt>
+                <dd className="font-semibold text-neutral-950">
+                  {monthlyReport.siegeCount}회
+                </dd>
+              </div>
+              <div className="rounded-md bg-neutral-100 px-3 py-2">
+                <dt className="text-neutral-500">비공정</dt>
+                <dd className="font-semibold text-neutral-950">
+                  {monthlyReport.airshipCount}회
+                </dd>
+              </div>
+              {monthlyReport.otherCount > 0 ? (
+                <div className="rounded-md bg-neutral-100 px-3 py-2">
+                  <dt className="text-neutral-500">기타</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {monthlyReport.otherCount}회
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+
+          <div className="rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              비공정 세부 통계
+            </h3>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm">
+              <div className="rounded-md bg-neutral-100 px-3 py-2">
+                <dt className="text-neutral-500">오션헤븐</dt>
+                <dd className="font-semibold text-neutral-950">
+                  {monthlyReport.oceanAirshipCount}회
+                </dd>
+              </div>
+              <div className="rounded-md bg-neutral-100 px-3 py-2">
+                <dt className="text-neutral-500">아우로라</dt>
+                <dd className="font-semibold text-neutral-950">
+                  {monthlyReport.auroraAirshipCount}회
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              월간 참여 TOP 5
+            </h3>
+            {monthlyReport.topParticipants.length === 0 ? (
+              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                이 달의 참여 기록이 없습니다.
+              </p>
+            ) : (
+              <ol className="mt-3 space-y-2">
+                {monthlyReport.topParticipants.map((participant, index) => (
+                  <li
+                    className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
+                    key={participant.memberId}
+                  >
+                    <span className="min-w-0 truncate font-medium text-neutral-900">
+                      {index + 1}. {participant.nickname}
+                    </span>
+                    <span className="shrink-0 font-semibold text-neutral-950">
+                      {participant.count}회
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
+          <div className="rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              이번 달 활동 기록
+            </h3>
+            {monthlyReport.activitySummaries.length === 0 ? (
+              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                선택한 월에 저장된 활동 기록이 없습니다.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-neutral-200">
+                {monthlyReport.activitySummaries.map((activity) => (
+                  <li
+                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                    key={activity.id}
+                  >
+                    <span className="min-w-0 truncate text-neutral-900">
+                      {activity.displayDate} {activity.label}
+                    </span>
+                    <span className="shrink-0 text-neutral-500">
+                      {activity.participantCount}명
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-neutral-900">길드원 등록</h2>
         <form className="flex gap-2" onSubmit={handleAddMember}>
@@ -1186,6 +1404,29 @@ export default function Home() {
         {isDataToolsOpen ? (
           <div className="space-y-5 rounded-md border border-neutral-200 p-4">
             <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">
+                  JSON 백업 내보내기
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  전체 길드원과 활동 기록을 JSON 파일로 저장합니다.
+                </p>
+              </div>
+              <button
+                className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                type="button"
+                onClick={handleExportBackup}
+              >
+                전체 데이터 JSON 백업
+              </button>
+              {backupFeedbackMessage ? (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  {backupFeedbackMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 border-t border-neutral-200 pt-4">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
                   스프레드시트에서 가져오기
