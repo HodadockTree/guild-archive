@@ -1223,9 +1223,6 @@ export default function Home() {
 
       <section className="space-y-4 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-neutral-500">
-            이 영역을 캡처해서 길드 톡방에 공유할 수 있어요.
-          </p>
           <h2 className="text-2xl font-bold text-neutral-950">
             냥춘 {getMonthLabel(reportMonth)} 활동 정산
           </h2>
