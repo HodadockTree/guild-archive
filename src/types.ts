@@ -33,3 +33,12 @@ export interface ActivityLog {
   memo?: string;
   imageDataUrl?: string;
 }
+
+export interface GuildArchiveBackup {
+  appName: string;
+  appVersion: string;
+  schemaVersion: number;
+  exportedAt: string;
+  members: GuildMember[];
+  activityLogs: ActivityLog[];
+}

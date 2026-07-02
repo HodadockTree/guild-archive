@@ -14,6 +14,7 @@ import type {
   ActivityType,
   AirshipType,
   ConquestType,
+  GuildArchiveBackup,
   GuildMember,
   GuildMemberStatus,
 } from "@/src/types";
@@ -31,6 +32,11 @@ import {
   updateMember,
 } from "@/src/lib/members";
 import { writeStorageList } from "@/src/lib/storage";
+import {
+  createBackup,
+  restoreBackup,
+  validateBackupData,
+} from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import {
   conquestTypes,
@@ -48,27 +54,16 @@ type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
 type ActivitySortOrder = "latest" | "oldest";
 type MemberMemoClearScope = "active" | "left" | "all";
-type MemberImportFailure = {
-  rowNumber: number;
-  reason: string;
-};
-type MemberImportResult = {
-  added: number;
-  updated: number;
-  left: number;
-  failed: number;
-  failures: MemberImportFailure[];
-};
-type MemberImportUndoResult = {
-  removed: number;
-  kept: number;
-};
 type RestoreLeftMembersResult = {
   restored: number;
 };
 type MemberMemoClearResult = {
   cleared: number;
 };
+type BackupImportState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "valid"; backup: GuildArchiveBackup; warnings: string[] };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -78,8 +73,6 @@ const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
 const MAX_IMAGE_WIDTH = 1000;
 const IMAGE_JPEG_QUALITY = 0.72;
-const APP_VERSION = "1.3.1";
-const BACKUP_SCHEMA_VERSION = 1;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -284,32 +277,6 @@ function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
   return activities.some((activity) => activity.participantIds.includes(memberId));
 }
 
-function normalizeHeader(header: string) {
-  return header.replace(/\s/g, "").toLowerCase();
-}
-
-function normalizeDate(value: string) {
-  const match = value.trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-
-  if (!match) {
-    return "";
-  }
-
-  const [, year, month, day] = match;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
-function looksLikeDate(value: string) {
-  return Boolean(normalizeDate(value));
-}
-
-function parseSpreadsheetRows(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((row) => row.split("\t").map((cell) => cell.trim()))
-    .filter((row) => row.some(Boolean));
-}
-
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -331,6 +298,21 @@ function readFileAsDataUrl(file: File) {
     };
     reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
     reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("파일을 읽지 못했습니다."));
+      }
+    };
+    reader.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+    reader.readAsText(file);
   });
 }
 
@@ -392,14 +374,6 @@ export default function Home() {
   const [memberEditLeftAt, setMemberEditLeftAt] = useState("");
   const [memberEditMemo, setMemberEditMemo] = useState("");
   const [memberFeedbackMessage, setMemberFeedbackMessage] = useState("");
-  const [memberImportText, setMemberImportText] = useState("");
-  const [memberImportResult, setMemberImportResult] =
-    useState<MemberImportResult | null>(null);
-  const [lastImportedMemberIds, setLastImportedMemberIds] = useState<string[]>(
-    [],
-  );
-  const [memberImportUndoResult, setMemberImportUndoResult] =
-    useState<MemberImportUndoResult | null>(null);
   const [restoreLeftMembersResult, setRestoreLeftMembersResult] =
     useState<RestoreLeftMembersResult | null>(null);
   const [memberMemoClearScope, setMemberMemoClearScope] =
@@ -408,12 +382,17 @@ export default function Home() {
     useState<MemberMemoClearResult | null>(null);
   const [selectedReportMonth, setSelectedReportMonth] = useState("");
   const [backupFeedbackMessage, setBackupFeedbackMessage] = useState("");
+  const [backupImportState, setBackupImportState] = useState<BackupImportState>({
+    status: "idle",
+  });
+  const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
     getMembersSnapshot,
@@ -508,11 +487,6 @@ export default function Home() {
       )
     : [];
   const quickActivityTitles = activityTitlePresets[activityType] ?? [];
-  const visibleMemberImportFailures =
-    memberImportResult?.failures.slice(0, 5) ?? [];
-  const hiddenMemberImportFailureCount = memberImportResult
-    ? Math.max(0, memberImportResult.failures.length - visibleMemberImportFailures.length)
-    : 0;
 
   useEffect(() => {
     if (!activityFeedbackMessage) {
@@ -549,6 +523,18 @@ export default function Home() {
 
     return () => window.clearTimeout(timerId);
   }, [backupFeedbackMessage]);
+
+  useEffect(() => {
+    if (!restoreResultMessage) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setRestoreResultMessage("");
+    }, 3500);
+
+    return () => window.clearTimeout(timerId);
+  }, [restoreResultMessage]);
 
   const clearImageInput = () => {
     if (imageInputRef.current) {
@@ -601,247 +587,6 @@ export default function Home() {
     addMember({ nickname: trimmedNickname });
     setNickname("");
     setMemberFeedbackMessage("");
-    notifyMembersChanged();
-  };
-
-  const handleImportMembers = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const rows = parseSpreadsheetRows(memberImportText);
-    const [headers, ...dataRows] = rows;
-
-    if (!headers || dataRows.length === 0) {
-      setMemberImportResult({
-        added: 0,
-        updated: 0,
-        left: 0,
-        failed: rows.length,
-        failures: [],
-      });
-      setLastImportedMemberIds([]);
-      setMemberImportUndoResult(null);
-      return;
-    }
-
-    const normalizedHeaders = headers.map(normalizeHeader);
-    const nicknameIndex = normalizedHeaders.findIndex(
-      (header) =>
-        header.includes("닉네임") ||
-        header.includes("닉넴") ||
-        header === "닉" ||
-        header.includes("이름"),
-    );
-    const joinedAtHeaderIndex = normalizedHeaders.findIndex((header) =>
-      header.includes("가입일") || (header.includes("가입") && header.includes("일")),
-    );
-    const leftAtHeaderIndex = normalizedHeaders.findIndex((header) =>
-      header.includes("탈퇴일") || (header.includes("탈퇴") && header.includes("일")),
-    );
-
-    if (nicknameIndex === -1) {
-      const failures = dataRows.map((_, index) => ({
-        rowNumber: index + 2,
-        reason: "닉네임 컬럼을 찾을 수 없음",
-      }));
-
-      setMemberImportResult({
-        added: 0,
-        updated: 0,
-        left: 0,
-        failed: failures.length,
-        failures,
-      });
-      setLastImportedMemberIds([]);
-      setMemberImportUndoResult(null);
-      return;
-    }
-
-    let added = 0;
-    let updated = 0;
-    let left = 0;
-    let failed = 0;
-    const importedMemberIds: string[] = [];
-    const failures: MemberImportFailure[] = [];
-    const membersByNickname = new Map(
-      members.map((member) => [member.nickname.trim().toLowerCase(), member]),
-    );
-
-    dataRows.forEach((row, rowIndex) => {
-      const rowNumber = rowIndex + 2;
-      const nicknameValue = row[nicknameIndex]?.trim();
-
-      if (!nicknameValue) {
-        failed += 1;
-        failures.push({
-          rowNumber,
-          reason: "닉네임이 비어 있음",
-        });
-        return;
-      }
-
-      const nicknameKey = nicknameValue.toLowerCase();
-
-      let joinedAtIndex = joinedAtHeaderIndex;
-      const joinedAtValue =
-        joinedAtIndex === -1 ? "" : (row[joinedAtIndex] ?? "").trim();
-      let joinedAt = "";
-
-      if (joinedAtIndex !== -1) {
-        joinedAt = normalizeDate(joinedAtValue);
-        if (joinedAtValue && !joinedAt) {
-          failed += 1;
-          failures.push({
-            rowNumber,
-            reason: "가입일 날짜 형식이 올바르지 않음",
-          });
-          return;
-        }
-      }
-
-      if (!joinedAt) {
-        const dateIndexAfterNickname = row.findIndex(
-          (cell, index) => index > nicknameIndex && looksLikeDate(cell),
-        );
-        joinedAtIndex = dateIndexAfterNickname === -1 ? row.findIndex(
-          (cell, index) => index !== nicknameIndex && looksLikeDate(cell),
-        ) : dateIndexAfterNickname;
-        joinedAt = joinedAtIndex === -1 ? "" : normalizeDate(row[joinedAtIndex]);
-      }
-
-      const leftAtValue =
-        leftAtHeaderIndex === -1 ? "" : (row[leftAtHeaderIndex] ?? "").trim();
-      const leftAt = leftAtHeaderIndex === -1 ? "" : normalizeDate(leftAtValue);
-
-      if (leftAtValue && !leftAt) {
-        failed += 1;
-        failures.push({
-          rowNumber,
-          reason: "탈퇴일 날짜 형식이 올바르지 않음",
-        });
-        return;
-      }
-
-      const existingMember = membersByNickname.get(nicknameKey);
-
-      if (existingMember) {
-        const memberUpdate: Partial<
-          Pick<GuildMember, "joinedAt" | "leftAt" | "status">
-        > = {};
-
-        if (joinedAt) {
-          memberUpdate.joinedAt = joinedAt;
-        }
-
-        if (leftAt) {
-          memberUpdate.status = "left";
-          memberUpdate.leftAt = leftAt;
-          left += 1;
-        }
-
-        if (Object.keys(memberUpdate).length > 0) {
-          updateMember(existingMember.id, memberUpdate);
-          updated += 1;
-        }
-
-        return;
-      }
-
-      const memo = row
-        .map((cell, index) => {
-          if (
-            !cell ||
-            index === nicknameIndex ||
-            index === joinedAtIndex ||
-            index === leftAtHeaderIndex
-          ) {
-            return "";
-          }
-
-          const header = headers[index]?.trim() || `${index + 1}열`;
-          return `${header}: ${cell}`;
-        })
-        .filter(Boolean)
-        .join("\n");
-
-      const addedMember = addMember({
-        nickname: nicknameValue,
-        joinedAt: joinedAt || undefined,
-        memo: memo || undefined,
-      });
-
-      if (leftAt) {
-        updateMember(addedMember.id, {
-          status: "left",
-          leftAt,
-        });
-        left += 1;
-      }
-
-      importedMemberIds.push(addedMember.id);
-      membersByNickname.set(nicknameKey, {
-        ...addedMember,
-        status: leftAt ? "left" : addedMember.status,
-        leftAt: leftAt || addedMember.leftAt,
-      });
-      added += 1;
-    });
-
-    setMemberImportResult({ added, updated, left, failed, failures });
-    setLastImportedMemberIds(importedMemberIds);
-    setMemberImportUndoResult(null);
-    setMemberImportText("");
-    notifyMembersChanged();
-  };
-
-  const handleUndoLastImport = () => {
-    if (lastImportedMemberIds.length === 0) {
-      return;
-    }
-
-    const shouldUndo = window.confirm(
-      `방금 가져온 ${lastImportedMemberIds.length}명을 되돌릴까요? 활동 기록에 이미 사용된 길드원은 유지됩니다.`,
-    );
-
-    if (!shouldUndo) {
-      return;
-    }
-
-    const undoTargetIds = new Set(lastImportedMemberIds);
-    const usedMemberIds = new Set(
-      activities.flatMap((activity) => activity.participantIds),
-    );
-    const currentMembers = getMembers();
-    const removableIds = new Set(
-      currentMembers
-        .filter(
-          (member) =>
-            undoTargetIds.has(member.id) && !usedMemberIds.has(member.id),
-        )
-        .map((member) => member.id),
-    );
-    const kept = currentMembers.filter(
-      (member) => undoTargetIds.has(member.id) && usedMemberIds.has(member.id),
-    ).length;
-    const nextMembers = currentMembers.filter(
-      (member) => !removableIds.has(member.id),
-    );
-
-    writeStorageList(MEMBERS_STORAGE_KEY, nextMembers);
-
-    if (historyMemberId && removableIds.has(historyMemberId)) {
-      setHistoryMemberId(null);
-    }
-
-    if (expandedHistoryMemberId && removableIds.has(expandedHistoryMemberId)) {
-      setExpandedHistoryMemberId(null);
-    }
-
-    if (editingMemberId && removableIds.has(editingMemberId)) {
-      resetMemberForm();
-    }
-
-    setLastImportedMemberIds([]);
-    setMemberImportUndoResult({ removed: removableIds.size, kept });
     notifyMembersChanged();
   };
 
@@ -927,14 +672,7 @@ export default function Home() {
   };
 
   const handleExportBackup = () => {
-    const backup = {
-      app: "nyangchun-guild-archive",
-      version: APP_VERSION,
-      schemaVersion: BACKUP_SCHEMA_VERSION,
-      exportedAt: new Date().toISOString(),
-      members,
-      activityLogs: activities,
-    };
+    const backup = createBackup(members, activities);
     const backupJson = JSON.stringify(backup, null, 2);
     const blob = new Blob([backupJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -947,6 +685,94 @@ export default function Home() {
     link.remove();
     URL.revokeObjectURL(url);
     setBackupFeedbackMessage("JSON 백업 파일을 내보냈습니다.");
+  };
+
+  const handleBackupFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setRestoreResultMessage("");
+
+    try {
+      const fileText = await readFileAsText(file);
+      let parsedData: unknown;
+
+      try {
+        parsedData = JSON.parse(fileText);
+      } catch {
+        setBackupImportState({
+          status: "error",
+          message: "JSON 형식이 올바르지 않아 파일을 읽을 수 없습니다.",
+        });
+        return;
+      }
+
+      const validationResult = validateBackupData(parsedData);
+
+      if (!validationResult.valid) {
+        setBackupImportState({
+          status: "error",
+          message: validationResult.error,
+        });
+        return;
+      }
+
+      setBackupImportState({
+        status: "valid",
+        backup: validationResult.backup,
+        warnings: validationResult.warnings,
+      });
+    } catch {
+      setBackupImportState({
+        status: "error",
+        message: "백업 파일을 읽는 중 문제가 발생했습니다.",
+      });
+    } finally {
+      if (backupFileInputRef.current) {
+        backupFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleCancelBackupImport = () => {
+    setBackupImportState({ status: "idle" });
+  };
+
+  const handleRestoreBackup = () => {
+    if (backupImportState.status !== "valid") {
+      return;
+    }
+
+    const { backup } = backupImportState;
+
+    const shouldContinue = window.confirm(
+      "현재 데이터를 백업 파일 내용으로 교체합니다.\n복원 전 현재 데이터를 백업해두는 것을 권장합니다.\n계속하시겠습니까?",
+    );
+
+    if (!shouldContinue) {
+      return;
+    }
+
+    const shouldRestore = window.confirm(
+      "정말 복원하시겠습니까?\n현재 길드원과 활동 기록이 백업 파일 내용으로 덮어써집니다.",
+    );
+
+    if (!shouldRestore) {
+      return;
+    }
+
+    restoreBackup(backup);
+    notifyMembersChanged();
+    notifyActivitiesChanged();
+    setBackupImportState({ status: "idle" });
+    setRestoreResultMessage(
+      `복원이 완료되었습니다. 길드원 ${backup.members.length}명, 활동 기록 ${backup.activityLogs.length}개를 복원했습니다.`,
+    );
   };
 
   const handleEditMember = (member: GuildMember) => {
@@ -1397,30 +1223,6 @@ export default function Home() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-neutral-900">길드원 등록</h2>
-        <form className="flex gap-2" onSubmit={handleAddMember}>
-          <input
-            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-            type="text"
-            placeholder="닉네임 입력"
-            value={nickname}
-            onChange={(event) => setNickname(event.target.value)}
-          />
-          <button
-            className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-            type="submit"
-          >
-            등록
-          </button>
-        </form>
-        {memberFeedbackMessage ? (
-          <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-            {memberFeedbackMessage}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
             데이터 관리 도구
@@ -1436,94 +1238,37 @@ export default function Home() {
 
         {isDataToolsOpen ? (
           <div className="space-y-5 rounded-md border border-neutral-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              길드원 관리
+            </p>
+
             <div className="space-y-3">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
-                  JSON 백업 내보내기
+                  새 길드원 등록
                 </h3>
                 <p className="text-sm text-neutral-500">
-                  전체 길드원과 활동 기록을 JSON 파일로 저장합니다.
+                  닉네임을 입력해 새 길드원을 등록합니다.
                 </p>
               </div>
-              <button
-                className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-                type="button"
-                onClick={handleExportBackup}
-              >
-                전체 데이터 JSON 백업
-              </button>
-              {backupFeedbackMessage ? (
-                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-                  {backupFeedbackMessage}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
-              <div>
-                <h3 className="text-base font-semibold text-neutral-900">
-                  스프레드시트에서 가져오기
-                </h3>
-                <p className="text-sm text-neutral-500">
-                  첫 줄은 헤더로 보고, 탭으로 구분된 표 데이터를 읽어 여러 길드원을
-                  한 번에 등록합니다.
-                </p>
-              </div>
-              <form className="space-y-3" onSubmit={handleImportMembers}>
-                <textarea
-                  className="min-h-36 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                  placeholder={
-                    "닉네임\t나이\t성별\t가입일\n냥춘\t20\t여\t2026. 1. 22"
-                  }
-                  value={memberImportText}
-                  onChange={(event) => setMemberImportText(event.target.value)}
+              <form className="flex gap-2" onSubmit={handleAddMember}>
+                <input
+                  className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  type="text"
+                  placeholder="닉네임 입력"
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
                 />
                 <button
                   className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
                   type="submit"
                 >
-                  길드원 일괄 가져오기
+                  등록
                 </button>
               </form>
-              {lastImportedMemberIds.length > 0 ? (
-                <button
-                  className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
-                  type="button"
-                  onClick={handleUndoLastImport}
-                >
-                  방금 가져온 {lastImportedMemberIds.length}명 되돌리기
-                </button>
-              ) : null}
-              {memberImportResult ? (
-                <div className="space-y-2 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-                  <p className="font-medium text-neutral-900">가져오기 완료:</p>
-                  <ul className="space-y-1">
-                    <li>추가 {memberImportResult.added}명</li>
-                    <li>업데이트 {memberImportResult.updated}명</li>
-                    <li>탈퇴 처리 {memberImportResult.left}명</li>
-                    <li>실패 {memberImportResult.failed}건</li>
-                  </ul>
-                  {visibleMemberImportFailures.length > 0 ? (
-                    <div className="space-y-1 border-t border-neutral-200 pt-2">
-                      <p className="font-medium text-neutral-900">실패 사유</p>
-                      <ul className="space-y-1">
-                        {visibleMemberImportFailures.map((failure) => (
-                          <li key={`${failure.rowNumber}-${failure.reason}`}>
-                            {failure.rowNumber}행: {failure.reason}
-                          </li>
-                        ))}
-                      </ul>
-                      {hiddenMemberImportFailureCount > 0 ? (
-                        <p>외 {hiddenMemberImportFailureCount}건</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {memberImportUndoResult ? (
+              {memberFeedbackMessage ? (
                 <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-                  되돌리기 완료: 삭제 {memberImportUndoResult.removed}명 · 활동
-                  기록에 사용 중이라 유지 {memberImportUndoResult.kept}명
+                  {memberFeedbackMessage}
                 </p>
               ) : null}
             </div>
@@ -1589,6 +1334,124 @@ export default function Home() {
                   {restoreLeftMembersResult.restored}명을 활동중으로 복구했습니다.
                 </p>
               ) : null}
+              <p className="text-xs text-neutral-500">
+                활동 기록이 없는 길드원은 아래 길드원 관리 목록의 삭제 버튼으로
+                제거할 수 있습니다. 활동 기록이 있는 길드원은 삭제할 수 없습니다.
+              </p>
+            </div>
+
+            <div className="space-y-3 border-t border-neutral-200 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                백업 / 복원
+              </p>
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">
+                  JSON 백업 내보내기
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  전체 길드원과 활동 기록을 JSON 파일로 저장합니다.
+                </p>
+              </div>
+              <button
+                className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                type="button"
+                onClick={handleExportBackup}
+              >
+                전체 데이터 JSON 백업
+              </button>
+              {backupFeedbackMessage ? (
+                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                  {backupFeedbackMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 border-t border-neutral-200 pt-4">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">
+                  JSON 백업 가져오기
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  백업 파일(.json)을 선택하면 먼저 내용을 확인한 뒤 복원할 수
+                  있습니다.
+                </p>
+              </div>
+              <input
+                ref={backupFileInputRef}
+                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                type="file"
+                accept="application/json,.json"
+                onChange={handleBackupFileChange}
+              />
+              {backupImportState.status === "error" ? (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {backupImportState.message}
+                </p>
+              ) : null}
+              {backupImportState.status === "valid" ? (
+                <div className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4">
+                  <div className="space-y-1 text-sm text-neutral-700">
+                    <p className="font-semibold text-neutral-900">
+                      백업 파일 확인 결과
+                    </p>
+                    <p>앱: 냥춘 길드 활동 아카이브</p>
+                    <p>버전: {backupImportState.backup.appVersion || "알 수 없음"}</p>
+                    <p>
+                      백업 시각: {backupImportState.backup.exportedAt || "알 수 없음"}
+                    </p>
+                    <p>길드원: {backupImportState.backup.members.length}명</p>
+                    <p>
+                      활동 기록: {backupImportState.backup.activityLogs.length}개
+                    </p>
+                  </div>
+                  {backupImportState.warnings.length > 0 ? (
+                    <div className="space-y-1 border-t border-neutral-200 pt-2 text-sm text-amber-700">
+                      <p className="font-medium">확인이 필요한 항목</p>
+                      <ul className="list-disc space-y-1 pl-4">
+                        {backupImportState.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <p className="text-sm text-neutral-600">
+                    이 백업을 복원하면 현재 데이터가 백업 파일 내용으로
+                    교체됩니다. 복원 전 현재 데이터를 다시 백업해두는 것을
+                    권장합니다.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                      type="button"
+                      onClick={handleRestoreBackup}
+                    >
+                      이 백업으로 복원
+                    </button>
+                    <button
+                      className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={handleCancelBackupImport}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {restoreResultMessage ? (
+                <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                  {restoreResultMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2 border-t border-neutral-200 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                주의사항
+              </p>
+              <ul className="list-disc space-y-1 rounded-md bg-neutral-50 px-4 py-3 pl-8 text-sm text-neutral-600">
+                <li>LocalStorage 기반이라 정기 백업을 권장합니다.</li>
+                <li>복원 시 현재 데이터가 백업 파일 내용으로 덮어써집니다.</li>
+              </ul>
             </div>
           </div>
         ) : null}
