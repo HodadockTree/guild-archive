@@ -2005,6 +2005,9 @@ export default function Home() {
                           {getAirshipTypeLabel(activity.airshipType)}
                         </span>
                       ) : null}
+                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        참여 {activity.participantIds.length}명
+                      </span>
                     </div>
                     <h4 className="mt-1 text-sm font-semibold text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
@@ -2114,6 +2117,9 @@ export default function Home() {
                         {getAirshipTypeLabel(activity.airshipType)}
                       </span>
                     ) : null}
+                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                      참여 {activity.participantIds.length}명
+                    </span>
                     {activity.imageDataUrl ? (
                       <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                         이미지 첨부
