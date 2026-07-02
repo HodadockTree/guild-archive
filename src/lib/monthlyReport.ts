@@ -34,8 +34,8 @@ export type MonthlyReport = {
 };
 
 const airshipLabels = {
-  ocean: "오션헤븐 비공정",
-  aurora: "아우로라 비공정",
+  ocean: "오션헤븐",
+  aurora: "아우로라",
 } as const;
 
 function getMonthKey(date: string) {

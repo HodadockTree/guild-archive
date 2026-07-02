@@ -1235,16 +1235,16 @@ export default function Home() {
               {monthlyReport.totalActivities}회
             </p>
           </div>
-          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
-            <p className="text-xs text-neutral-500">총 참여 횟수</p>
-            <p className="text-2xl font-bold">
-              {monthlyReport.totalParticipationCount}회
-            </p>
-          </div>
           <div className="rounded-md bg-neutral-950 px-4 py-3 text-white">
             <p className="text-xs text-neutral-300">참여 길드원</p>
             <p className="text-2xl font-bold">
               {monthlyReport.participantMemberCount}명
+            </p>
+          </div>
+          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
+            <p className="text-xs text-neutral-500">총 참여 횟수</p>
+            <p className="text-2xl font-bold">
+              {monthlyReport.totalParticipationCount}회
             </p>
           </div>
         </div>
@@ -1260,15 +1260,15 @@ export default function Home() {
               }`}
             >
               <div className="rounded-md bg-neutral-100 px-3 py-2">
-                <dt className="text-neutral-500">점령전</dt>
-                <dd className="font-semibold text-neutral-950">
-                  {monthlyReport.siegeCount}회
-                </dd>
-              </div>
-              <div className="rounded-md bg-neutral-100 px-3 py-2">
                 <dt className="text-neutral-500">비공정</dt>
                 <dd className="font-semibold text-neutral-950">
                   {monthlyReport.airshipCount}회
+                </dd>
+              </div>
+              <div className="rounded-md bg-neutral-100 px-3 py-2">
+                <dt className="text-neutral-500">점령전</dt>
+                <dd className="font-semibold text-neutral-950">
+                  {monthlyReport.siegeCount}회
                 </dd>
               </div>
               {monthlyReport.otherCount > 0 ? (
