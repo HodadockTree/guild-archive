@@ -8,7 +8,23 @@ import { getMonthlyReport } from "@/src/lib/monthlyReport";
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DB_PATH = path.join(DATA_DIR, "guild-archive.sqlite");
 
+const SERVERLESS_DB_ERROR_MESSAGE =
+  "현재 배포 환경에서는 SQLite 파일 DB를 안정적으로 저장할 수 없습니다. 로컬 개발 환경 또는 파일 저장이 가능한 서버에서 사용해주세요.";
+
 let db: Database.Database | null = null;
+
+function isKnownServerlessEnvironment() {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.NETLIFY,
+  );
+}
+
+function isFilesystemAccessError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "ENOENT" || code === "EROFS" || code === "EACCES";
+}
 
 type ActivityRow = Omit<ActivityLog, "participantIds" | "conquestTypes"> & {
   imageDataUrl: string | null;
@@ -29,8 +45,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
+  if (isKnownServerlessEnvironment()) {
+    throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
+  }
+
+  if (fs.existsSync(DATA_DIR)) {
+    return;
+  }
+
+  try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (error) {
+    if (isFilesystemAccessError(error)) {
+      throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
+    }
+    throw error;
   }
 }
 
@@ -40,7 +69,16 @@ export function getDb() {
   }
 
   ensureDataDir();
-  db = new Database(DB_PATH);
+
+  try {
+    db = new Database(DB_PATH);
+  } catch (error) {
+    if (isFilesystemAccessError(error)) {
+      throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
+    }
+    throw error;
+  }
+
   db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE IF NOT EXISTS members (
