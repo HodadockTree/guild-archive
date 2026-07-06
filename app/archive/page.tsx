@@ -120,11 +120,7 @@ export default function ArchivePage() {
                         ))}
                       </ul>
                     </div>
-                  ) : (
-                    <p className="text-sm text-neutral-500">
-                      대표 이벤트가 없는 월입니다.
-                    </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <dl className="grid shrink-0 grid-cols-2 gap-2 text-sm sm:w-72">
@@ -134,12 +130,14 @@ export default function ArchivePage() {
                       {summary.activityCount}회
                     </dd>
                   </div>
-                  <div className="rounded-md bg-neutral-100 px-3 py-3">
-                    <dt className="text-xs text-neutral-500">이벤트 수</dt>
-                    <dd className="font-semibold text-neutral-950">
-                      {summary.eventCount}회
-                    </dd>
-                  </div>
+                  {summary.eventCount > 0 ? (
+                    <div className="rounded-md bg-neutral-100 px-3 py-3">
+                      <dt className="text-xs text-neutral-500">이벤트 수</dt>
+                      <dd className="font-semibold text-neutral-950">
+                        {summary.eventCount}회
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="rounded-md bg-neutral-100 px-3 py-3">
                     <dt className="text-xs text-neutral-500">참여 길드원</dt>
                     <dd className="font-semibold text-neutral-950">
