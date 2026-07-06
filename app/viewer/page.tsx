@@ -47,12 +47,28 @@ function subscribeStorage(onStoreChange: () => void) {
   };
 }
 
+function subscribeLocation(onStoreChange: () => void) {
+  window.addEventListener("popstate", onStoreChange);
+
+  return () => {
+    window.removeEventListener("popstate", onStoreChange);
+  };
+}
+
 function getServerActivitiesSnapshot() {
   return EMPTY_ACTIVITIES;
 }
 
 function getServerMembersSnapshot() {
   return EMPTY_MEMBERS;
+}
+
+function getServerMonthSnapshot() {
+  return "";
+}
+
+function getMonthSnapshot() {
+  return new URLSearchParams(window.location.search).get("month") ?? "";
 }
 
 function getActivitiesSnapshot() {
@@ -98,6 +114,11 @@ function ViewerImage({
 
 export default function ViewerPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
+  const queryMonth = useSyncExternalStore<string>(
+    subscribeLocation,
+    getMonthSnapshot,
+    getServerMonthSnapshot,
+  );
   const activities = useSyncExternalStore<ActivityLog[]>(
     subscribeStorage,
     getActivitiesSnapshot,
@@ -112,7 +133,7 @@ export default function ViewerPage() {
   const currentMonth = today().slice(0, 7);
   const availableMonths = getAvailableActivityMonths(activities);
   const defaultMonth = getDefaultReportMonth(activities, today());
-  const reportMonth = selectedMonth || defaultMonth;
+  const reportMonth = selectedMonth || queryMonth || defaultMonth;
   const monthOptions = useMemo(
     () =>
       Array.from(
@@ -139,12 +160,20 @@ export default function ViewerPage() {
               냥춘 활동 리포트
             </h1>
           </div>
-          <Link
-            className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            href="/"
-          >
-            관리 화면으로 돌아가기
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/archive"
+            >
+              아카이브로 돌아가기
+            </Link>
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/"
+            >
+              관리 화면으로 돌아가기
+            </Link>
+          </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-neutral-600">
           이 화면은 현재 기기에 저장된 길드 활동 기록을 보기 좋게 정리한
