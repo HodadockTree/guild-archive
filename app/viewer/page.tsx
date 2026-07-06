@@ -277,18 +277,17 @@ export default function ViewerPage() {
         </div>
       </section>
 
-      <section className="rounded-md border border-neutral-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-neutral-950">
-          이번 달 이벤트
-        </h2>
-        {monthlyReport.eventSummaries.length === 0 ? (
-          <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-            이번 달에 기록된 이벤트가 없습니다.
-          </p>
-        ) : (
+      {monthlyReport.eventSummaries.length > 0 ? (
+        <section className="rounded-md border border-neutral-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-neutral-950">
+            이번 달 이벤트
+          </h2>
           <ul className="mt-3 space-y-3">
             {monthlyReport.eventSummaries.map((activity) => (
-              <li className="rounded-md bg-neutral-100 px-3 py-3 text-sm" key={activity.id}>
+              <li
+                className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
+                key={activity.id}
+              >
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-xs text-neutral-500">{activity.date}</p>
@@ -296,7 +295,7 @@ export default function ViewerPage() {
                       {activity.title}
                     </h3>
                   </div>
-                  <span className="shrink-0 text-neutral-500">
+                  <span className="w-fit shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
                     참여 {activity.participantCount}명
                   </span>
                 </div>
@@ -311,8 +310,8 @@ export default function ViewerPage() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="rounded-md border border-neutral-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-neutral-950">
@@ -323,28 +322,30 @@ export default function ViewerPage() {
             선택한 월에 저장된 활동 기록이 없습니다.
           </p>
         ) : (
-          <ul className="mt-3 space-y-3">
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentActivities.map((activity) => (
               <li
-                className="rounded-md border border-neutral-200 px-4 py-3 text-sm"
+                className="flex min-h-44 flex-col rounded-md border border-neutral-200 px-4 py-3 text-sm shadow-sm"
                 key={activity.id}
               >
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-xs text-neutral-500">
-                    {getDisplayDate(activity.date)}
-                  </span>
-                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                    {getMonthlyActivityLabel(activity)}
-                  </span>
-                  <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-neutral-500">
+                      {getDisplayDate(activity.date)}
+                    </span>
+                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                      {getMonthlyActivityLabel(activity)}
+                    </span>
+                  </div>
+                  <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
                     참여 {activity.participantIds.length}명
                   </span>
                 </div>
-                <h3 className="mt-1 font-semibold text-neutral-950">
+                <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
                   {getActivityTitle(activity)}
                 </h3>
                 {activity.memo?.trim() ? (
-                  <p className="mt-2 whitespace-pre-wrap text-neutral-600">
+                  <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
                     {activity.memo.trim()}
                   </p>
                 ) : null}

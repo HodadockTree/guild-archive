@@ -1249,15 +1249,11 @@ export default function Home() {
             )}
           </div>
 
-          <div className="rounded-md border border-neutral-200 p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">
-              이번 달 이벤트
-            </h3>
-            {monthlyReport.eventSummaries.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-                이번 달에 기록된 이벤트가 없습니다.
-              </p>
-            ) : (
+          {monthlyReport.eventSummaries.length > 0 ? (
+            <div className="rounded-md border border-neutral-200 p-4">
+              <h3 className="text-sm font-semibold text-neutral-900">
+                이번 달 이벤트
+              </h3>
               <ul className="mt-3 space-y-3">
                 {monthlyReport.eventSummaries.map((activity) => (
                   <li
@@ -1273,7 +1269,7 @@ export default function Home() {
                           {activity.title}
                         </span>
                       </span>
-                      <span className="shrink-0 text-neutral-500">
+                      <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
                         참여 {activity.participantCount}명
                       </span>
                     </div>
@@ -1293,8 +1289,8 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-md border border-neutral-200 p-4">
@@ -1306,25 +1302,27 @@ export default function Home() {
               선택한 월에 저장된 활동 기록이 없습니다.
             </p>
           ) : (
-            <ul className="mt-3 divide-y divide-neutral-200">
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {monthlyReport.activitySummaries.map((activity) => (
                 <li
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                  className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
                   key={activity.id}
                 >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-neutral-900">
-                      {activity.displayDate} {activity.label}
-                    </span>
-                    {activity.isMostParticipated ? (
-                      <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700">
-                        최다 참여
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-neutral-900">
+                        {activity.displayDate} {activity.label}
                       </span>
-                    ) : null}
-                  </span>
-                  <span className="shrink-0 text-neutral-500">
-                    {activity.participantCount}명
-                  </span>
+                      {activity.isMostParticipated ? (
+                        <span className="mt-1 inline-flex rounded-sm bg-white px-1.5 py-0.5 text-[11px] font-medium text-neutral-700">
+                          최다 참여
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                      참여 {activity.participantCount}명
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -2230,7 +2228,7 @@ export default function Home() {
             선택한 활동 종류에 해당하는 기록이 없습니다.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filteredActivities.map((activity) => {
               const participantNames = getParticipantNames(
                 activity,
@@ -2239,71 +2237,73 @@ export default function Home() {
 
               return (
                 <li
-                  className="rounded-md border border-neutral-200 px-4 py-3"
+                  className="flex min-h-48 flex-col rounded-md border border-neutral-200 bg-white px-4 py-3 shadow-sm"
                   key={activity.id}
                 >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-xs text-neutral-500">
-                      {activity.date}
-                    </span>
-                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                      {getActivityTypeLabel(activity)}
-                    </span>
-                    {getVisibleActivityType(activity.type) === "airship" &&
-                    getAirshipTypeLabel(activity.airshipType) ? (
-                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                        {getAirshipTypeLabel(activity.airshipType)}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-neutral-500">
+                        {activity.date}
                       </span>
-                    ) : null}
-                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        {getActivityTypeLabel(activity)}
+                      </span>
+                      {getVisibleActivityType(activity.type) === "airship" &&
+                      getAirshipTypeLabel(activity.airshipType) ? (
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          {getAirshipTypeLabel(activity.airshipType)}
+                        </span>
+                      ) : null}
+                      {activity.imageDataUrl ? (
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          이미지
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
                       참여 {activity.participantIds.length}명
                     </span>
-                    {activity.imageDataUrl ? (
-                      <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                        이미지 첨부
-                      </span>
-                    ) : null}
                   </div>
-                  <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <h3 className="text-sm font-semibold text-neutral-950">
+                  <div className="mt-3 flex flex-1 flex-col gap-2">
+                    <h3 className="text-base font-semibold leading-6 text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                        type="button"
-                        onClick={() => handleEditActivity(activity)}
-                      >
-                        수정
-                      </button>
-                      <button
-                        className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
-                        type="button"
-                        onClick={() => handleDeleteActivity(activity.id)}
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-neutral-600">
-                    참여자{" "}
-                    {participantNames.length === 0
-                      ? "없음"
-                      : participantNames.join(", ")}
-                  </p>
-                  {activity.memo ? (
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
-                      {activity.memo}
+                    <p className="text-sm leading-6 text-neutral-600">
+                      참여자{" "}
+                      {participantNames.length === 0
+                        ? "없음"
+                        : participantNames.join(", ")}
                     </p>
-                  ) : null}
-                  {activity.imageDataUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      alt="첨부 스크린샷"
-                      className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
-                      src={activity.imageDataUrl}
-                    />
-                  ) : null}
+                    {activity.memo ? (
+                      <p className="line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-neutral-500">
+                        {activity.memo}
+                      </p>
+                    ) : null}
+                    {activity.imageDataUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        alt="첨부 스크린샷"
+                        className="mt-auto max-h-40 w-full rounded-md border border-neutral-200 object-contain"
+                        src={activity.imageDataUrl}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                      type="button"
+                      onClick={() => handleEditActivity(activity)}
+                    >
+                      수정
+                    </button>
+                    <button
+                      className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 transition hover:border-red-700"
+                      type="button"
+                      onClick={() => handleDeleteActivity(activity.id)}
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -2406,34 +2406,36 @@ export default function Home() {
                   이 길드원이 참여한 활동 기록이 없습니다.
                 </p>
               ) : (
-                <ul className="mt-2 space-y-2">
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                   {selectedMemberActivities.map((activity) => (
                     <li
                       className="rounded-md border border-neutral-200 px-4 py-3"
                       key={activity.id}
                     >
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-xs text-neutral-500">
-                          {activity.date}
-                        </span>
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                          {getActivityTypeLabel(activity)}
-                        </span>
-                        {getVisibleActivityType(activity.type) === "airship" &&
-                        getAirshipTypeLabel(activity.airshipType) ? (
-                          <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                            {getAirshipTypeLabel(activity.airshipType)}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-neutral-500">
+                            {activity.date}
                           </span>
-                        ) : null}
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                            {getActivityTypeLabel(activity)}
+                          </span>
+                          {getVisibleActivityType(activity.type) === "airship" &&
+                          getAirshipTypeLabel(activity.airshipType) ? (
+                            <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                              {getAirshipTypeLabel(activity.airshipType)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
                           참여 {activity.participantIds.length}명
                         </span>
                       </div>
-                      <h5 className="mt-1 text-sm font-semibold text-neutral-950">
+                      <h5 className="mt-3 text-sm font-semibold text-neutral-950">
                         {activity.title || getActivityTypeLabel(activity)}
                       </h5>
                       {activity.memo ? (
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-neutral-500">
                           {activity.memo}
                         </p>
                       ) : null}
@@ -2441,7 +2443,7 @@ export default function Home() {
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           alt="첨부 스크린샷"
-                          className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
+                          className="mt-3 max-h-40 w-full rounded-md border border-neutral-200 object-contain"
                           src={activity.imageDataUrl}
                         />
                       ) : null}
