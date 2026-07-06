@@ -1108,79 +1108,76 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-4 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-neutral-950">
             냥춘 {getMonthLabel(reportMonth)} 활동 정산
           </h2>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
-            <p className="text-xs text-neutral-500">전체 활동</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-md bg-neutral-100 px-4 py-4 text-neutral-950">
+            <p className="text-xs font-medium text-neutral-500">전체 활동</p>
             <p className="text-2xl font-bold">
               {monthlyReport.totalActivities}회
             </p>
           </div>
-          <div className="rounded-md bg-neutral-950 px-4 py-3 text-white">
-            <p className="text-xs text-neutral-300">참여 길드원</p>
+          <div className="rounded-md bg-neutral-950 px-4 py-4 text-white">
+            <p className="text-xs font-medium text-neutral-300">참여 길드원</p>
             <p className="text-2xl font-bold">
               {monthlyReport.participantMemberCount}명
             </p>
           </div>
-          <div className="rounded-md bg-neutral-100 px-4 py-3 text-neutral-950">
-            <p className="text-xs text-neutral-500">총 참여 횟수</p>
+          <div className="rounded-md bg-neutral-100 px-4 py-4 text-neutral-950">
+            <p className="text-xs font-medium text-neutral-500">총 참여 횟수</p>
             <p className="text-2xl font-bold">
               {monthlyReport.totalParticipationCount}회
             </p>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-neutral-200 p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">
-              활동 종류별 통계
-            </h3>
-            <dl
-              className={`mt-3 grid gap-2 text-center text-sm ${
-                monthlyReport.otherCount > 0 ? "grid-cols-3" : "grid-cols-2"
-              }`}
-            >
-              <div className="rounded-md bg-neutral-100 px-3 py-2">
-                <dt className="text-neutral-500">비공정</dt>
-                <dd className="font-semibold text-neutral-950">
-                  {monthlyReport.airshipCount}회
-                </dd>
-              </div>
-              <div className="rounded-md bg-neutral-100 px-3 py-2">
-                <dt className="text-neutral-500">점령전</dt>
-                <dd className="font-semibold text-neutral-950">
-                  {monthlyReport.siegeCount}회
-                </dd>
-              </div>
-              {monthlyReport.otherCount > 0 ? (
-                <div className="rounded-md bg-neutral-100 px-3 py-2">
-                  <dt className="text-neutral-500">이벤트</dt>
-                  <dd className="font-semibold text-neutral-950">
-                    {monthlyReport.otherCount}회
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          </div>
+        <div className="rounded-md border border-neutral-200 p-4">
+          <h3 className="text-sm font-semibold text-neutral-900">
+            활동별 기록
+          </h3>
+          <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+            <div className="rounded-md bg-neutral-100 px-3 py-3">
+              <dt className="text-neutral-500">비공정</dt>
+              <dd className="font-semibold text-neutral-950">
+                {monthlyReport.airshipCount}회
+              </dd>
+            </div>
+            <div className="rounded-md bg-neutral-100 px-3 py-3">
+              <dt className="text-neutral-500">점령전</dt>
+              <dd className="font-semibold text-neutral-950">
+                {monthlyReport.siegeCount}회
+              </dd>
+            </div>
+            <div className="rounded-md bg-neutral-100 px-3 py-3">
+              <dt className="text-neutral-500">이벤트</dt>
+              <dd className="font-semibold text-neutral-950">
+                {monthlyReport.otherCount}회
+              </dd>
+            </div>
+          </dl>
+        </div>
 
+        <div className="grid gap-3 lg:grid-cols-2">
           <div className="rounded-md border border-neutral-200 p-4">
             <h3 className="text-sm font-semibold text-neutral-900">
-              비공정 세부 통계
+              세부 기록
             </h3>
-            <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm">
-              <div className="rounded-md bg-neutral-100 px-3 py-2">
+            <p className="mt-3 text-xs font-medium text-neutral-500">
+              비공정
+            </p>
+            <dl className="mt-2 grid grid-cols-2 gap-2 text-center text-sm">
+              <div className="rounded-md bg-neutral-100 px-3 py-2.5">
                 <dt className="text-neutral-500">오션헤븐</dt>
                 <dd className="font-semibold text-neutral-950">
                   {monthlyReport.oceanAirshipCount}회
                 </dd>
               </div>
-              <div className="rounded-md bg-neutral-100 px-3 py-2">
+              <div className="rounded-md bg-neutral-100 px-3 py-2.5">
                 <dt className="text-neutral-500">아우로라</dt>
                 <dd className="font-semibold text-neutral-950">
                   {monthlyReport.auroraAirshipCount}회
@@ -1188,14 +1185,37 @@ export default function Home() {
               </div>
             </dl>
           </div>
+
+          <div className="rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              점령전 세부 카테고리
+            </h3>
+            {monthlyReport.conquestSummaries.length === 0 ? (
+              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                기록된 점령전 세부 카테고리가 없습니다.
+              </p>
+            ) : (
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                {monthlyReport.conquestSummaries.map((summary) => (
+                  <div
+                    className="rounded-md bg-neutral-100 px-3 py-2.5"
+                    key={summary.label}
+                  >
+                    <dt className="text-neutral-500">{summary.label}</dt>
+                    <dd className="font-semibold text-neutral-950">
+                      {summary.count}회
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="rounded-md border border-neutral-200 p-4">
             <h3 className="text-sm font-semibold text-neutral-900">
-              {monthlyReport.topParticipants.length > 0
-                ? `월간 참여 TOP ${monthlyReport.topParticipants.length}`
-                : "월간 참여 TOP"}
+              참여 TOP
             </h3>
             {monthlyReport.topParticipants.length === 0 ? (
               <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
@@ -1222,37 +1242,84 @@ export default function Home() {
 
           <div className="rounded-md border border-neutral-200 p-4">
             <h3 className="text-sm font-semibold text-neutral-900">
-              이번 달 활동 기록
+              이번 달 이벤트
             </h3>
-            {monthlyReport.activitySummaries.length === 0 ? (
+            {monthlyReport.eventSummaries.length === 0 ? (
               <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-                선택한 월에 저장된 활동 기록이 없습니다.
+                이번 달에 기록된 이벤트가 없습니다.
               </p>
             ) : (
-              <ul className="mt-3 divide-y divide-neutral-200">
-                {monthlyReport.activitySummaries.map((activity) => (
+              <ul className="mt-3 space-y-3">
+                {monthlyReport.eventSummaries.map((activity) => (
                   <li
-                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                    className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
                     key={activity.id}
                   >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-neutral-900">
-                        {activity.displayDate} {activity.label}
-                      </span>
-                      {activity.isMostParticipated ? (
-                        <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700">
-                          최다 참여
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-xs text-neutral-500">
+                          {activity.displayDate}
                         </span>
-                      ) : null}
-                    </span>
-                    <span className="shrink-0 text-neutral-500">
-                      {activity.participantCount}명
-                    </span>
+                        <span className="block truncate font-semibold text-neutral-950">
+                          {activity.title}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-neutral-500">
+                        참여 {activity.participantCount}명
+                      </span>
+                    </div>
+                    {activity.memo ? (
+                      <p className="mt-2 whitespace-pre-wrap text-neutral-600">
+                        {activity.memo}
+                      </p>
+                    ) : null}
+                    {activity.imageDataUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        alt="이벤트 첨부 이미지"
+                        className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
+                        src={activity.imageDataUrl}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
           </div>
+        </div>
+
+        <div className="rounded-md border border-neutral-200 p-4">
+          <h3 className="text-sm font-semibold text-neutral-900">
+            이번 달 활동 기록
+          </h3>
+          {monthlyReport.activitySummaries.length === 0 ? (
+            <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+              선택한 월에 저장된 활동 기록이 없습니다.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-neutral-200">
+              {monthlyReport.activitySummaries.map((activity) => (
+                <li
+                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                  key={activity.id}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-neutral-900">
+                      {activity.displayDate} {activity.label}
+                    </span>
+                    {activity.isMostParticipated ? (
+                      <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700">
+                        최다 참여
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 text-neutral-500">
+                    {activity.participantCount}명
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

@@ -1,6 +1,10 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType, getKnownAirshipType } from "@/src/lib/activityStats";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import {
+  conquestTypes,
+  getKnownConquestTypes,
+  getMonthlyActivityLabel,
+} from "@/src/lib/activityLabels";
 
 export type MonthlyActivitySummary = {
   id: string;
@@ -17,6 +21,22 @@ export type MonthlyTopParticipant = {
   count: number;
 };
 
+export type MonthlyConquestSummary = {
+  label: string;
+  count: number;
+};
+
+export type MonthlyEventSummary = {
+  id: string;
+  date: string;
+  displayDate: string;
+  shareDate: string;
+  title: string;
+  participantCount: number;
+  memo?: string;
+  imageDataUrl?: string;
+};
+
 export type MonthlyReport = {
   month: string;
   activities: ActivityLog[];
@@ -31,6 +51,8 @@ export type MonthlyReport = {
   participationCountsByMemberId: Record<string, number>;
   topParticipantLimit: number;
   topParticipants: MonthlyTopParticipant[];
+  conquestSummaries: MonthlyConquestSummary[];
+  eventSummaries: MonthlyEventSummary[];
   activitySummaries: MonthlyActivitySummary[];
 };
 
@@ -83,6 +105,9 @@ export function getMonthlyReport(
       return dateOrder === 0 ? a.id.localeCompare(b.id) : dateOrder;
     });
   const participationCountsByMemberId: Record<string, number> = {};
+  const conquestCounts = Object.fromEntries(
+    conquestTypes.map((conquestType) => [conquestType, 0]),
+  ) as Record<(typeof conquestTypes)[number], number>;
   const participantMemberIds = new Set<string>();
 
   const report = monthlyActivities.reduce(
@@ -94,6 +119,9 @@ export function getMonthlyReport(
 
       if (statsType === "siege") {
         summary.siegeCount += 1;
+        getKnownConquestTypes(activity.conquestTypes).forEach((conquestType) => {
+          conquestCounts[conquestType] += 1;
+        });
       } else if (statsType === "airship") {
         summary.airshipCount += 1;
 
@@ -149,6 +177,24 @@ export function getMonthlyReport(
       return countOrder === 0 ? a.nickname.localeCompare(b.nickname, "ko") : countOrder;
     })
     .slice(0, topParticipantLimit);
+  const conquestSummaries = conquestTypes
+    .map((conquestType) => ({
+      label: conquestType,
+      count: conquestCounts[conquestType],
+    }))
+    .filter((summary) => summary.count > 0);
+  const eventSummaries = monthlyActivities
+    .filter((activity) => getActivityStatsType(activity.type) === "other")
+    .map((activity) => ({
+      id: activity.id,
+      date: activity.date,
+      displayDate: getDisplayDate(activity.date),
+      shareDate: getShareDisplayDate(activity.date),
+      title: activity.title?.trim() || "이벤트",
+      participantCount: activity.participantIds.length,
+      memo: activity.memo?.trim() || undefined,
+      imageDataUrl: activity.imageDataUrl,
+    }));
 
   return {
     month,
@@ -158,6 +204,8 @@ export function getMonthlyReport(
     participationCountsByMemberId,
     topParticipantLimit,
     topParticipants,
+    conquestSummaries,
+    eventSummaries,
     activitySummaries: monthlyActivities.map((activity) => ({
       id: activity.id,
       date: activity.date,
@@ -177,16 +225,26 @@ export function getMonthlyShareText(report: MonthlyReport): string {
 
   lines.push(`[냥춘 ${monthNumber}월 활동 정산]`);
   lines.push("");
+
+  if (report.totalActivities === 0) {
+    lines.push(`${monthNumber}월에는 아직 기록된 활동이 없습니다.`);
+    lines.push("활동 기록이 추가되면 월간 정산 내용을 확인할 수 있어요.");
+    return lines.join("\n");
+  }
+
   lines.push(`${monthNumber}월 활동 기록을 정리했어요.`);
   lines.push("");
-  lines.push(`- 전체 활동: ${report.totalActivities}회`);
-  lines.push(`- 총 참여 횟수: ${report.totalParticipationCount}회`);
-  lines.push(`- 참여 길드원: ${report.participantMemberCount}명`);
+  lines.push(
+    `이번 달에는 총 ${report.totalActivities}개의 활동이 기록되었고,`,
+  );
+  lines.push(
+    `${report.participantMemberCount}명의 길드원이 한 번 이상 함께해주셨어요.`,
+  );
+  lines.push(`총 참여 횟수는 ${report.totalParticipationCount}회입니다.`);
   lines.push("");
-  lines.push("활동별 기록");
-  lines.push(`- 비공정: ${report.airshipCount}회`);
-  lines.push(`- 점령전: ${report.siegeCount}회`);
-  lines.push(`- 이벤트: ${report.otherCount}회`);
+  lines.push(
+    `활동별로는 비공정 ${report.airshipCount}회, 점령전 ${report.siegeCount}회, 이벤트 ${report.otherCount}회가 기록되었습니다.`,
+  );
   lines.push("");
   lines.push("참여 TOP");
 
@@ -201,16 +259,11 @@ export function getMonthlyShareText(report: MonthlyReport): string {
   lines.push("");
   lines.push("이번 달 이벤트");
 
-  const eventActivities = report.activities.filter(
-    (activity) => getActivityStatsType(activity.type) === "other",
-  );
-
-  if (eventActivities.length === 0) {
-    lines.push("기록된 이벤트가 없습니다.");
+  if (report.eventSummaries.length === 0) {
+    lines.push("이번 달에는 별도로 기록된 이벤트는 없습니다.");
   } else {
-    eventActivities.forEach((activity) => {
-      const title = activity.title?.trim() || "이벤트";
-      lines.push(`- ${getShareDisplayDate(activity.date)} ${title}`);
+    report.eventSummaries.forEach((activity) => {
+      lines.push(`- ${activity.shareDate} ${activity.title}`);
     });
   }
 
