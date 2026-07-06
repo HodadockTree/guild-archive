@@ -395,6 +395,7 @@ export default function Home() {
   const [serverImportState, setServerImportState] = useState<ServerImportState>({
     status: "idle",
   });
+  const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
@@ -818,6 +819,16 @@ export default function Home() {
       return;
     }
 
+    const trimmedServerImportToken = serverImportToken.trim();
+
+    if (!trimmedServerImportToken) {
+      setServerImportState({
+        status: "error",
+        message: "서버 반영 토큰을 입력해주세요.",
+      });
+      return;
+    }
+
     const shouldImport = window.confirm(
       "선택한 JSON 백업을 서버 DB로 가져올까요?\n기존 서버 DB 데이터는 백업 파일 내용으로 덮어씁니다.",
     );
@@ -833,6 +844,7 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${trimmedServerImportToken}`,
         },
         body: JSON.stringify(backupImportState.backup),
       });
@@ -1603,6 +1615,21 @@ export default function Home() {
                     이 백업을 복원하면 현재 데이터가 백업 파일 내용으로
                     교체됩니다. 복원 전 현재 데이터를 다시 백업해두는 것을
                     권장합니다.
+                  </p>
+                  <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+                    <span>서버 반영 토큰 (서버 DB로 가져오기에만 필요)</span>
+                    <input
+                      className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                      type="password"
+                      autoComplete="off"
+                      placeholder="ADMIN_IMPORT_TOKEN 값 입력"
+                      value={serverImportToken}
+                      onChange={(event) => setServerImportToken(event.target.value)}
+                    />
+                  </label>
+                  <p className="text-xs text-neutral-500">
+                    입력한 토큰은 저장되지 않고 이 화면에서만 사용되며, 서버 DB로
+                    가져오기를 요청할 때만 서버로 전송됩니다.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button

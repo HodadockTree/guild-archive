@@ -7,7 +7,7 @@ export async function GET() {
   try {
     return Response.json({
       ok: true,
-      months: getServerArchiveMonths(),
+      months: await getServerArchiveMonths(),
     });
   } catch {
     return Response.json(

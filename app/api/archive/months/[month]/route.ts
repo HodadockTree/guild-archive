@@ -24,7 +24,7 @@ export async function GET(
   try {
     return Response.json({
       ok: true,
-      ...getServerMonthlyReport(month),
+      ...(await getServerMonthlyReport(month)),
     });
   } catch {
     return Response.json(

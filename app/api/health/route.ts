@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    getDb().prepare("SELECT 1").get();
+    const db = await getDb();
+    await db.prepare("SELECT 1").first();
 
     return Response.json({
       ok: true,

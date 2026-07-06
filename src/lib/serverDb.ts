@@ -1,32 +1,29 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import type { D1Database } from "@cloudflare/workers-types";
 import type { ActivityLog, GuildArchiveBackup, GuildMember } from "@/src/types";
 import { getMonthlyArchiveSummaries } from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const DB_PATH = path.join(DATA_DIR, "guild-archive.sqlite");
+const D1_BINDING_MISSING_ERROR_MESSAGE =
+  "Cloudflare D1 바인딩(DB)을 찾을 수 없습니다. wrangler.jsonc의 d1_databases 설정과 " +
+  "로컬 개발 환경(next dev + initOpenNextCloudflareForDev) 설정을 확인해주세요.";
 
-const SERVERLESS_DB_ERROR_MESSAGE =
-  "현재 배포 환경에서는 SQLite 파일 DB를 안정적으로 저장할 수 없습니다. 로컬 개발 환경 또는 파일 저장이 가능한 서버에서 사용해주세요.";
+type MemberRow = {
+  id: string;
+  nickname: string;
+  status: GuildMember["status"];
+  joinedAt: string;
+  leftAt: string | null;
+  memo: string | null;
+};
 
-let db: Database.Database | null = null;
-
-function isKnownServerlessEnvironment() {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.NETLIFY,
-  );
-}
-
-function isFilesystemAccessError(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return code === "ENOENT" || code === "EROFS" || code === "EACCES";
-}
-
-type ActivityRow = Omit<ActivityLog, "participantIds" | "conquestTypes"> & {
+type ActivityRow = {
+  id: string;
+  type: string;
+  date: string;
+  title: string | null;
+  memo: string | null;
+  airshipType: string | null;
   imageDataUrl: string | null;
 };
 
@@ -44,92 +41,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function ensureDataDir() {
-  if (isKnownServerlessEnvironment()) {
-    throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
+export async function getDb(): Promise<D1Database> {
+  const { env } = await getCloudflareContext({ async: true });
+
+  if (!env.DB) {
+    throw new Error(D1_BINDING_MISSING_ERROR_MESSAGE);
   }
 
-  if (fs.existsSync(DATA_DIR)) {
-    return;
-  }
-
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  } catch (error) {
-    if (isFilesystemAccessError(error)) {
-      throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
-    }
-    throw error;
-  }
-}
-
-export function getDb() {
-  if (db) {
-    return db;
-  }
-
-  ensureDataDir();
-
-  try {
-    db = new Database(DB_PATH);
-  } catch (error) {
-    if (isFilesystemAccessError(error)) {
-      throw new Error(SERVERLESS_DB_ERROR_MESSAGE);
-    }
-    throw error;
-  }
-
-  db.pragma("foreign_keys = ON");
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS members (
-      id TEXT PRIMARY KEY,
-      nickname TEXT NOT NULL,
-      status TEXT NOT NULL,
-      joinedAt TEXT,
-      leftAt TEXT,
-      memo TEXT,
-      createdAt TEXT,
-      updatedAt TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS activities (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL,
-      date TEXT NOT NULL,
-      title TEXT,
-      memo TEXT,
-      airshipType TEXT,
-      imageDataUrl TEXT,
-      createdAt TEXT,
-      updatedAt TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS activity_participants (
-      activityId TEXT NOT NULL,
-      memberId TEXT NOT NULL,
-      PRIMARY KEY (activityId, memberId),
-      FOREIGN KEY (activityId) REFERENCES activities(id) ON DELETE CASCADE,
-      FOREIGN KEY (memberId) REFERENCES members(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS activity_conquest_types (
-      activityId TEXT NOT NULL,
-      conquestType TEXT NOT NULL,
-      PRIMARY KEY (activityId, conquestType),
-      FOREIGN KEY (activityId) REFERENCES activities(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS import_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      importedAt TEXT NOT NULL,
-      memberCount INTEGER NOT NULL,
-      activityCount INTEGER NOT NULL,
-      participantCount INTEGER NOT NULL,
-      conquestTypeCount INTEGER NOT NULL
-    );
-  `);
-
-  return db;
+  return env.DB;
 }
 
 function validateBackupData(data: unknown): GuildArchiveBackup {
@@ -182,151 +101,173 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
   };
 }
 
-export function importBackupJson(data: unknown) {
+export async function importBackupJson(data: unknown) {
   const backup = validateBackupData(data);
-  const database = getDb();
+  const db = await getDb();
   const importedAt = new Date().toISOString();
 
-  return database.transaction(() => {
-    database.exec(`
-      DELETE FROM activity_conquest_types;
-      DELETE FROM activity_participants;
-      DELETE FROM activities;
-      DELETE FROM members;
-    `);
+  const deleteStatements = [
+    db.prepare("DELETE FROM activity_conquest_types"),
+    db.prepare("DELETE FROM activity_participants"),
+    db.prepare("DELETE FROM activities"),
+    db.prepare("DELETE FROM members"),
+  ];
 
-    const insertMember = database.prepare(`
-      INSERT INTO members (
-        id, nickname, status, joinedAt, leftAt, memo, createdAt, updatedAt
-      ) VALUES (
-        @id, @nickname, @status, @joinedAt, @leftAt, @memo, @createdAt, @updatedAt
-      )
-    `);
-    const insertActivity = database.prepare(`
-      INSERT INTO activities (
-        id, type, date, title, memo, airshipType, imageDataUrl, createdAt, updatedAt
-      ) VALUES (
-        @id, @type, @date, @title, @memo, @airshipType, @imageDataUrl, @createdAt, @updatedAt
-      )
-    `);
-    const insertParticipant = database.prepare(`
-      INSERT OR IGNORE INTO activity_participants (activityId, memberId)
-      VALUES (?, ?)
-    `);
-    const insertConquestType = database.prepare(`
-      INSERT OR IGNORE INTO activity_conquest_types (activityId, conquestType)
-      VALUES (?, ?)
-    `);
-
-    backup.members.forEach((member) => {
-      insertMember.run({
-        id: member.id,
-        nickname: member.nickname,
-        status: member.status,
-        joinedAt: member.joinedAt || null,
-        leftAt: member.leftAt ?? null,
-        memo: member.memo ?? null,
-        createdAt: importedAt,
-        updatedAt: importedAt,
-      });
-    });
-
-    let participantCount = 0;
-    let conquestTypeCount = 0;
-
-    backup.activityLogs.forEach((activity) => {
-      insertActivity.run({
-        id: activity.id,
-        type: activity.type,
-        date: activity.date,
-        title: activity.title ?? null,
-        memo: activity.memo ?? null,
-        airshipType: activity.airshipType ?? null,
-        imageDataUrl: null,
-        createdAt: importedAt,
-        updatedAt: importedAt,
-      });
-
-      activity.participantIds.forEach((memberId) => {
-        const result = insertParticipant.run(activity.id, memberId);
-        participantCount += result.changes;
-      });
-
-      activity.conquestTypes?.forEach((conquestType) => {
-        const result = insertConquestType.run(activity.id, conquestType);
-        conquestTypeCount += result.changes;
-      });
-    });
-
-    database
+  const memberStatements = backup.members.map((member) =>
+    db
       .prepare(
-        `INSERT INTO import_logs (
-          importedAt, memberCount, activityCount, participantCount, conquestTypeCount
-        ) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO members (
+          id, nickname, status, joinedAt, leftAt, memo, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(
+      .bind(
+        member.id,
+        member.nickname,
+        member.status,
+        member.joinedAt || null,
+        member.leftAt ?? null,
+        member.memo ?? null,
         importedAt,
-        backup.members.length,
-        backup.activityLogs.length,
-        participantCount,
-        conquestTypeCount,
-      );
+        importedAt,
+      ),
+  );
 
-    return {
-      ok: true,
-      memberCount: backup.members.length,
-      activityCount: backup.activityLogs.length,
+  const activityStatements = backup.activityLogs.map((activity) =>
+    db
+      .prepare(
+        `INSERT INTO activities (
+          id, type, date, title, memo, airshipType, imageDataUrl, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        activity.id,
+        activity.type,
+        activity.date,
+        activity.title ?? null,
+        activity.memo ?? null,
+        activity.airshipType ?? null,
+        // imageDataUrl은 D1에 저장하지 않고 항상 스킵합니다 (v1.8 SQLite와 동일한 정책).
+        null,
+        importedAt,
+        importedAt,
+      ),
+  );
+
+  const participantStatements = backup.activityLogs.flatMap((activity) =>
+    activity.participantIds.map((memberId) =>
+      db
+        .prepare(
+          "INSERT OR IGNORE INTO activity_participants (activityId, memberId) VALUES (?, ?)",
+        )
+        .bind(activity.id, memberId),
+    ),
+  );
+
+  const conquestTypeStatements = backup.activityLogs.flatMap((activity) =>
+    (activity.conquestTypes ?? []).map((conquestType) =>
+      db
+        .prepare(
+          "INSERT OR IGNORE INTO activity_conquest_types (activityId, conquestType) VALUES (?, ?)",
+        )
+        .bind(activity.id, conquestType),
+    ),
+  );
+
+  const statements = [
+    ...deleteStatements,
+    ...memberStatements,
+    ...activityStatements,
+    ...participantStatements,
+    ...conquestTypeStatements,
+  ];
+
+  // deleteStatements가 항상 4개 포함되므로 batch가 빈 배열이 되는 경우는 없습니다.
+  const results = await db.batch(statements);
+
+  const participantStart =
+    deleteStatements.length + memberStatements.length + activityStatements.length;
+  const participantCount = results
+    .slice(participantStart, participantStart + participantStatements.length)
+    .reduce((sum, result) => sum + (result.meta.changes ?? 0), 0);
+
+  const conquestStart = participantStart + participantStatements.length;
+  const conquestTypeCount = results
+    .slice(conquestStart, conquestStart + conquestTypeStatements.length)
+    .reduce((sum, result) => sum + (result.meta.changes ?? 0), 0);
+
+  await db
+    .prepare(
+      `INSERT INTO import_logs (
+        importedAt, memberCount, activityCount, participantCount, conquestTypeCount
+      ) VALUES (?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      importedAt,
+      backup.members.length,
+      backup.activityLogs.length,
       participantCount,
       conquestTypeCount,
-      imageDataUrl: "skipped",
-    };
-  })();
+    )
+    .run();
+
+  return {
+    ok: true,
+    memberCount: backup.members.length,
+    activityCount: backup.activityLogs.length,
+    participantCount,
+    conquestTypeCount,
+    imageDataUrl: "skipped",
+  };
 }
 
-export function getServerMembers(): GuildMember[] {
-  const rows = getDb()
+export async function getServerMembers(): Promise<GuildMember[]> {
+  const db = await getDb();
+  const { results } = await db
     .prepare("SELECT id, nickname, status, joinedAt, leftAt, memo FROM members")
-    .all() as GuildMember[];
+    .all<MemberRow>();
 
-  return rows.map((member) => ({
+  return results.map((member) => ({
     ...member,
     leftAt: member.leftAt ?? null,
     memo: member.memo ?? undefined,
   }));
 }
 
-export function getServerActivities(): ActivityLog[] {
-  const database = getDb();
-  const activityRows = database
-    .prepare(
-      `SELECT id, type, date, title, memo, airshipType, imageDataUrl
-       FROM activities
-       ORDER BY date ASC, id ASC`,
-    )
-    .all() as ActivityRow[];
-  const participantRows = database
-    .prepare("SELECT activityId, memberId FROM activity_participants")
-    .all() as ParticipantRow[];
-  const conquestTypeRows = database
-    .prepare("SELECT activityId, conquestType FROM activity_conquest_types")
-    .all() as ConquestTypeRow[];
+export async function getServerActivities(): Promise<ActivityLog[]> {
+  const db = await getDb();
+  const [activitiesResult, participantsResult, conquestTypesResult] =
+    await Promise.all([
+      db
+        .prepare(
+          `SELECT id, type, date, title, memo, airshipType, imageDataUrl
+           FROM activities
+           ORDER BY date ASC, id ASC`,
+        )
+        .all<ActivityRow>(),
+      db
+        .prepare("SELECT activityId, memberId FROM activity_participants")
+        .all<ParticipantRow>(),
+      db
+        .prepare("SELECT activityId, conquestType FROM activity_conquest_types")
+        .all<ConquestTypeRow>(),
+    ]);
 
   const participantsByActivityId = new Map<string, string[]>();
   const conquestTypesByActivityId = new Map<string, string[]>();
 
-  participantRows.forEach((row) => {
+  participantsResult.results.forEach((row) => {
     const participants = participantsByActivityId.get(row.activityId) ?? [];
     participants.push(row.memberId);
     participantsByActivityId.set(row.activityId, participants);
   });
 
-  conquestTypeRows.forEach((row) => {
+  conquestTypesResult.results.forEach((row) => {
     const conquestTypes = conquestTypesByActivityId.get(row.activityId) ?? [];
     conquestTypes.push(row.conquestType);
     conquestTypesByActivityId.set(row.activityId, conquestTypes);
   });
 
-  return activityRows.map((activity) => ({
+  return activitiesResult.results.map((activity) => ({
     id: activity.id,
     type: activity.type as ActivityLog["type"],
     date: activity.date,
@@ -341,16 +282,20 @@ export function getServerActivities(): ActivityLog[] {
   }));
 }
 
-export function getServerArchiveMonths() {
-  return getMonthlyArchiveSummaries(getServerActivities()).map((summary) => ({
+export async function getServerArchiveMonths() {
+  const activities = await getServerActivities();
+
+  return getMonthlyArchiveSummaries(activities).map((summary) => ({
     ...summary,
     representativeEventTitle: summary.representativeEvents[0]?.title ?? null,
   }));
 }
 
-export function getServerMonthlyReport(month: string) {
-  const activities = getServerActivities();
-  const members = getServerMembers();
+export async function getServerMonthlyReport(month: string) {
+  const [activities, members] = await Promise.all([
+    getServerActivities(),
+    getServerMembers(),
+  ]);
   const report = getMonthlyReport(activities, members, month);
 
   return {

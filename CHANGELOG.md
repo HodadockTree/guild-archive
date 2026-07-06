@@ -1,5 +1,72 @@
 # CHANGELOG
 
+## v1.9 - Cloudflare D1 서버 아카이브 전환 + 관리자 토큰 보호
+
+### 목표
+
+v1.8의 Vercel + 파일 기반 SQLite(`better-sqlite3`) 서버 아카이브는 서버리스 배포 환경에서 근본적인 한계가 있었습니다. 서버리스 런타임은 파일시스템이 읽기 전용이거나 일시적이라 파일 DB에 쓴 데이터가 유지되지 않고, `better-sqlite3`는 네이티브 애드온이라 서버리스/엣지 런타임에서 로드되지 않는 경우가 많았습니다.
+
+v1.9의 목표는 이 한계에 대응해 Cloudflare Workers/Pages + Cloudflare D1 기반으로 서버 아카이브를 이전하고, 운영 전 필요한 최소한의 접근 제어(관리자 토큰)를 추가하는 것입니다.
+
+### 구현
+
+- Cloudflare Workers/Pages용 Next.js 배포 구조 추가
+  - `wrangler.jsonc`: Workers 배포 설정 + D1 바인딩(`DB`)
+  - `open-next.config.ts`: OpenNext(`@opennextjs/cloudflare`) 빌드 설정
+  - `next.config.ts`에 `initOpenNextCloudflareForDev()` 추가 (`next dev`에서도 D1 바인딩 접근 가능)
+  - `package.json`에 `cf:build` / `cf:preview` / `cf:deploy` / `cf:typegen` / `db:migrate:local` / `db:migrate:remote` 스크립트 추가
+  - `better-sqlite3`, `@types/better-sqlite3` 제거
+- Cloudflare D1 schema 추가 (`schema.sql`)
+  - 기존 v1.8 SQLite 테이블 구조(`members`, `activities`, `activity_participants`, `activity_conquest_types`, `import_logs`)를 그대로 이식
+  - 조회/조인에 쓰이는 index 추가(`activities.date`, `activity_participants.memberId`, `activity_conquest_types.activityId`)
+- `src/lib/serverDb.ts`를 better-sqlite3 기반에서 Cloudflare D1 기반으로 전면 전환
+  - `getServerMembers`, `getServerActivities`, `getServerArchiveMonths`, `getServerMonthlyReport`, `importBackupJson`의 함수명과 반환 구조는 그대로 유지, 내부만 D1 API(`prepare`/`bind`/`all`/`batch`)로 교체
+  - `importBackupJson`은 `db.batch()`로 삭제 + 재삽입을 원자적으로 처리
+  - 순수 집계 함수 `monthlyArchive.ts`, `monthlyReport.ts`는 변경 없이 재사용
+  - 기존 `better-sqlite3` 기반 서버리스 오류 안내 로직(`isKnownServerlessEnvironment` 등) 제거
+- API Route 4개는 응답 구조를 유지한 채 D1 비동기 호출에 맞게 내부만 수정
+  - `GET /api/health`, `POST /api/import/json`, `GET /api/archive/months`, `GET /api/archive/months/[month]`
+- `POST /api/import/json`에 `ADMIN_IMPORT_TOKEN` 기반 Bearer 토큰 보호 추가
+  - `Authorization` 헤더 없음 → `401`
+  - 토큰이 서버 설정과 다르거나 서버에 토큰이 설정되어 있지 않음 → `403`
+  - 정상 응답 구조는 기존과 동일하게 유지
+- 관리 화면 `/`에 "서버 반영 토큰" 입력 UI 추가
+  - React state로만 보관, LocalStorage/sessionStorage에 저장하지 않음, 화면에 재노출하지 않음
+  - "서버 DB로 가져오기" 요청 시 `Authorization: Bearer <token>` 헤더로 전송
+  - 토큰이 비어 있으면 요청을 보내지 않고 안내 메시지만 표시
+  - **관리 화면의 LocalStorage 기반 입력/수정/삭제 흐름은 변경 없이 그대로 유지**
+- `imageDataUrl`은 D1에도 저장하지 않고 v1.8과 동일하게 항상 `null`/`"skipped"` 처리 유지
+
+### 결과
+
+- 서버 아카이브가 Cloudflare Workers/Pages + D1 기반으로 동작하며, 파일 기반 SQLite의 서버리스 한계에서 벗어났습니다.
+- `/archive`, `/viewer`는 UI 변경 없이 D1 데이터를 조회합니다.
+- 관리 화면 `/`의 LocalStorage 기반 입력/수정/삭제는 v1.8과 동일하게 동작합니다.
+- 서버 DB에 데이터를 반영하는 유일한 쓰기 경로(`POST /api/import/json`)가 토큰 없이는 동작하지 않도록 보호되었습니다.
+
+### 주의사항 / 다음 과제
+
+- 로그인, 세션/쿠키 인증, 권한 관리는 아직 없습니다. 단일 관리자 토큰으로 import 엔드포인트만 보호합니다.
+- 관리 화면은 아직 D1 직접 저장으로 전환하지 않았습니다(v2.0 후보).
+- 길드원 CRUD, 활동 수정/삭제는 아직 서버 API화되지 않았습니다(v2.1 후보).
+- 이미지/R2 연동은 아직 검토 전입니다(v2.2 후보). `imageDataUrl`은 여전히 저장하지 않습니다.
+
+### 검증
+
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm run build`
+- `npm run cf:build`
+- 로컬 D1 에뮬레이션(`wrangler d1 execute --local`) 및 `next dev` 환경에서 `/api/health`, `POST /api/import/json`(무토큰/오답/정상 토큰), `/api/archive/months`, `/api/archive/months/[month]`, `/archive`, `/viewer`, `/` 관리 화면 실제 동작 확인
+
+### 배포 후 핫픽스 - Turbopack 빌드 → webpack 강제
+
+Cloudflare Workers 실제 배포 후 모든 동적 라우트(`/api/health`, `/favicon.ico` 등)에서 `Internal Server Error`가 발생했습니다. `wrangler tail` 로그에서 `ChunkLoadError`와 `components.ComponentMod.handler is not a function`이 확인되었습니다.
+
+- 원인: Next.js 16은 `next build`의 기본 번들러가 Turbopack입니다. `@opennextjs/cloudflare` 1.20.1의 Turbopack 청크 인라이닝 로직이 이 조합에서 일부 서버 청크(`[root-of-the-server]__*`, `[externals]_*`)를 제대로 인라인하지 못해 workerd 런타임에서 로드에 실패했습니다.
+- 조치: `package.json`의 `build` 스크립트를 `next build --webpack`으로 변경해 프로덕션 빌드(및 `cf:build`가 내부적으로 실행하는 빌드)를 webpack 산출물로 강제했습니다. `next dev`는 영향 없이 Turbopack을 계속 사용합니다.
+- 결과: 로컬 workerd 프리뷰(`npm run cf:preview`)와 실제 배포(`npm run cf:deploy`) 모두에서 `/api/health`, `/api/archive/months`, `/api/archive/months/[month]`, `/archive`, `/viewer`, `/`, `/favicon.ico`, `POST /api/import/json`이 정상 동작함을 확인했습니다.
+
 ## v1.8 - SQLite 서버 아카이브 MVP
 
 ### 목표

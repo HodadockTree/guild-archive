@@ -1,0 +1,5 @@
+# Cloudflare 로컬 개발용 환경변수 예시 파일입니다.
+# 이 파일을 .dev.vars로 복사한 뒤 실제 값으로 교체하세요.
+# .dev.vars는 .gitignore에 등록되어 있어 git에 커밋되지 않습니다.
+
+ADMIN_IMPORT_TOKEN=replace-with-a-strong-random-token
