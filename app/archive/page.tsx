@@ -95,7 +95,7 @@ export default function ArchivePage() {
       </header>
 
       <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        이 화면은 SQLite 서버 DB 기준으로 표시됩니다. 관리 화면의 기존 입력/수정/삭제는
+        이 화면은 Cloudflare D1 서버 DB 기준으로 표시됩니다. 관리 화면의 기존 입력/수정/삭제는
         계속 현재 브라우저의 LocalStorage 데이터를 사용합니다.
       </p>
 

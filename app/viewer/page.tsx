@@ -499,8 +499,8 @@ export default function ViewerPage() {
       ) : null}
 
       <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        서버 DB 조회 전용 화면입니다. 활동 추가/수정/삭제는 기존 관리 화면에서 그대로
-        사용할 수 있습니다.
+        공개 아카이브 조회 전용 화면입니다. 활동 추가/수정/삭제는 관리 화면에서 진행한 뒤,
+        서버 DB로 반영해주세요.
       </p>
     </main>
   );
