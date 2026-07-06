@@ -1,26 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
-import type { ActivityLog, GuildMember } from "@/src/types";
-import { getActivityLogs } from "@/src/lib/activities";
-import { getMembers } from "@/src/lib/members";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { ActivityLog } from "@/src/types";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
-import {
-  getAvailableActivityMonths,
-  getDefaultReportMonth,
-  getMonthlyReport,
-} from "@/src/lib/monthlyReport";
+import type { MonthlyReport } from "@/src/lib/monthlyReport";
 
-const EMPTY_ACTIVITIES: ActivityLog[] = [];
-const EMPTY_MEMBERS: GuildMember[] = [];
-const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
-const MEMBERS_STORAGE_KEY = "guild-archive:members";
+type MonthSummary = {
+  month: string;
+};
 
-let cachedActivitiesValue: string | null = null;
-let cachedActivitiesSnapshot: ActivityLog[] = EMPTY_ACTIVITIES;
-let cachedMembersValue: string | null = null;
-let cachedMembersSnapshot: GuildMember[] = EMPTY_MEMBERS;
+type MonthsState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "success"; months: MonthSummary[] };
+
+type ReportState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "success"; report: MonthlyReport; hasData: boolean };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -39,14 +38,6 @@ function getActivityTitle(activity: ActivityLog) {
   return activity.title?.trim() || getMonthlyActivityLabel(activity);
 }
 
-function subscribeStorage(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
 function subscribeLocation(onStoreChange: () => void) {
   window.addEventListener("popstate", onStoreChange);
 
@@ -55,44 +46,12 @@ function subscribeLocation(onStoreChange: () => void) {
   };
 }
 
-function getServerActivitiesSnapshot() {
-  return EMPTY_ACTIVITIES;
-}
-
-function getServerMembersSnapshot() {
-  return EMPTY_MEMBERS;
-}
-
 function getServerMonthSnapshot() {
   return "";
 }
 
 function getMonthSnapshot() {
   return new URLSearchParams(window.location.search).get("month") ?? "";
-}
-
-function getActivitiesSnapshot() {
-  const storedActivities = window.localStorage.getItem(ACTIVITIES_STORAGE_KEY);
-
-  if (storedActivities === cachedActivitiesValue) {
-    return cachedActivitiesSnapshot;
-  }
-
-  cachedActivitiesValue = storedActivities;
-  cachedActivitiesSnapshot = getActivityLogs();
-  return cachedActivitiesSnapshot;
-}
-
-function getMembersSnapshot() {
-  const storedMembers = window.localStorage.getItem(MEMBERS_STORAGE_KEY);
-
-  if (storedMembers === cachedMembersValue) {
-    return cachedMembersSnapshot;
-  }
-
-  cachedMembersValue = storedMembers;
-  cachedMembersSnapshot = getMembers();
-  return cachedMembersSnapshot;
 }
 
 function ViewerImage({
@@ -114,39 +73,148 @@ function ViewerImage({
 
 export default function ViewerPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [monthsState, setMonthsState] = useState<MonthsState>({
+    status: "loading",
+  });
+  const [reportState, setReportState] = useState<ReportState>({
+    status: "idle",
+  });
   const queryMonth = useSyncExternalStore<string>(
     subscribeLocation,
     getMonthSnapshot,
     getServerMonthSnapshot,
   );
-  const activities = useSyncExternalStore<ActivityLog[]>(
-    subscribeStorage,
-    getActivitiesSnapshot,
-    getServerActivitiesSnapshot,
-  );
-  const members = useSyncExternalStore<GuildMember[]>(
-    subscribeStorage,
-    getMembersSnapshot,
-    getServerMembersSnapshot,
-  );
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadMonths() {
+      setMonthsState({ status: "loading" });
+
+      try {
+        const response = await fetch("/api/archive/months", {
+          cache: "no-store",
+        });
+        const data: unknown = await response.json();
+
+        if (
+          !response.ok ||
+          typeof data !== "object" ||
+          data === null ||
+          !("months" in data) ||
+          !Array.isArray(data.months)
+        ) {
+          throw new Error("월 목록을 불러오지 못했습니다.");
+        }
+
+        if (isActive) {
+          setMonthsState({
+            status: "success",
+            months: data.months as MonthSummary[],
+          });
+        }
+      } catch (error) {
+        if (isActive) {
+          setMonthsState({
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "월 목록을 불러오지 못했습니다.",
+          });
+        }
+      }
+    }
+
+    loadMonths();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const serverMonths = useMemo(
+    () =>
+      monthsState.status === "success"
+        ? monthsState.months.map((summary) => summary.month)
+        : [],
+    [monthsState],
+  );
   const currentMonth = today().slice(0, 7);
-  const availableMonths = getAvailableActivityMonths(activities);
-  const defaultMonth = getDefaultReportMonth(activities, today());
-  const reportMonth = selectedMonth || queryMonth || defaultMonth;
+  const reportMonth = selectedMonth || queryMonth || serverMonths[0] || currentMonth;
   const monthOptions = useMemo(
     () =>
       Array.from(
-        new Set([reportMonth, currentMonth, ...availableMonths].filter(Boolean)),
+        new Set([reportMonth, currentMonth, ...serverMonths].filter(Boolean)),
       ).sort((a, b) => b.localeCompare(a)),
-    [availableMonths, currentMonth, reportMonth],
+    [currentMonth, reportMonth, serverMonths],
   );
-  const monthlyReport = getMonthlyReport(activities, members, reportMonth);
-  const topParticipants = monthlyReport.topParticipants.slice(0, 5);
-  const recentActivities = [...monthlyReport.activities].sort((a, b) => {
-    const dateOrder = b.date.localeCompare(a.date);
-    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
-  });
+
+  useEffect(() => {
+    if (!reportMonth) {
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadReport() {
+      setReportState({ status: "loading" });
+
+      try {
+        const response = await fetch(
+          `/api/archive/months/${encodeURIComponent(reportMonth)}`,
+          { cache: "no-store" },
+        );
+        const data: unknown = await response.json();
+
+        if (
+          !response.ok ||
+          typeof data !== "object" ||
+          data === null ||
+          !("report" in data) ||
+          !("hasData" in data)
+        ) {
+          throw new Error("월간 리포트를 불러오지 못했습니다.");
+        }
+
+        if (isActive) {
+          setReportState({
+            status: "success",
+            report: data.report as MonthlyReport,
+            hasData: Boolean(data.hasData),
+          });
+        }
+      } catch (error) {
+        if (isActive) {
+          setReportState({
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "월간 리포트를 불러오지 못했습니다.",
+          });
+        }
+      }
+    }
+
+    loadReport();
+
+    return () => {
+      isActive = false;
+    };
+  }, [reportMonth]);
+
+  const monthlyReport =
+    reportState.status === "success" ? reportState.report : null;
+  const hasReportData =
+    reportState.status === "success" ? reportState.hasData : false;
+  const topParticipants = monthlyReport?.topParticipants.slice(0, 5) ?? [];
+  const recentActivities = monthlyReport
+    ? [...monthlyReport.activities].sort((a, b) => {
+        const dateOrder = b.date.localeCompare(a.date);
+        return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
+      })
+    : [];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10">
@@ -176,9 +244,7 @@ export default function ViewerPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-neutral-600">
-          이 화면은 현재 기기에 저장된 길드 활동 기록을 보기 좋게 정리한
-          화면입니다. 아직 온라인 공유 기능은 없으며, 톡방 공유 시에는 화면
-          캡처를 활용할 수 있습니다.
+          이 화면은 서버 DB에 가져온 길드 활동 기록을 기준으로 월간 리포트를 표시합니다.
         </p>
       </header>
 
@@ -199,198 +265,242 @@ export default function ViewerPage() {
         </label>
       </section>
 
-      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-2xl font-bold text-neutral-950">
-            {getMonthLabel(reportMonth)} 월간 요약
+      {monthsState.status === "error" ? (
+        <section className="rounded-md border border-red-100 bg-red-50 px-5 py-6">
+          <h2 className="text-lg font-semibold text-red-800">
+            월 목록을 불러오지 못했습니다.
           </h2>
-          {activities.length === 0 ? (
-            <p className="mt-2 text-sm text-neutral-500">
-              아직 현재 기기에 저장된 활동 기록이 없습니다.
-            </p>
-          ) : null}
-        </div>
-
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ["전체 활동 수", `${monthlyReport.totalActivities}회`],
-            ["참여 길드원 수", `${monthlyReport.participantMemberCount}명`],
-            ["총 참여 횟수", `${monthlyReport.totalParticipationCount}회`],
-            ["비공정 횟수", `${monthlyReport.airshipCount}회`],
-            ["점령전 횟수", `${monthlyReport.siegeCount}회`],
-            ["이벤트 횟수", `${monthlyReport.otherCount}회`],
-          ].map(([label, value]) => (
-            <div className="rounded-md bg-neutral-100 px-4 py-4" key={label}>
-              <dt className="text-xs font-medium text-neutral-500">{label}</dt>
-              <dd className="text-2xl font-bold text-neutral-950">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-md border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            활동 종류별 통계
-          </h2>
-          <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-md bg-neutral-100 px-3 py-3">
-              <dt className="text-neutral-500">비공정</dt>
-              <dd className="font-semibold text-neutral-950">
-                {monthlyReport.airshipCount}회
-              </dd>
-            </div>
-            <div className="rounded-md bg-neutral-100 px-3 py-3">
-              <dt className="text-neutral-500">점령전</dt>
-              <dd className="font-semibold text-neutral-950">
-                {monthlyReport.siegeCount}회
-              </dd>
-            </div>
-            <div className="rounded-md bg-neutral-100 px-3 py-3">
-              <dt className="text-neutral-500">이벤트</dt>
-              <dd className="font-semibold text-neutral-950">
-                {monthlyReport.otherCount}회
-              </dd>
-            </div>
-          </dl>
-
-          <h3 className="mt-5 text-sm font-semibold text-neutral-900">
-            점령전 세부 카테고리
-          </h3>
-          {monthlyReport.conquestSummaries.length === 0 ? (
-            <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-              기록된 점령전 세부 카테고리가 없습니다.
-            </p>
-          ) : (
-            <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-              {monthlyReport.conquestSummaries.map((summary) => (
-                <div
-                  className="rounded-md bg-neutral-100 px-3 py-2.5"
-                  key={summary.label}
-                >
-                  <dt className="text-neutral-500">{summary.label}</dt>
-                  <dd className="font-semibold text-neutral-950">
-                    {summary.count}회
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </div>
-
-        <div className="rounded-md border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            월간 참여 TOP 5
-          </h2>
-          {topParticipants.length === 0 ? (
-            <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-              이 달의 참여 기록이 없습니다.
-            </p>
-          ) : (
-            <ol className="mt-3 space-y-2">
-              {topParticipants.map((participant, index) => (
-                <li
-                  className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
-                  key={participant.memberId}
-                >
-                  <span className="min-w-0 truncate font-medium text-neutral-900">
-                    {index + 1}. {participant.nickname}
-                  </span>
-                  <span className="shrink-0 font-semibold text-neutral-950">
-                    {participant.count}회
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </section>
-
-      {monthlyReport.eventSummaries.length > 0 ? (
-        <section className="rounded-md border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            이번 달 이벤트
-          </h2>
-          <ul className="mt-3 space-y-3">
-            {monthlyReport.eventSummaries.map((activity) => (
-              <li
-                className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
-                key={activity.id}
-              >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-xs text-neutral-500">{activity.date}</p>
-                    <h3 className="truncate font-semibold text-neutral-950">
-                      {activity.title}
-                    </h3>
-                  </div>
-                  <span className="w-fit shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
-                    참여 {activity.participantCount}명
-                  </span>
-                </div>
-                {activity.memo ? (
-                  <p className="mt-2 whitespace-pre-wrap text-neutral-600">
-                    {activity.memo}
-                  </p>
-                ) : null}
-                {activity.imageDataUrl ? (
-                  <ViewerImage alt="이벤트 첨부 이미지" src={activity.imageDataUrl} />
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <p className="mt-2 text-sm text-red-700">{monthsState.message}</p>
         </section>
       ) : null}
 
-      <section className="rounded-md border border-neutral-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-neutral-950">
-          최근 활동 기록
-        </h2>
-        {recentActivities.length === 0 ? (
-          <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-            선택한 월에 저장된 활동 기록이 없습니다.
+      {reportState.status === "loading" ? (
+        <section className="rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-neutral-950">
+            월간 리포트를 불러오는 중입니다.
+          </h2>
+        </section>
+      ) : null}
+
+      {reportState.status === "error" ? (
+        <section className="rounded-md border border-red-100 bg-red-50 px-5 py-6">
+          <h2 className="text-lg font-semibold text-red-800">
+            월간 리포트를 불러오지 못했습니다.
+          </h2>
+          <p className="mt-2 text-sm text-red-700">{reportState.message}</p>
+        </section>
+      ) : null}
+
+      {monthlyReport && !hasReportData ? (
+        <section className="rounded-md border border-dashed border-neutral-300 bg-white px-5 py-10 text-center">
+          <h2 className="text-lg font-semibold text-neutral-950">
+            {getMonthLabel(reportMonth)} 서버 기록이 없습니다.
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-500">
+            관리 화면에서 JSON 백업을 서버 DB로 가져오거나, 기록이 있는 다른 월을
+            선택해주세요.
           </p>
-        ) : (
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {recentActivities.map((activity) => (
-              <li
-                className="flex min-h-44 flex-col rounded-md border border-neutral-200 px-4 py-3 text-sm shadow-sm"
-                key={activity.id}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-neutral-500">
-                      {getDisplayDate(activity.date)}
-                    </span>
-                    <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                      {getMonthlyActivityLabel(activity)}
-                    </span>
-                  </div>
-                  <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
-                    참여 {activity.participantIds.length}명
-                  </span>
+        </section>
+      ) : null}
+
+      {monthlyReport && hasReportData ? (
+        <>
+          <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-neutral-950">
+                {getMonthLabel(reportMonth)} 월간 요약
+              </h2>
+            </div>
+
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["전체 활동 수", `${monthlyReport.totalActivities}개`],
+                ["참여 길드원 수", `${monthlyReport.participantMemberCount}명`],
+                ["총 참여 횟수", `${monthlyReport.totalParticipationCount}회`],
+                ["비공정 횟수", `${monthlyReport.airshipCount}개`],
+                ["점령전 횟수", `${monthlyReport.siegeCount}개`],
+                ["이벤트 횟수", `${monthlyReport.otherCount}개`],
+              ].map(([label, value]) => (
+                <div className="rounded-md bg-neutral-100 px-4 py-4" key={label}>
+                  <dt className="text-xs font-medium text-neutral-500">{label}</dt>
+                  <dd className="text-2xl font-bold text-neutral-950">{value}</dd>
                 </div>
-                <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
-                  {getActivityTitle(activity)}
-                </h3>
-                {activity.memo?.trim() ? (
-                  <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
-                    {activity.memo.trim()}
-                  </p>
-                ) : null}
-                {activity.imageDataUrl ? (
-                  <ViewerImage alt="활동 첨부 이미지" src={activity.imageDataUrl} />
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              ))}
+            </dl>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-md border border-neutral-200 bg-white p-5">
+              <h2 className="text-lg font-semibold text-neutral-950">
+                활동 종류별 통계
+              </h2>
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="rounded-md bg-neutral-100 px-3 py-3">
+                  <dt className="text-neutral-500">비공정</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {monthlyReport.airshipCount}개
+                  </dd>
+                </div>
+                <div className="rounded-md bg-neutral-100 px-3 py-3">
+                  <dt className="text-neutral-500">점령전</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {monthlyReport.siegeCount}개
+                  </dd>
+                </div>
+                <div className="rounded-md bg-neutral-100 px-3 py-3">
+                  <dt className="text-neutral-500">이벤트</dt>
+                  <dd className="font-semibold text-neutral-950">
+                    {monthlyReport.otherCount}개
+                  </dd>
+                </div>
+              </dl>
+
+              <h3 className="mt-5 text-sm font-semibold text-neutral-900">
+                점령전 세부 카테고리
+              </h3>
+              {monthlyReport.conquestSummaries.length === 0 ? (
+                <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                  기록된 점령전 세부 카테고리가 없습니다.
+                </p>
+              ) : (
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                  {monthlyReport.conquestSummaries.map((summary) => (
+                    <div
+                      className="rounded-md bg-neutral-100 px-3 py-2.5"
+                      key={summary.label}
+                    >
+                      <dt className="text-neutral-500">{summary.label}</dt>
+                      <dd className="font-semibold text-neutral-950">
+                        {summary.count}회
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+
+            <div className="rounded-md border border-neutral-200 bg-white p-5">
+              <h2 className="text-lg font-semibold text-neutral-950">
+                월간 참여 TOP 5
+              </h2>
+              {topParticipants.length === 0 ? (
+                <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                  이 달의 참여 기록이 없습니다.
+                </p>
+              ) : (
+                <ol className="mt-3 space-y-2">
+                  {topParticipants.map((participant, index) => (
+                    <li
+                      className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
+                      key={participant.memberId}
+                    >
+                      <span className="min-w-0 truncate font-medium text-neutral-900">
+                        {index + 1}. {participant.nickname}
+                      </span>
+                      <span className="shrink-0 font-semibold text-neutral-950">
+                        {participant.count}회
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </section>
+
+          {monthlyReport.eventSummaries.length > 0 ? (
+            <section className="rounded-md border border-neutral-200 bg-white p-5">
+              <h2 className="text-lg font-semibold text-neutral-950">
+                이번 달 이벤트
+              </h2>
+              <ul className="mt-3 space-y-3">
+                {monthlyReport.eventSummaries.map((activity) => (
+                  <li
+                    className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
+                    key={activity.id}
+                  >
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs text-neutral-500">
+                          {activity.date}
+                        </p>
+                        <h3 className="truncate font-semibold text-neutral-950">
+                          {activity.title}
+                        </h3>
+                      </div>
+                      <span className="w-fit shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                        참여 {activity.participantCount}명
+                      </span>
+                    </div>
+                    {activity.memo ? (
+                      <p className="mt-2 whitespace-pre-wrap text-neutral-600">
+                        {activity.memo}
+                      </p>
+                    ) : null}
+                    {activity.imageDataUrl ? (
+                      <ViewerImage
+                        alt="이벤트 첨부 이미지"
+                        src={activity.imageDataUrl}
+                      />
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="rounded-md border border-neutral-200 bg-white p-5">
+            <h2 className="text-lg font-semibold text-neutral-950">
+              최근 활동 기록
+            </h2>
+            {recentActivities.length === 0 ? (
+              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                선택한 월에 저장된 활동 기록이 없습니다.
+              </p>
+            ) : (
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {recentActivities.map((activity) => (
+                  <li
+                    className="flex min-h-44 flex-col rounded-md border border-neutral-200 px-4 py-3 text-sm shadow-sm"
+                    key={activity.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-neutral-500">
+                          {getDisplayDate(activity.date)}
+                        </span>
+                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          {getMonthlyActivityLabel(activity)}
+                        </span>
+                      </div>
+                      <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                        참여 {activity.participantIds.length}명
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
+                      {getActivityTitle(activity)}
+                    </h3>
+                    {activity.memo?.trim() ? (
+                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
+                        {activity.memo.trim()}
+                      </p>
+                    ) : null}
+                    {activity.imageDataUrl ? (
+                      <ViewerImage
+                        alt="활동 첨부 이미지"
+                        src={activity.imageDataUrl}
+                      />
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : null}
 
       <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        이 화면은 현재 기기에 저장된 길드 활동 기록을 보기 좋게 정리한
-        화면입니다. 아직 온라인 공유 기능은 없으며, 톡방 공유 시에는 화면
-        캡처를 활용할 수 있습니다.
+        서버 DB 조회 전용 화면입니다. 활동 추가/수정/삭제는 기존 관리 화면에서 그대로
+        사용할 수 있습니다.
       </p>
     </main>
   );

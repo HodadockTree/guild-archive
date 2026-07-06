@@ -66,6 +66,17 @@ type BackupImportState =
   | { status: "idle" }
   | { status: "error"; message: string }
   | { status: "valid"; backup: GuildArchiveBackup; warnings: string[] };
+type ServerImportState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "success";
+      memberCount: number;
+      activityCount: number;
+      participantCount: number;
+      conquestTypeCount: number;
+    }
+  | { status: "error"; message: string };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -379,6 +390,9 @@ export default function Home() {
   const [shareFeedbackMessage, setShareFeedbackMessage] = useState("");
   const [backupFeedbackMessage, setBackupFeedbackMessage] = useState("");
   const [backupImportState, setBackupImportState] = useState<BackupImportState>({
+    status: "idle",
+  });
+  const [serverImportState, setServerImportState] = useState<ServerImportState>({
     status: "idle",
   });
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
@@ -720,6 +734,7 @@ export default function Home() {
     }
 
     setRestoreResultMessage("");
+    setServerImportState({ status: "idle" });
 
     try {
       const fileText = await readFileAsText(file);
@@ -796,6 +811,60 @@ export default function Home() {
     setRestoreResultMessage(
       `복원이 완료되었습니다. 길드원 ${backup.members.length}명, 활동 기록 ${backup.activityLogs.length}개를 복원했습니다.`,
     );
+  };
+
+  const handleImportBackupToServer = async () => {
+    if (backupImportState.status !== "valid") {
+      return;
+    }
+
+    const shouldImport = window.confirm(
+      "선택한 JSON 백업을 서버 DB로 가져올까요?\n기존 서버 DB 데이터는 백업 파일 내용으로 덮어씁니다.",
+    );
+
+    if (!shouldImport) {
+      return;
+    }
+
+    setServerImportState({ status: "loading" });
+
+    try {
+      const response = await fetch("/api/import/json", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(backupImportState.backup),
+      });
+      const result = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        memberCount?: number;
+        activityCount?: number;
+        participantCount?: number;
+        conquestTypeCount?: number;
+      };
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error ?? "서버 DB 가져오기에 실패했습니다.");
+      }
+
+      setServerImportState({
+        status: "success",
+        memberCount: result.memberCount ?? 0,
+        activityCount: result.activityCount ?? 0,
+        participantCount: result.participantCount ?? 0,
+        conquestTypeCount: result.conquestTypeCount ?? 0,
+      });
+    } catch (error) {
+      setServerImportState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "서버 DB 가져오기 중 문제가 발생했습니다.",
+      });
+    }
   };
 
   const handleEditMember = (member: GuildMember) => {
@@ -1544,6 +1613,16 @@ export default function Home() {
                       이 백업으로 복원
                     </button>
                     <button
+                      className="rounded-md border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400"
+                      type="button"
+                      disabled={serverImportState.status === "loading"}
+                      onClick={handleImportBackupToServer}
+                    >
+                      {serverImportState.status === "loading"
+                        ? "서버 DB로 가져오는 중"
+                        : "서버 DB로 가져오기"}
+                    </button>
+                    <button
                       className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"
                       onClick={handleCancelBackupImport}
@@ -1551,6 +1630,19 @@ export default function Home() {
                       취소
                     </button>
                   </div>
+                  {serverImportState.status === "success" ? (
+                    <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                      서버 DB 가져오기가 완료되었습니다. 길드원{" "}
+                      {serverImportState.memberCount}명, 활동 기록{" "}
+                      {serverImportState.activityCount}개, 참여 연결{" "}
+                      {serverImportState.participantCount}개를 저장했습니다.
+                    </p>
+                  ) : null}
+                  {serverImportState.status === "error" ? (
+                    <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {serverImportState.message}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               {restoreResultMessage ? (

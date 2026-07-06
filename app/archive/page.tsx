@@ -1,51 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import type { ActivityLog } from "@/src/types";
-import { getActivityLogs } from "@/src/lib/activities";
-import {
-  getMonthDisplayLabel,
-  getMonthlyArchiveSummaries,
-} from "@/src/lib/monthlyArchive";
+import { useEffect, useState } from "react";
+import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
+import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 
-const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
-const EMPTY_ACTIVITIES: ActivityLog[] = [];
+type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
+  representativeEventTitle: string | null;
+};
 
-let cachedActivitiesValue: string | null = null;
-let cachedActivitiesSnapshot: ActivityLog[] = EMPTY_ACTIVITIES;
-
-function subscribeStorage(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function getServerActivitiesSnapshot() {
-  return EMPTY_ACTIVITIES;
-}
-
-function getActivitiesSnapshot() {
-  const storedActivities = window.localStorage.getItem(ACTIVITIES_STORAGE_KEY);
-
-  if (storedActivities === cachedActivitiesValue) {
-    return cachedActivitiesSnapshot;
-  }
-
-  cachedActivitiesValue = storedActivities;
-  cachedActivitiesSnapshot = getActivityLogs();
-  return cachedActivitiesSnapshot;
-}
+type ArchiveState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "success"; months: ServerMonthlyArchiveSummary[] };
 
 export default function ArchivePage() {
-  const activities = useSyncExternalStore<ActivityLog[]>(
-    subscribeStorage,
-    getActivitiesSnapshot,
-    getServerActivitiesSnapshot,
-  );
-  const monthlySummaries = getMonthlyArchiveSummaries(activities);
+  const [archiveState, setArchiveState] = useState<ArchiveState>({
+    status: "loading",
+  });
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadArchiveMonths() {
+      setArchiveState({ status: "loading" });
+
+      try {
+        const response = await fetch("/api/archive/months", {
+          cache: "no-store",
+        });
+        const data: unknown = await response.json();
+
+        if (
+          !response.ok ||
+          typeof data !== "object" ||
+          data === null ||
+          !("months" in data) ||
+          !Array.isArray(data.months)
+        ) {
+          throw new Error("월별 아카이브 데이터를 불러오지 못했습니다.");
+        }
+
+        if (isActive) {
+          setArchiveState({
+            status: "success",
+            months: data.months as ServerMonthlyArchiveSummary[],
+          });
+        }
+      } catch (error) {
+        if (isActive) {
+          setArchiveState({
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "월별 아카이브 데이터를 불러오지 못했습니다.",
+          });
+        }
+      }
+    }
+
+    loadArchiveMonths();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const monthlySummaries =
+    archiveState.status === "success" ? archiveState.months : [];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10">
@@ -67,25 +90,47 @@ export default function ArchivePage() {
           </Link>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-neutral-600">
-          기록이 있는 월만 모아 월간 리포트로 바로 이동할 수 있습니다.
+          서버 DB에 가져온 활동 기록을 월별로 모아 월간 리포트로 이동할 수 있습니다.
         </p>
       </header>
 
       <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        현재는 이 브라우저에 저장된 활동 기록을 기준으로 표시됩니다. 다른
-        기기나 다른 사람의 화면에는 동일한 데이터가 보이지 않을 수 있습니다.
+        이 화면은 SQLite 서버 DB 기준으로 표시됩니다. 관리 화면의 기존 입력/수정/삭제는
+        계속 현재 브라우저의 LocalStorage 데이터를 사용합니다.
       </p>
 
-      {monthlySummaries.length === 0 ? (
-        <section className="rounded-md border border-dashed border-neutral-300 bg-white px-5 py-10 text-center">
+      {archiveState.status === "loading" ? (
+        <section className="rounded-md border border-neutral-200 bg-white px-5 py-10 text-center">
           <h2 className="text-lg font-semibold text-neutral-950">
-            아직 기록된 활동이 없습니다.
+            아카이브 데이터를 불러오는 중입니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-500">
-            관리 화면에서 활동을 추가하면 월별 아카이브가 자동으로 생성됩니다.
+        </section>
+      ) : null}
+
+      {archiveState.status === "error" ? (
+        <section className="rounded-md border border-red-100 bg-red-50 px-5 py-10 text-center">
+          <h2 className="text-lg font-semibold text-red-800">
+            아카이브 데이터를 불러오지 못했습니다.
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-red-700">
+            {archiveState.message}
           </p>
         </section>
-      ) : (
+      ) : null}
+
+      {archiveState.status === "success" && monthlySummaries.length === 0 ? (
+        <section className="rounded-md border border-dashed border-neutral-300 bg-white px-5 py-10 text-center">
+          <h2 className="text-lg font-semibold text-neutral-950">
+            서버 DB에 표시할 활동 기록이 없습니다.
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-500">
+            관리 화면에서 기존 JSON 백업 파일을 서버 DB로 가져오면 월별 아카이브가
+            표시됩니다.
+          </p>
+        </section>
+      ) : null}
+
+      {archiveState.status === "success" && monthlySummaries.length > 0 ? (
         <section className="grid gap-4">
           {monthlySummaries.map((summary) => (
             <Link
@@ -127,14 +172,14 @@ export default function ArchivePage() {
                   <div className="rounded-md bg-neutral-100 px-3 py-3">
                     <dt className="text-xs text-neutral-500">활동 수</dt>
                     <dd className="font-semibold text-neutral-950">
-                      {summary.activityCount}회
+                      {summary.activityCount}개
                     </dd>
                   </div>
                   {summary.eventCount > 0 ? (
                     <div className="rounded-md bg-neutral-100 px-3 py-3">
                       <dt className="text-xs text-neutral-500">이벤트 수</dt>
                       <dd className="font-semibold text-neutral-950">
-                        {summary.eventCount}회
+                        {summary.eventCount}개
                       </dd>
                     </div>
                   ) : null}
@@ -159,7 +204,7 @@ export default function ArchivePage() {
             </Link>
           ))}
         </section>
-      )}
+      ) : null}
     </main>
   );
 }
