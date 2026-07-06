@@ -1070,12 +1070,20 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-neutral-950">
             냥춘 길드 활동 기록
           </h1>
-          <Link
-            className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            href="/viewer"
-          >
-            활동 리포트 보기
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/archive"
+            >
+              월별 아카이브 보기
+            </Link>
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/viewer"
+            >
+              활동 리포트 보기
+            </Link>
+          </div>
         </div>
         <p className="text-sm text-neutral-600">
           매주 길드 활동을 빠르게 남기고, 참여 길드원을 함께 보관합니다.
