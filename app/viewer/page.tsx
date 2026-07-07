@@ -515,8 +515,8 @@ export default function ViewerPage() {
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recentActivities.map((activity) => (
                   <li
-                    className={`flex min-h-44 flex-col rounded-md border border-sky-100 bg-white text-sm shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
-                      activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
+                    className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+                      activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
                     }`}
                     key={activity.id}
                   >
@@ -528,9 +528,11 @@ export default function ViewerPage() {
                       />
                     ) : null}
                     <div
-                      className={`flex flex-1 flex-col ${
-                        activity.imageDataUrl ? "px-4 pb-4" : ""
-                      }`}
+                      className={
+                        activity.imageDataUrl
+                          ? "flex flex-1 flex-col px-4 py-4"
+                          : "flex flex-1 flex-col"
+                      }
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -542,14 +544,14 @@ export default function ViewerPage() {
                           </span>
                         </div>
                         <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          참여 {activity.participantIds.length}명
+                          {activity.participantIds.length}명
                         </span>
                       </div>
                       <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(activity)}
                       </h3>
                       {activity.memo?.trim() ? (
-                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-slate-600">
+                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
                           {activity.memo.trim()}
                         </p>
                       ) : null}
