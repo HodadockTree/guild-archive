@@ -82,12 +82,20 @@ export default function ArchivePage() {
               냥춘 활동 아카이브
             </h1>
           </div>
-          <Link
-            className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            href="/"
-          >
-            관리 화면으로 돌아가기
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/"
+            >
+              홈 대시보드
+            </Link>
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/admin"
+            >
+              관리 화면
+            </Link>
+          </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-neutral-600">
           서버 DB에 가져온 활동 기록을 월별로 모아 월간 리포트로 이동할 수 있습니다.

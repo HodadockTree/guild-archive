@@ -38,6 +38,29 @@ function getActivityTitle(activity: ActivityLog) {
   return activity.title?.trim() || getMonthlyActivityLabel(activity);
 }
 
+function getMostFrequentActivityType(report: MonthlyReport) {
+  const summaries = [
+    { label: "비공정", count: report.airshipCount },
+    { label: "점령전", count: report.siegeCount },
+    { label: "이벤트", count: report.otherCount },
+  ].sort((a, b) => b.count - a.count);
+
+  return summaries[0]?.count ? summaries[0] : null;
+}
+
+function getMostParticipatedActivity(activities: ActivityLog[]) {
+  return [...activities].sort((a, b) => {
+    const participantOrder = b.participantIds.length - a.participantIds.length;
+
+    if (participantOrder !== 0) {
+      return participantOrder;
+    }
+
+    const dateOrder = b.date.localeCompare(a.date);
+    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
+  })[0];
+}
+
 function subscribeLocation(onStoreChange: () => void) {
   window.addEventListener("popstate", onStoreChange);
 
@@ -208,7 +231,12 @@ export default function ViewerPage() {
     reportState.status === "success" ? reportState.report : null;
   const hasReportData =
     reportState.status === "success" ? reportState.hasData : false;
-  const topParticipants = monthlyReport?.topParticipants.slice(0, 5) ?? [];
+  const mostFrequentActivityType = monthlyReport
+    ? getMostFrequentActivityType(monthlyReport)
+    : null;
+  const mostParticipatedActivity = monthlyReport
+    ? getMostParticipatedActivity(monthlyReport.activities)
+    : null;
   const recentActivities = monthlyReport
     ? [...monthlyReport.activities].sort((a, b) => {
         const dateOrder = b.date.localeCompare(a.date);
@@ -239,7 +267,13 @@ export default function ViewerPage() {
               className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
               href="/"
             >
-              관리 화면으로 돌아가기
+              홈 대시보드
+            </Link>
+            <Link
+              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              href="/admin"
+            >
+              관리 화면
             </Link>
           </div>
         </div>
@@ -306,20 +340,32 @@ export default function ViewerPage() {
       {monthlyReport && hasReportData ? (
         <>
           <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
-            <div>
+            <div className="space-y-2">
               <h2 className="text-2xl font-bold text-neutral-950">
-                {getMonthLabel(reportMonth)} 월간 요약
+                {getMonthLabel(reportMonth)} 활동 리포트
               </h2>
+              <p className="text-sm leading-6 text-neutral-600">
+                이번 달에는 {monthlyReport.totalActivities}개의 활동이 기록되었고,{" "}
+                {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
+              </p>
             </div>
 
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                ["전체 활동 수", `${monthlyReport.totalActivities}개`],
-                ["참여 길드원 수", `${monthlyReport.participantMemberCount}명`],
-                ["총 참여 횟수", `${monthlyReport.totalParticipationCount}회`],
-                ["비공정 횟수", `${monthlyReport.airshipCount}개`],
-                ["점령전 횟수", `${monthlyReport.siegeCount}개`],
-                ["이벤트 횟수", `${monthlyReport.otherCount}개`],
+                ["이번 달 활동", `${monthlyReport.totalActivities}회`],
+                ["함께한 길드원", `${monthlyReport.participantMemberCount}명`],
+                [
+                  "가장 많이 진행한 활동",
+                  mostFrequentActivityType
+                    ? `${mostFrequentActivityType.label} ${mostFrequentActivityType.count}회`
+                    : "없음",
+                ],
+                [
+                  "가장 참여가 많았던 활동",
+                  mostParticipatedActivity
+                    ? `${getActivityTitle(mostParticipatedActivity)} · ${mostParticipatedActivity.participantIds.length}명`
+                    : "없음",
+                ],
               ].map(([label, value]) => (
                 <div className="rounded-md bg-neutral-100 px-4 py-4" key={label}>
                   <dt className="text-xs font-medium text-neutral-500">{label}</dt>
@@ -381,28 +427,36 @@ export default function ViewerPage() {
 
             <div className="rounded-md border border-neutral-200 bg-white p-5">
               <h2 className="text-lg font-semibold text-neutral-950">
-                월간 참여 TOP 5
+                가장 참여가 많았던 활동
               </h2>
-              {topParticipants.length === 0 ? (
+              {!mostParticipatedActivity ? (
                 <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-                  이 달의 참여 기록이 없습니다.
+                  이 달의 활동 기록이 없습니다.
                 </p>
               ) : (
-                <ol className="mt-3 space-y-2">
-                  {topParticipants.map((participant, index) => (
-                    <li
-                      className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
-                      key={participant.memberId}
-                    >
-                      <span className="min-w-0 truncate font-medium text-neutral-900">
-                        {index + 1}. {participant.nickname}
-                      </span>
-                      <span className="shrink-0 font-semibold text-neutral-950">
-                        {participant.count}회
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                <div className="mt-3 rounded-md bg-neutral-100 px-4 py-4 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-neutral-500">
+                        {mostParticipatedActivity.date}
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold leading-6 text-neutral-950">
+                        {getActivityTitle(mostParticipatedActivity)}
+                      </h3>
+                      <p className="mt-1 text-neutral-600">
+                        {getMonthlyActivityLabel(mostParticipatedActivity)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                      참여 {mostParticipatedActivity.participantIds.length}명
+                    </span>
+                  </div>
+                  {mostParticipatedActivity.memo?.trim() ? (
+                    <p className="mt-3 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
+                      {mostParticipatedActivity.memo.trim()}
+                    </p>
+                  ) : null}
+                </div>
               )}
             </div>
           </section>
@@ -460,36 +514,48 @@ export default function ViewerPage() {
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recentActivities.map((activity) => (
                   <li
-                    className="flex min-h-44 flex-col rounded-md border border-neutral-200 px-4 py-3 text-sm shadow-sm"
+                    className={`flex min-h-44 flex-col rounded-md border border-neutral-200 text-sm shadow-sm ${
+                      activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
+                    }`}
                     key={activity.id}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-neutral-500">
-                          {getDisplayDate(activity.date)}
-                        </span>
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                          {getMonthlyActivityLabel(activity)}
-                        </span>
-                      </div>
-                      <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
-                        참여 {activity.participantIds.length}명
-                      </span>
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
-                      {getActivityTitle(activity)}
-                    </h3>
-                    {activity.memo?.trim() ? (
-                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
-                        {activity.memo.trim()}
-                      </p>
-                    ) : null}
                     {activity.imageDataUrl ? (
                       <ViewerImage
                         alt="활동 첨부 이미지"
                         src={activity.imageDataUrl}
                       />
                     ) : null}
+                    <div
+                      className={`flex flex-1 flex-col ${
+                        activity.imageDataUrl ? "px-4 pb-4" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-neutral-500">
+                            {getDisplayDate(activity.date)}
+                          </span>
+                          <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                            {getMonthlyActivityLabel(activity)}
+                          </span>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                          참여 {activity.participantIds.length}명
+                        </span>
+                      </div>
+                      <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
+                        {getActivityTitle(activity)}
+                      </h3>
+                      {activity.memo?.trim() ? (
+                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
+                          {activity.memo.trim()}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-sm leading-6 text-neutral-500">
+                          사진이 없어도 활동 종류, 날짜, 참여 인원을 중심으로 기록을 볼 수 있습니다.
+                        </p>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
