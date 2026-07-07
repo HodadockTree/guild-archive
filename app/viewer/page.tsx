@@ -79,16 +79,21 @@ function getMonthSnapshot() {
 
 function ViewerImage({
   alt,
+  className,
   src,
 }: {
   alt: string;
+  className?: string;
   src: string;
 }) {
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
       alt={alt}
-      className="mt-3 max-h-72 w-full rounded-md border border-sky-100 object-contain"
+      className={
+        className ??
+        "mt-3 max-h-72 w-full rounded-md border border-sky-100 object-contain"
+      }
       src={src}
     />
   );
@@ -249,7 +254,7 @@ export default function ViewerPage() {
       <header className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-sky-700">
+            <p className="text-sm font-medium text-slate-600">
               월간 활동 리포트
             </p>
             <h1 className="text-3xl font-bold text-slate-900">
@@ -258,19 +263,19 @@ export default function ViewerPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
               href="/archive"
             >
               아카이브로 돌아가기
             </Link>
             <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
               href="/"
             >
               홈 대시보드
             </Link>
             <Link
-              className="w-fit rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
+              className="w-fit rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
               href="/admin"
             >
               관리 화면
@@ -279,11 +284,11 @@ export default function ViewerPage() {
         </div>
       </header>
 
-      <section className="rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/60">
+      <section className="rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/50">
         <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-slate-700">
           <span>월 선택</span>
           <select
-            className="w-full rounded-md border border-sky-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500"
+            className="w-full rounded-md border border-sky-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-300"
             value={reportMonth}
             onChange={(event) => setSelectedMonth(event.target.value)}
           >
@@ -306,7 +311,7 @@ export default function ViewerPage() {
       ) : null}
 
       {reportState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+        <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
           <h2 className="text-lg font-semibold text-slate-900">
             월간 리포트를 불러오는 중입니다.
           </h2>
@@ -335,7 +340,7 @@ export default function ViewerPage() {
 
       {monthlyReport && hasReportData ? (
         <>
-          <section className="space-y-5 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+          <section className="space-y-5 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-slate-900">
                 {getMonthLabel(reportMonth)} 활동 리포트
@@ -372,7 +377,7 @@ export default function ViewerPage() {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
                 활동 종류별 통계
               </h2>
@@ -421,7 +426,7 @@ export default function ViewerPage() {
               )}
             </div>
 
-            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
                 가장 참여가 많았던 활동
               </h2>
@@ -443,7 +448,7 @@ export default function ViewerPage() {
                         {getMonthlyActivityLabel(mostParticipatedActivity)}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
+                    <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       참여 {mostParticipatedActivity.participantIds.length}명
                     </span>
                   </div>
@@ -458,14 +463,14 @@ export default function ViewerPage() {
           </section>
 
           {monthlyReport.eventSummaries.length > 0 ? (
-            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
                 이번 달 이벤트
               </h2>
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {monthlyReport.eventSummaries.map((activity) => (
                   <li
-                    className="rounded-md border border-sky-100 bg-sky-50 px-3 py-3 text-sm"
+                    className="rounded-md border border-sky-100 bg-white px-3 py-3 text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/40"
                     key={activity.id}
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -477,7 +482,7 @@ export default function ViewerPage() {
                           {activity.title}
                         </h3>
                       </div>
-                      <span className="w-fit shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
+                      <span className="w-fit shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
                         참여 {activity.participantCount}명
                       </span>
                     </div>
@@ -498,7 +503,7 @@ export default function ViewerPage() {
             </section>
           ) : null}
 
-          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <h2 className="text-lg font-semibold text-slate-900">
               최근 활동 기록
             </h2>
@@ -510,7 +515,7 @@ export default function ViewerPage() {
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recentActivities.map((activity) => (
                   <li
-                    className={`flex min-h-44 flex-col rounded-md border border-sky-100 bg-white text-sm shadow-sm shadow-sky-100/60 transition hover:border-sky-200 hover:shadow-md ${
+                    className={`flex min-h-44 flex-col rounded-md border border-sky-100 bg-white text-sm shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
                       activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
                     }`}
                     key={activity.id}
@@ -518,6 +523,7 @@ export default function ViewerPage() {
                     {activity.imageDataUrl ? (
                       <ViewerImage
                         alt="활동 첨부 이미지"
+                        className="max-h-56 w-full border-b border-sky-100 object-contain"
                         src={activity.imageDataUrl}
                       />
                     ) : null}
@@ -531,11 +537,11 @@ export default function ViewerPage() {
                           <span className="text-xs text-slate-500">
                             {getDisplayDate(activity.date)}
                           </span>
-                          <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs text-sky-700">
+                          <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs text-slate-700">
                             {getMonthlyActivityLabel(activity)}
                           </span>
                         </div>
-                        <span className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
+                        <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
                           참여 {activity.participantIds.length}명
                         </span>
                       </div>

@@ -37,7 +37,7 @@ function SummaryCard({
   detail?: string;
 }) {
   return (
-    <div className="rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/60 transition hover:border-sky-200 hover:shadow-md">
+    <div className="rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40">
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="mt-2 text-3xl font-bold text-slate-900">{value}</dd>
       {detail ? (
@@ -65,7 +65,7 @@ function TrendChart({
   const maxValue = Math.max(...trends.map((trend) => trend[valueKey]), 0);
 
   return (
-    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
@@ -83,13 +83,19 @@ function TrendChart({
 
             return (
               <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={trend.month}>
-                <span className="text-xs font-semibold text-sky-700">
+                <span
+                  className={`text-xs font-semibold ${
+                    value === maxValue ? "text-slate-700" : "text-slate-500"
+                  }`}
+                >
                   {value}
                   {unit}
                 </span>
                 <div className="flex h-44 w-full items-end rounded-sm bg-sky-50">
                   <div
-                    className="w-full rounded-sm bg-sky-400"
+                    className={`w-full rounded-sm ${
+                      value === maxValue ? "bg-slate-500" : "bg-sky-200"
+                    }`}
                     style={{ height: `${height}%` }}
                     aria-label={`${getMonthLabel(trend.month)} ${value}${unit}`}
                     title={`${getMonthLabel(trend.month)} ${value}${unit}`}
@@ -110,7 +116,7 @@ function TrendChart({
 function ActivityCard({ activity }: { activity: DashboardActivitySummary }) {
   return (
     <li
-      className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/60 transition hover:border-sky-200 hover:shadow-md ${
+      className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
         activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
       }`}
     >
@@ -129,11 +135,11 @@ function ActivityCard({ activity }: { activity: DashboardActivitySummary }) {
             <span className="text-xs text-slate-500">
               {getDisplayDate(activity.date)}
             </span>
-            <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+            <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-slate-700">
               {activity.label}
             </span>
           </div>
-          <span className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {activity.participantCount}명
           </span>
         </div>
@@ -208,7 +214,7 @@ export default function DashboardPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-7 bg-sky-50 px-5 py-10 text-slate-800">
       <header className="flex flex-col gap-4 border-b border-sky-100 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-sky-700">
+          <p className="text-sm font-medium text-slate-600">
             냥춘 길드 활동 아카이브
           </p>
           <h1 className="text-3xl font-bold text-slate-900">
@@ -220,19 +226,19 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
             href="/archive"
           >
             월별 아카이브
           </Link>
           <Link
-            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
             href="/viewer"
           >
             월간 리포트
           </Link>
           <Link
-            className="rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
+            className="rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
             href="/admin"
           >
             관리자
@@ -241,7 +247,7 @@ export default function DashboardPage() {
       </header>
 
       {dashboardState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/60">
+        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
           <h2 className="text-lg font-semibold text-slate-900">
             대시보드 데이터를 불러오는 중입니다.
           </h2>
@@ -316,7 +322,7 @@ export default function DashboardPage() {
                 </h2>
               </div>
               <Link
-                className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+                className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
                 href="/viewer"
               >
                 리포트로 보기

@@ -75,7 +75,7 @@ export default function ArchivePage() {
       <header className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-sky-700">
+            <p className="text-sm font-medium text-slate-600">
               월별 활동 아카이브
             </p>
             <h1 className="text-3xl font-bold text-slate-900">
@@ -84,13 +84,13 @@ export default function ArchivePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
               href="/"
             >
               홈 대시보드
             </Link>
             <Link
-              className="w-fit rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
+              className="w-fit rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
               href="/admin"
             >
               관리 화면
@@ -103,7 +103,7 @@ export default function ArchivePage() {
       </header>
 
       {archiveState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/60">
+        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
           <h2 className="text-lg font-semibold text-slate-900">
             아카이브 데이터를 불러오는 중입니다.
           </h2>
@@ -136,14 +136,14 @@ export default function ArchivePage() {
         <section className="grid gap-4">
           {monthlySummaries.map((summary) => (
             <Link
-              className="block rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60 transition hover:border-sky-300 hover:shadow-md"
+              className="block rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40"
               href={`/viewer?month=${summary.month}`}
               key={summary.month}
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-sky-700">
+                    <p className="text-sm font-medium text-slate-600">
                       {summary.month}
                     </p>
                     <h2 className="text-2xl font-bold text-slate-900">
@@ -159,7 +159,7 @@ export default function ArchivePage() {
                       <ul className="mt-1 flex flex-wrap gap-2">
                         {summary.representativeEvents.map((event) => (
                           <li
-                            className="rounded-sm bg-sky-100 px-2 py-1 text-xs text-sky-700"
+                            className="rounded-sm bg-sky-100 px-2 py-1 text-xs text-slate-700"
                             key={event.id}
                           >
                             {event.title}
@@ -200,7 +200,7 @@ export default function ArchivePage() {
                 </dl>
               </div>
 
-              <span className="mt-4 inline-flex rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white">
+              <span className="mt-4 inline-flex rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800">
                 월간 리포트 보기
               </span>
             </Link>
