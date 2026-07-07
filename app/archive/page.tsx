@@ -71,45 +71,40 @@ export default function ArchivePage() {
     archiveState.status === "success" ? archiveState.months : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-sky-50 px-5 py-10 text-slate-800">
       <header className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-neutral-500">
+            <p className="text-sm font-medium text-sky-700">
               월별 활동 아카이브
             </p>
-            <h1 className="text-3xl font-bold text-neutral-950">
+            <h1 className="text-3xl font-bold text-slate-900">
               냥춘 활동 아카이브
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
               href="/"
             >
               홈 대시보드
             </Link>
             <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="w-fit rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
               href="/admin"
             >
               관리 화면
             </Link>
           </div>
         </div>
-        <p className="max-w-2xl text-sm leading-6 text-neutral-600">
-          서버 DB에 가져온 활동 기록을 월별로 모아 월간 리포트로 이동할 수 있습니다.
+        <p className="max-w-2xl text-sm leading-6 text-slate-600">
+          월별로 모인 활동 기록을 살펴보고, 원하는 달의 리포트로 이동할 수 있습니다.
         </p>
       </header>
 
-      <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        이 화면은 Cloudflare D1 서버 DB 기준으로 표시됩니다. 관리 화면의 기존 입력/수정/삭제는
-        계속 현재 브라우저의 LocalStorage 데이터를 사용합니다.
-      </p>
-
       {archiveState.status === "loading" ? (
-        <section className="rounded-md border border-neutral-200 bg-white px-5 py-10 text-center">
-          <h2 className="text-lg font-semibold text-neutral-950">
+        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/60">
+          <h2 className="text-lg font-semibold text-slate-900">
             아카이브 데이터를 불러오는 중입니다.
           </h2>
         </section>
@@ -127,13 +122,12 @@ export default function ArchivePage() {
       ) : null}
 
       {archiveState.status === "success" && monthlySummaries.length === 0 ? (
-        <section className="rounded-md border border-dashed border-neutral-300 bg-white px-5 py-10 text-center">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            서버 DB에 표시할 활동 기록이 없습니다.
+        <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
+          <h2 className="text-lg font-semibold text-slate-900">
+            아직 기록된 활동이 없습니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-500">
-            관리 화면에서 기존 JSON 백업 파일을 서버 DB로 가져오면 월별 아카이브가
-            표시됩니다.
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+            활동 기록이 생기면 월별 아카이브가 표시됩니다.
           </p>
         </section>
       ) : null}
@@ -142,30 +136,30 @@ export default function ArchivePage() {
         <section className="grid gap-4">
           {monthlySummaries.map((summary) => (
             <Link
-              className="block rounded-md border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-900 hover:shadow-md"
+              className="block rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60 transition hover:border-sky-300 hover:shadow-md"
               href={`/viewer?month=${summary.month}`}
               key={summary.month}
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-neutral-500">
+                    <p className="text-sm font-medium text-sky-700">
                       {summary.month}
                     </p>
-                    <h2 className="text-2xl font-bold text-neutral-950">
+                    <h2 className="text-2xl font-bold text-slate-900">
                       {getMonthDisplayLabel(summary.month)}
                     </h2>
                   </div>
 
                   {summary.representativeEvents.length > 0 ? (
                     <div>
-                      <p className="text-xs font-semibold text-neutral-500">
+                      <p className="text-xs font-semibold text-slate-500">
                         대표 이벤트
                       </p>
                       <ul className="mt-1 flex flex-wrap gap-2">
                         {summary.representativeEvents.map((event) => (
                           <li
-                            className="rounded-sm bg-neutral-100 px-2 py-1 text-xs text-neutral-700"
+                            className="rounded-sm bg-sky-100 px-2 py-1 text-xs text-sky-700"
                             key={event.id}
                           >
                             {event.title}
@@ -177,36 +171,36 @@ export default function ArchivePage() {
                 </div>
 
                 <dl className="grid shrink-0 grid-cols-2 gap-2 text-sm sm:w-72">
-                  <div className="rounded-md bg-neutral-100 px-3 py-3">
-                    <dt className="text-xs text-neutral-500">활동 수</dt>
-                    <dd className="font-semibold text-neutral-950">
+                  <div className="rounded-md bg-sky-50 px-3 py-3">
+                    <dt className="text-xs text-slate-500">활동 수</dt>
+                    <dd className="font-semibold text-slate-900">
                       {summary.activityCount}개
                     </dd>
                   </div>
                   {summary.eventCount > 0 ? (
-                    <div className="rounded-md bg-neutral-100 px-3 py-3">
-                      <dt className="text-xs text-neutral-500">이벤트 수</dt>
-                      <dd className="font-semibold text-neutral-950">
+                    <div className="rounded-md bg-sky-50 px-3 py-3">
+                      <dt className="text-xs text-slate-500">이벤트 수</dt>
+                      <dd className="font-semibold text-slate-900">
                         {summary.eventCount}개
                       </dd>
                     </div>
                   ) : null}
-                  <div className="rounded-md bg-neutral-100 px-3 py-3">
-                    <dt className="text-xs text-neutral-500">참여 길드원</dt>
-                    <dd className="font-semibold text-neutral-950">
+                  <div className="rounded-md bg-sky-50 px-3 py-3">
+                    <dt className="text-xs text-slate-500">함께한 인원</dt>
+                    <dd className="font-semibold text-slate-900">
                       {summary.participantMemberCount}명
                     </dd>
                   </div>
-                  <div className="rounded-md bg-neutral-100 px-3 py-3">
-                    <dt className="text-xs text-neutral-500">총 참여 횟수</dt>
-                    <dd className="font-semibold text-neutral-950">
+                  <div className="rounded-md bg-sky-50 px-3 py-3">
+                    <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                    <dd className="font-semibold text-slate-900">
                       {summary.totalParticipationCount}회
                     </dd>
                   </div>
                 </dl>
               </div>
 
-              <span className="mt-4 inline-flex rounded-md bg-neutral-950 px-3 py-2 text-sm font-semibold text-white">
+              <span className="mt-4 inline-flex rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white">
                 월간 리포트 보기
               </span>
             </Link>

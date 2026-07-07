@@ -88,7 +88,7 @@ function ViewerImage({
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
       alt={alt}
-      className="mt-3 max-h-72 w-full rounded-md border border-neutral-200 object-contain"
+      className="mt-3 max-h-72 w-full rounded-md border border-sky-100 object-contain"
       src={src}
     />
   );
@@ -245,48 +245,45 @@ export default function ViewerPage() {
     : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-sky-50 px-5 py-10 text-slate-800">
       <header className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-neutral-500">
-              보기 전용 활동 리포트
+            <p className="text-sm font-medium text-sky-700">
+              월간 활동 리포트
             </p>
-            <h1 className="text-3xl font-bold text-neutral-950">
+            <h1 className="text-3xl font-bold text-slate-900">
               냥춘 활동 리포트
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
               href="/archive"
             >
               아카이브로 돌아가기
             </Link>
             <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50"
               href="/"
             >
               홈 대시보드
             </Link>
             <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="w-fit rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
               href="/admin"
             >
               관리 화면
             </Link>
           </div>
         </div>
-        <p className="max-w-2xl text-sm leading-6 text-neutral-600">
-          이 화면은 서버 DB에 가져온 길드 활동 기록을 기준으로 월간 리포트를 표시합니다.
-        </p>
       </header>
 
-      <section className="rounded-md border border-neutral-200 bg-neutral-50 p-4">
-        <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-neutral-700">
+      <section className="rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/60">
+        <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-slate-700">
           <span>월 선택</span>
           <select
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+            className="w-full rounded-md border border-sky-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500"
             value={reportMonth}
             onChange={(event) => setSelectedMonth(event.target.value)}
           >
@@ -309,8 +306,8 @@ export default function ViewerPage() {
       ) : null}
 
       {reportState.status === "loading" ? (
-        <section className="rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-950">
+        <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+          <h2 className="text-lg font-semibold text-slate-900">
             월간 리포트를 불러오는 중입니다.
           </h2>
         </section>
@@ -326,25 +323,24 @@ export default function ViewerPage() {
       ) : null}
 
       {monthlyReport && !hasReportData ? (
-        <section className="rounded-md border border-dashed border-neutral-300 bg-white px-5 py-10 text-center">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            {getMonthLabel(reportMonth)} 서버 기록이 없습니다.
+        <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
+          <h2 className="text-lg font-semibold text-slate-900">
+            {getMonthLabel(reportMonth)} 활동 기록이 없습니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-500">
-            관리 화면에서 JSON 백업을 서버 DB로 가져오거나, 기록이 있는 다른 월을
-            선택해주세요.
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+            다른 월을 선택하면 기록된 활동을 볼 수 있습니다.
           </p>
         </section>
       ) : null}
 
       {monthlyReport && hasReportData ? (
         <>
-          <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+          <section className="space-y-5 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-neutral-950">
+              <h2 className="text-2xl font-bold text-slate-900">
                 {getMonthLabel(reportMonth)} 활동 리포트
               </h2>
-              <p className="text-sm leading-6 text-neutral-600">
+              <p className="text-sm leading-6 text-slate-600">
                 이번 달에는 {monthlyReport.totalActivities}개의 활동이 기록되었고,{" "}
                 {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
               </p>
@@ -367,56 +363,56 @@ export default function ViewerPage() {
                     : "없음",
                 ],
               ].map(([label, value]) => (
-                <div className="rounded-md bg-neutral-100 px-4 py-4" key={label}>
-                  <dt className="text-xs font-medium text-neutral-500">{label}</dt>
-                  <dd className="text-2xl font-bold text-neutral-950">{value}</dd>
+                <div className="rounded-md bg-sky-50 px-4 py-4" key={label}>
+                  <dt className="text-xs font-medium text-slate-500">{label}</dt>
+                  <dd className="text-2xl font-bold text-slate-900">{value}</dd>
                 </div>
               ))}
             </dl>
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-md border border-neutral-200 bg-white p-5">
-              <h2 className="text-lg font-semibold text-neutral-950">
+            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+              <h2 className="text-lg font-semibold text-slate-900">
                 활동 종류별 통계
               </h2>
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded-md bg-neutral-100 px-3 py-3">
-                  <dt className="text-neutral-500">비공정</dt>
-                  <dd className="font-semibold text-neutral-950">
+                <div className="rounded-md bg-sky-50 px-3 py-3">
+                  <dt className="text-slate-500">비공정</dt>
+                  <dd className="font-semibold text-slate-900">
                     {monthlyReport.airshipCount}개
                   </dd>
                 </div>
-                <div className="rounded-md bg-neutral-100 px-3 py-3">
-                  <dt className="text-neutral-500">점령전</dt>
-                  <dd className="font-semibold text-neutral-950">
+                <div className="rounded-md bg-sky-50 px-3 py-3">
+                  <dt className="text-slate-500">점령전</dt>
+                  <dd className="font-semibold text-slate-900">
                     {monthlyReport.siegeCount}개
                   </dd>
                 </div>
-                <div className="rounded-md bg-neutral-100 px-3 py-3">
-                  <dt className="text-neutral-500">이벤트</dt>
-                  <dd className="font-semibold text-neutral-950">
+                <div className="rounded-md bg-sky-50 px-3 py-3">
+                  <dt className="text-slate-500">이벤트</dt>
+                  <dd className="font-semibold text-slate-900">
                     {monthlyReport.otherCount}개
                   </dd>
                 </div>
               </dl>
 
-              <h3 className="mt-5 text-sm font-semibold text-neutral-900">
+              <h3 className="mt-5 text-sm font-semibold text-slate-900">
                 점령전 세부 카테고리
               </h3>
               {monthlyReport.conquestSummaries.length === 0 ? (
-                <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
                   기록된 점령전 세부 카테고리가 없습니다.
                 </p>
               ) : (
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
                   {monthlyReport.conquestSummaries.map((summary) => (
                     <div
-                      className="rounded-md bg-neutral-100 px-3 py-2.5"
+                      className="rounded-md bg-sky-50 px-3 py-2.5"
                       key={summary.label}
                     >
-                      <dt className="text-neutral-500">{summary.label}</dt>
-                      <dd className="font-semibold text-neutral-950">
+                      <dt className="text-slate-500">{summary.label}</dt>
+                      <dd className="font-semibold text-slate-900">
                         {summary.count}회
                       </dd>
                     </div>
@@ -425,34 +421,34 @@ export default function ViewerPage() {
               )}
             </div>
 
-            <div className="rounded-md border border-neutral-200 bg-white p-5">
-              <h2 className="text-lg font-semibold text-neutral-950">
+            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+              <h2 className="text-lg font-semibold text-slate-900">
                 가장 참여가 많았던 활동
               </h2>
               {!mostParticipatedActivity ? (
-                <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+                <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
                   이 달의 활동 기록이 없습니다.
                 </p>
               ) : (
-                <div className="mt-3 rounded-md bg-neutral-100 px-4 py-4 text-sm">
+                <div className="mt-3 rounded-md bg-sky-50 px-4 py-4 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-slate-500">
                         {mostParticipatedActivity.date}
                       </p>
-                      <h3 className="mt-1 text-base font-semibold leading-6 text-neutral-950">
+                      <h3 className="mt-1 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(mostParticipatedActivity)}
                       </h3>
-                      <p className="mt-1 text-neutral-600">
+                      <p className="mt-1 text-slate-600">
                         {getMonthlyActivityLabel(mostParticipatedActivity)}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                    <span className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
                       참여 {mostParticipatedActivity.participantIds.length}명
                     </span>
                   </div>
                   {mostParticipatedActivity.memo?.trim() ? (
-                    <p className="mt-3 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
+                    <p className="mt-3 line-clamp-4 whitespace-pre-wrap leading-6 text-slate-600">
                       {mostParticipatedActivity.memo.trim()}
                     </p>
                   ) : null}
@@ -462,31 +458,31 @@ export default function ViewerPage() {
           </section>
 
           {monthlyReport.eventSummaries.length > 0 ? (
-            <section className="rounded-md border border-neutral-200 bg-white p-5">
-              <h2 className="text-lg font-semibold text-neutral-950">
+            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+              <h2 className="text-lg font-semibold text-slate-900">
                 이번 달 이벤트
               </h2>
-              <ul className="mt-3 space-y-3">
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {monthlyReport.eventSummaries.map((activity) => (
                   <li
-                    className="rounded-md bg-neutral-100 px-3 py-3 text-sm"
+                    className="rounded-md border border-sky-100 bg-sky-50 px-3 py-3 text-sm"
                     key={activity.id}
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-slate-500">
                           {activity.date}
                         </p>
-                        <h3 className="truncate font-semibold text-neutral-950">
+                        <h3 className="truncate font-semibold text-slate-900">
                           {activity.title}
                         </h3>
                       </div>
-                      <span className="w-fit shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                      <span className="w-fit shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
                         참여 {activity.participantCount}명
                       </span>
                     </div>
                     {activity.memo ? (
-                      <p className="mt-2 whitespace-pre-wrap text-neutral-600">
+                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-slate-600">
                         {activity.memo}
                       </p>
                     ) : null}
@@ -502,19 +498,19 @@ export default function ViewerPage() {
             </section>
           ) : null}
 
-          <section className="rounded-md border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-semibold text-neutral-950">
+          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/60">
+            <h2 className="text-lg font-semibold text-slate-900">
               최근 활동 기록
             </h2>
             {recentActivities.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
+              <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
                 선택한 월에 저장된 활동 기록이 없습니다.
               </p>
             ) : (
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recentActivities.map((activity) => (
                   <li
-                    className={`flex min-h-44 flex-col rounded-md border border-neutral-200 text-sm shadow-sm ${
+                    className={`flex min-h-44 flex-col rounded-md border border-sky-100 bg-white text-sm shadow-sm shadow-sky-100/60 transition hover:border-sky-200 hover:shadow-md ${
                       activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
                     }`}
                     key={activity.id}
@@ -532,29 +528,25 @@ export default function ViewerPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <span className="text-xs text-neutral-500">
+                          <span className="text-xs text-slate-500">
                             {getDisplayDate(activity.date)}
                           </span>
-                          <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs text-sky-700">
                             {getMonthlyActivityLabel(activity)}
                           </span>
                         </div>
-                        <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                        <span className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
                           참여 {activity.participantIds.length}명
                         </span>
                       </div>
-                      <h3 className="mt-3 text-base font-semibold leading-6 text-neutral-950">
+                      <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(activity)}
                       </h3>
                       {activity.memo?.trim() ? (
-                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-neutral-600">
+                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap leading-6 text-slate-600">
                           {activity.memo.trim()}
                         </p>
-                      ) : (
-                        <p className="mt-2 text-sm leading-6 text-neutral-500">
-                          사진이 없어도 활동 종류, 날짜, 참여 인원을 중심으로 기록을 볼 수 있습니다.
-                        </p>
-                      )}
+                      ) : null}
                     </div>
                   </li>
                 ))}
@@ -564,10 +556,6 @@ export default function ViewerPage() {
         </>
       ) : null}
 
-      <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-600">
-        공개 아카이브 조회 전용 화면입니다. 활동 추가/수정/삭제는 관리 화면에서 진행한 뒤,
-        서버 DB로 반영해주세요.
-      </p>
     </main>
   );
 }
