@@ -6,6 +6,7 @@ type DashboardSummaryModalProps = {
   title: string;
   description: string;
   children: ReactNode;
+  disableEscapeClose?: boolean;
   onClose: () => void;
 };
 
@@ -13,9 +14,14 @@ export function DashboardSummaryModal({
   title,
   description,
   children,
+  disableEscapeClose = false,
   onClose,
 }: DashboardSummaryModalProps) {
   useEffect(() => {
+    if (disableEscapeClose) {
+      return;
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose();
@@ -26,7 +32,7 @@ export function DashboardSummaryModal({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [disableEscapeClose, onClose]);
 
   return (
     <div

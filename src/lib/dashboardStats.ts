@@ -12,6 +12,7 @@ export type DashboardActivitySummary = {
   id: string;
   date: string;
   label: string;
+  participantIds: string[];
   title: string;
   participantCount: number;
   participantNames: string[];
@@ -56,6 +57,19 @@ function getUnknownMemberName(memberId: string) {
   return shortId ? `알 수 없는 길드원 ${shortId}` : "알 수 없는 길드원";
 }
 
+function compareMembersByJoinedAt(
+  firstMember: DashboardMemberSummary,
+  secondMember: DashboardMemberSummary,
+) {
+  const firstJoinedAt = firstMember.joinedAt || "9999-99-99";
+  const secondJoinedAt = secondMember.joinedAt || "9999-99-99";
+  const joinedAtOrder = firstJoinedAt.localeCompare(secondJoinedAt);
+
+  return joinedAtOrder === 0
+    ? firstMember.nickname.localeCompare(secondMember.nickname, "ko")
+    : joinedAtOrder;
+}
+
 function toActivitySummary(
   activity: ActivityLog,
   membersById: Map<string, GuildMember>,
@@ -65,10 +79,14 @@ function toActivitySummary(
     date: activity.date,
     label: getMonthlyActivityLabel(activity),
     title: getActivityTitle(activity),
+    participantIds: activity.participantIds,
     participantCount: activity.participantIds.length,
-    participantNames: activity.participantIds.map(
-      (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    ),
+    participantNames: activity.participantIds
+      .map(
+        (memberId) =>
+          membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+      )
+      .sort((a, b) => a.localeCompare(b, "ko")),
     memo: activity.memo?.trim() || undefined,
     imageDataUrl: activity.imageDataUrl,
   };
@@ -108,14 +126,15 @@ export function getGuildDashboardStats(
       leftAt: member.leftAt,
       nickname: member.nickname,
       status: member.status,
-    }));
+    }))
+    .sort(compareMembersByJoinedAt);
   const allMembers = members.map((member) => ({
     id: member.id,
     joinedAt: member.joinedAt,
     leftAt: member.leftAt,
     nickname: member.nickname,
     status: member.status,
-  }));
+  })).sort(compareMembersByJoinedAt);
   const sortedActivities = [...activities].sort((a, b) => {
     const dateOrder = b.date.localeCompare(a.date);
     return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
@@ -187,7 +206,7 @@ export function getGuildDashboardStats(
         nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
         status: membersById.get(memberId)?.status ?? "left",
       }),
-    ),
+    ).sort((a, b) => a.nickname.localeCompare(b.nickname, "ko")),
     recentActivity: sortedActivities[0]
       ? toActivitySummary(sortedActivities[0], membersById)
       : null,

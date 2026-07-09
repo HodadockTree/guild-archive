@@ -23,6 +23,7 @@ type SummaryModalKey =
   | "activeMembers"
   | "currentMonthActivities"
   | "currentMonthParticipants"
+  | "memberMonthActivities"
   | "allActivities"
   | "allMembers";
 
@@ -168,6 +169,40 @@ function MemberList({
       ))}
       </ul>
     </div>
+  );
+}
+
+function ParticipantChipList({
+  emptyMessage,
+  members,
+  onSelectMember,
+}: {
+  emptyMessage: string;
+  members: DashboardMemberSummary[];
+  onSelectMember: (member: DashboardMemberSummary) => void;
+}) {
+  if (members.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {members.map((member) => (
+        <li key={member.id}>
+          <button
+            className="max-w-full rounded-md bg-sky-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+            onClick={() => onSelectMember(member)}
+            type="button"
+          >
+            {member.nickname}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -377,6 +412,8 @@ export default function DashboardPage() {
     useState<ActivityDetail | null>(null);
   const [selectedSummaryModal, setSelectedSummaryModal] =
     useState<SummaryModalKey | null>(null);
+  const [selectedMonthMemberId, setSelectedMonthMemberId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -425,6 +462,15 @@ export default function DashboardPage() {
 
   const dashboard =
     dashboardState.status === "success" ? dashboardState.dashboard : null;
+  const selectedMonthMember = dashboard?.currentMonthParticipantMembers.find(
+    (member) => member.id === selectedMonthMemberId,
+  );
+  const selectedMonthMemberActivities =
+    dashboard && selectedMonthMember
+      ? dashboard.currentMonthActivities.filter((activity) =>
+          activity.participantIds.includes(selectedMonthMember.id),
+        )
+      : [];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-7 bg-sky-50 px-5 py-10 text-slate-800">
@@ -500,7 +546,10 @@ export default function DashboardPage() {
                 label="이번 달 함께한 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
                 detail="이번 달 한 번 이상 길드 활동에 참여한 인원입니다."
-                onClick={() => setSelectedSummaryModal("currentMonthParticipants")}
+                onClick={() => {
+                  setSelectedMonthMemberId(null);
+                  setSelectedSummaryModal("currentMonthParticipants");
+                }}
               />
               <SummaryCard
                 label="최근 활동"
@@ -521,6 +570,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <CumulativeSummaryCard label="길드 시작일" value="2026-01-22 ~" />
               <CumulativeSummaryCard
                 label="전체 활동"
                 onClick={() => setSelectedSummaryModal("allActivities")}
@@ -531,7 +581,6 @@ export default function DashboardPage() {
                 onClick={() => setSelectedSummaryModal("allMembers")}
                 value={`${dashboard.totalMemberCount}명`}
               />
-              <CumulativeSummaryCard label="길드 시작일" value="2026-01-22 ~" />
             </dl>
           </section>
 
@@ -588,6 +637,7 @@ export default function DashboardPage() {
 
           {selectedSummaryModal === "activeMembers" ? (
             <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
               description="지금 활동중인 길드원 목록입니다."
               onClose={() => setSelectedSummaryModal(null)}
               title="현재 길드원"
@@ -601,6 +651,7 @@ export default function DashboardPage() {
 
           {selectedSummaryModal === "currentMonthActivities" ? (
             <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
               description="이번 달에 기록된 활동 내역입니다."
               onClose={() => setSelectedSummaryModal(null)}
               title="이번 달 활동"
@@ -609,7 +660,6 @@ export default function DashboardPage() {
                 activities={dashboard.currentMonthActivities}
                 emptyMessage="이번 달에 기록된 활동이 아직 없습니다."
                 onSelectActivity={(activity) => {
-                  setSelectedSummaryModal(null);
                   setSelectedActivity(activity);
                 }}
               />
@@ -618,19 +668,48 @@ export default function DashboardPage() {
 
           {selectedSummaryModal === "currentMonthParticipants" ? (
             <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
               description="이번 달 활동에 한 번 이상 함께한 길드원입니다."
               onClose={() => setSelectedSummaryModal(null)}
               title="이번 달 함께한 인원"
             >
-              <MemberList
+              <ParticipantChipList
                 emptyMessage="이번 달에 함께한 길드원이 아직 없습니다."
                 members={dashboard.currentMonthParticipantMembers}
+                onSelectMember={(member) => {
+                  setSelectedMonthMemberId(member.id);
+                  setSelectedSummaryModal("memberMonthActivities");
+                }}
+              />
+            </DashboardSummaryModal>
+          ) : null}
+
+          {selectedSummaryModal === "memberMonthActivities" && selectedMonthMember ? (
+            <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
+              description={`${selectedMonthMember.nickname}님이 이번 달 함께한 활동입니다.`}
+              onClose={() => {
+                setSelectedMonthMemberId(null);
+                setSelectedSummaryModal("currentMonthParticipants");
+              }}
+              title="이번 달 함께한 활동"
+            >
+              <div className="mb-4 rounded-md bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                이번 달 함께한 활동 {selectedMonthMemberActivities.length}회
+              </div>
+              <ActivitySummaryList
+                activities={selectedMonthMemberActivities}
+                emptyMessage="이번 달 함께한 활동이 아직 없습니다."
+                onSelectActivity={(activity) => {
+                  setSelectedActivity(activity);
+                }}
               />
             </DashboardSummaryModal>
           ) : null}
 
           {selectedSummaryModal === "allActivities" ? (
             <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
               description="지금까지 기록된 활동 내역입니다."
               onClose={() => setSelectedSummaryModal(null)}
               title="전체 활동"
@@ -639,7 +718,6 @@ export default function DashboardPage() {
                 activities={dashboard.allActivities}
                 emptyMessage="아직 기록된 활동이 없습니다."
                 onSelectActivity={(activity) => {
-                  setSelectedSummaryModal(null);
                   setSelectedActivity(activity);
                 }}
               />
@@ -648,6 +726,7 @@ export default function DashboardPage() {
 
           {selectedSummaryModal === "allMembers" ? (
             <DashboardSummaryModal
+              disableEscapeClose={Boolean(selectedActivity)}
               description="지금까지 냥춘에 함께했던 길드원 목록입니다."
               onClose={() => setSelectedSummaryModal(null)}
               title="함께한 길드원"
