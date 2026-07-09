@@ -11,11 +11,19 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
+import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 
 type DashboardState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "success"; dashboard: DashboardStats };
+
+type SummaryModalKey =
+  | "activeMembers"
+  | "currentMonthActivities"
+  | "currentMonthParticipants"
+  | "allActivities"
+  | "allMembers";
 
 function getMonthLabel(month: string) {
   const [year, monthNumber] = month.split("-");
@@ -35,17 +43,162 @@ function SummaryCard({
   label,
   value,
   detail,
+  actionLabel,
+  onClick,
 }: {
   label: string;
   value: string;
   detail?: string;
+  actionLabel?: string;
+  onClick?: () => void;
 }) {
+  const isClickable = Boolean(onClick);
+
   return (
-    <div className="rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40">
+    <div
+      className={`rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+        isClickable
+          ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+          : ""
+      }`}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+          return;
+        }
+
+        event.preventDefault();
+        onClick();
+      }}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+    >
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="mt-2 text-3xl font-bold text-slate-900">{value}</dd>
       {detail ? (
         <p className="mt-2 text-sm leading-6 text-slate-500">{detail}</p>
+      ) : null}
+      {actionLabel ? (
+        <p className="mt-3 text-xs font-semibold text-sky-700">
+          {actionLabel}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MemberChipList({
+  emptyMessage,
+  names,
+}: {
+  emptyMessage: string;
+  names: string[];
+}) {
+  if (names.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {names.map((name, index) => (
+        <li
+          className="max-w-full rounded-md bg-sky-50 px-2.5 py-1 text-sm text-slate-700"
+          key={`${name}-${index}`}
+        >
+          {name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ActivitySummaryList({
+  activities,
+  emptyMessage,
+  onSelectActivity,
+}: {
+  activities: DashboardActivitySummary[];
+  emptyMessage: string;
+  onSelectActivity: (activity: ActivityDetail) => void;
+}) {
+  if (activities.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {activities.map((activity) => (
+        <li key={activity.id}>
+          <button
+            className="w-full rounded-md border border-sky-100 bg-white px-4 py-3 text-left text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/50 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+            onClick={() => onSelectActivity(activity)}
+            type="button"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">{activity.date}</p>
+                <h3 className="mt-1 font-semibold leading-6 text-slate-900">
+                  {activity.title}
+                </h3>
+                <p className="mt-1 text-slate-600">{activity.label}</p>
+              </div>
+              <span className="w-fit shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                참여 {activity.participantCount}명
+              </span>
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CumulativeSummaryCard({
+  actionLabel,
+  label,
+  onClick,
+  value,
+}: {
+  actionLabel?: string;
+  label: string;
+  onClick?: () => void;
+  value: string;
+}) {
+  const isClickable = Boolean(onClick);
+
+  return (
+    <div
+      className={`rounded-md bg-sky-50 px-4 py-4 transition ${
+        isClickable
+          ? "cursor-pointer hover:bg-sky-100/70 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+          : ""
+      }`}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+          return;
+        }
+
+        event.preventDefault();
+        onClick();
+      }}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+    >
+      <dt className="text-sm font-medium text-slate-500">{label}</dt>
+      <dd className="mt-1 text-2xl font-bold text-slate-900">{value}</dd>
+      {actionLabel ? (
+        <p className="mt-3 text-xs font-semibold text-sky-700">
+          {actionLabel}
+        </p>
       ) : null}
     </div>
   );
@@ -148,9 +301,6 @@ function ActivityCard({
             <span className="text-xs text-slate-500">
               {getDisplayDate(activity.date)}
             </span>
-            <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-              {activity.label}
-            </span>
           </div>
           <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {activity.participantCount}명
@@ -177,6 +327,8 @@ export default function DashboardPage() {
   });
   const [selectedActivity, setSelectedActivity] =
     useState<ActivityDetail | null>(null);
+  const [selectedSummaryModal, setSelectedSummaryModal] =
+    useState<SummaryModalKey | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -288,23 +440,29 @@ export default function DashboardPage() {
               <SummaryCard
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
+                actionLabel="목록 보기"
+                onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <SummaryCard
                 label="이번 달 활동 수"
                 value={`${dashboard.currentMonthActivityCount}회`}
+                actionLabel="활동 내역 보기"
                 detail="월별 활동 기록"
+                onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
                 label="이번 달 함께한 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
+                actionLabel="목록 보기"
                 detail="이번 달 한 번 이상 길드 활동에 참여한 인원입니다."
+                onClick={() => setSelectedSummaryModal("currentMonthParticipants")}
               />
               <SummaryCard
                 label="최근 활동"
                 value={dashboard.recentActivity ? dashboard.recentActivity.title : "없음"}
                 detail={
                   dashboard.recentActivity
-                    ? `${dashboard.recentActivity.date} · ${dashboard.recentActivity.label}`
+                    ? dashboard.recentActivity.date
                     : "아직 기록된 활동이 없습니다."
                 }
               />
@@ -318,30 +476,19 @@ export default function DashboardPage() {
               </h2>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm font-medium text-slate-500">
-                  전체 활동
-                </dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {dashboard.totalActivityCount}회
-                </dd>
-              </div>
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm font-medium text-slate-500">
-                  함께한 길드원
-                </dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {dashboard.totalParticipantMemberCount}명
-                </dd>
-              </div>
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm font-medium text-slate-500">
-                  기록 기간
-                </dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {dashboard.recordPeriodLabel}
-                </dd>
-              </div>
+              <CumulativeSummaryCard
+                actionLabel="활동 내역 보기"
+                label="전체 활동"
+                onClick={() => setSelectedSummaryModal("allActivities")}
+                value={`${dashboard.totalActivityCount}회`}
+              />
+              <CumulativeSummaryCard
+                actionLabel="목록 보기"
+                label="함께했던 길드원"
+                onClick={() => setSelectedSummaryModal("allMembers")}
+                value={`${dashboard.totalMemberCount}명`}
+              />
+              <CumulativeSummaryCard label="길드 시작일" value="2026-01-22 ~" />
             </dl>
           </section>
 
@@ -395,6 +542,81 @@ export default function DashboardPage() {
               </ul>
             )}
           </section>
+
+          {selectedSummaryModal === "activeMembers" ? (
+            <DashboardSummaryModal
+              description="지금 활동중인 길드원 목록입니다."
+              onClose={() => setSelectedSummaryModal(null)}
+              title="현재 길드원"
+            >
+              <MemberChipList
+                emptyMessage="현재 활동중인 길드원이 없습니다."
+                names={dashboard.activeMembers.map((member) => member.nickname)}
+              />
+            </DashboardSummaryModal>
+          ) : null}
+
+          {selectedSummaryModal === "currentMonthActivities" ? (
+            <DashboardSummaryModal
+              description="이번 달에 기록된 활동 내역입니다."
+              onClose={() => setSelectedSummaryModal(null)}
+              title="이번 달 활동"
+            >
+              <ActivitySummaryList
+                activities={dashboard.currentMonthActivities}
+                emptyMessage="이번 달에 기록된 활동이 아직 없습니다."
+                onSelectActivity={(activity) => {
+                  setSelectedSummaryModal(null);
+                  setSelectedActivity(activity);
+                }}
+              />
+            </DashboardSummaryModal>
+          ) : null}
+
+          {selectedSummaryModal === "currentMonthParticipants" ? (
+            <DashboardSummaryModal
+              description="이번 달 활동에 한 번 이상 함께한 길드원입니다."
+              onClose={() => setSelectedSummaryModal(null)}
+              title="이번 달 함께한 인원"
+            >
+              <MemberChipList
+                emptyMessage="이번 달에 함께한 길드원이 아직 없습니다."
+                names={dashboard.currentMonthParticipantMembers.map(
+                  (member) => member.nickname,
+                )}
+              />
+            </DashboardSummaryModal>
+          ) : null}
+
+          {selectedSummaryModal === "allActivities" ? (
+            <DashboardSummaryModal
+              description="지금까지 기록된 활동 내역입니다."
+              onClose={() => setSelectedSummaryModal(null)}
+              title="전체 활동"
+            >
+              <ActivitySummaryList
+                activities={dashboard.allActivities}
+                emptyMessage="아직 기록된 활동이 없습니다."
+                onSelectActivity={(activity) => {
+                  setSelectedSummaryModal(null);
+                  setSelectedActivity(activity);
+                }}
+              />
+            </DashboardSummaryModal>
+          ) : null}
+
+          {selectedSummaryModal === "allMembers" ? (
+            <DashboardSummaryModal
+              description="지금까지 냥춘에 함께했던 길드원 목록입니다."
+              onClose={() => setSelectedSummaryModal(null)}
+              title="함께한 길드원"
+            >
+              <MemberChipList
+                emptyMessage="아직 함께한 길드원 기록이 없습니다."
+                names={dashboard.allMembers.map((member) => member.nickname)}
+              />
+            </DashboardSummaryModal>
+          ) : null}
 
           <ActivityDetailModal
             activity={selectedActivity}

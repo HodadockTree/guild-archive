@@ -19,13 +19,22 @@ export type DashboardActivitySummary = {
   imageDataUrl?: string;
 };
 
+export type DashboardMemberSummary = {
+  id: string;
+  nickname: string;
+};
+
 export type DashboardStats = {
   activeMemberCount: number;
   currentMonthActivityCount: number;
   currentMonthParticipantMemberCount: number;
   totalActivityCount: number;
-  totalParticipantMemberCount: number;
-  recordPeriodLabel: string;
+  totalMemberCount: number;
+  activeMembers: DashboardMemberSummary[];
+  allMembers: DashboardMemberSummary[];
+  allActivities: DashboardActivitySummary[];
+  currentMonthActivities: DashboardActivitySummary[];
+  currentMonthParticipantMembers: DashboardMemberSummary[];
   recentActivity: DashboardActivitySummary | null;
   recentActivities: DashboardActivitySummary[];
   monthlyTrends: DashboardMonthlyTrend[];
@@ -42,14 +51,6 @@ function getActivityTitle(activity: ActivityLog) {
 function getUnknownMemberName(memberId: string) {
   const shortId = memberId.trim().slice(0, 6);
   return shortId ? `알 수 없는 길드원 ${shortId}` : "알 수 없는 길드원";
-}
-
-function getRecordPeriodLabel(activities: ActivityLog[]) {
-  if (activities.length === 0) {
-    return "아직 기록 없음";
-  }
-
-  return "2026.01부터 기록 중";
 }
 
 function toActivitySummary(
@@ -96,6 +97,16 @@ export function getGuildDashboardStats(
   const activeMemberCount = members.filter(
     (member) => member.status === "active",
   ).length;
+  const activeMembers = members
+    .filter((member) => member.status === "active")
+    .map((member) => ({
+      id: member.id,
+      nickname: member.nickname,
+    }));
+  const allMembers = members.map((member) => ({
+    id: member.id,
+    nickname: member.nickname,
+  }));
   const sortedActivities = [...activities].sort((a, b) => {
     const dateOrder = b.date.localeCompare(a.date);
     return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
@@ -105,9 +116,6 @@ export function getGuildDashboardStats(
   );
   const currentMonthParticipantIds = new Set(
     currentMonthActivities.flatMap((activity) => activity.participantIds),
-  );
-  const totalParticipantIds = new Set(
-    activities.flatMap((activity) => activity.participantIds),
   );
   const membersById = new Map(members.map((member) => [member.id, member]));
   const monthlySummaries = new Map<
@@ -153,8 +161,21 @@ export function getGuildDashboardStats(
     currentMonthActivityCount: currentMonthActivities.length,
     currentMonthParticipantMemberCount: currentMonthParticipantIds.size,
     totalActivityCount: activities.length,
-    totalParticipantMemberCount: totalParticipantIds.size,
-    recordPeriodLabel: getRecordPeriodLabel(activities),
+    totalMemberCount: members.length,
+    activeMembers,
+    allMembers,
+    allActivities: sortedActivities.map((activity) =>
+      toActivitySummary(activity, membersById),
+    ),
+    currentMonthActivities: sortedActivities
+      .filter((activity) => getMonthKey(activity.date) === currentMonth)
+      .map((activity) => toActivitySummary(activity, membersById)),
+    currentMonthParticipantMembers: Array.from(currentMonthParticipantIds).map(
+      (memberId) => ({
+        id: memberId,
+        nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+      }),
+    ),
     recentActivity: sortedActivities[0]
       ? toActivitySummary(sortedActivities[0], membersById)
       : null,

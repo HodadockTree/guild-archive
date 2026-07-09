@@ -470,9 +470,6 @@ export default function ViewerPage() {
                       <h3 className="mt-1 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(mostParticipatedActivity)}
                       </h3>
-                      <p className="mt-1 text-slate-600">
-                        {getMonthlyActivityLabel(mostParticipatedActivity)}
-                      </p>
                     </div>
                     <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       참여 {mostParticipatedActivity.participantIds.length}명
@@ -581,9 +578,6 @@ export default function ViewerPage() {
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="text-xs text-slate-500">
                             {getDisplayDate(activity.date)}
-                          </span>
-                          <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs text-slate-700">
-                            {getMonthlyActivityLabel(activity)}
                           </span>
                         </div>
                         <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
