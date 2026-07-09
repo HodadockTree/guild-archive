@@ -14,6 +14,7 @@ export type DashboardActivitySummary = {
   label: string;
   title: string;
   participantCount: number;
+  participantNames: string[];
   memo?: string;
   imageDataUrl?: string;
 };
@@ -22,6 +23,9 @@ export type DashboardStats = {
   activeMemberCount: number;
   currentMonthActivityCount: number;
   currentMonthParticipantMemberCount: number;
+  totalActivityCount: number;
+  totalParticipantMemberCount: number;
+  recordPeriodLabel: string;
   recentActivity: DashboardActivitySummary | null;
   recentActivities: DashboardActivitySummary[];
   monthlyTrends: DashboardMonthlyTrend[];
@@ -35,13 +39,42 @@ function getActivityTitle(activity: ActivityLog) {
   return activity.title?.trim() || getMonthlyActivityLabel(activity);
 }
 
-function toActivitySummary(activity: ActivityLog): DashboardActivitySummary {
+function getUnknownMemberName(memberId: string) {
+  const shortId = memberId.trim().slice(0, 6);
+  return shortId ? `알 수 없는 길드원 ${shortId}` : "알 수 없는 길드원";
+}
+
+function getRecordPeriodLabel(activities: ActivityLog[]) {
+  const months = activities
+    .map((activity) => getMonthKey(activity.date))
+    .filter((month): month is string => Boolean(month))
+    .sort((a, b) => a.localeCompare(b));
+
+  if (months.length === 0) {
+    return "아직 기록 없음";
+  }
+
+  const firstMonth = months[0].replace("-", ".");
+  const lastMonth = months[months.length - 1].replace("-", ".");
+
+  return firstMonth === lastMonth
+    ? `${firstMonth}부터 기록 중`
+    : `${firstMonth} ~ ${lastMonth}`;
+}
+
+function toActivitySummary(
+  activity: ActivityLog,
+  membersById: Map<string, GuildMember>,
+): DashboardActivitySummary {
   return {
     id: activity.id,
     date: activity.date,
     label: getMonthlyActivityLabel(activity),
     title: getActivityTitle(activity),
     participantCount: activity.participantIds.length,
+    participantNames: activity.participantIds.map(
+      (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+    ),
     memo: activity.memo?.trim() || undefined,
     imageDataUrl: activity.imageDataUrl,
   };
@@ -83,6 +116,10 @@ export function getGuildDashboardStats(
   const currentMonthParticipantIds = new Set(
     currentMonthActivities.flatMap((activity) => activity.participantIds),
   );
+  const totalParticipantIds = new Set(
+    activities.flatMap((activity) => activity.participantIds),
+  );
+  const membersById = new Map(members.map((member) => [member.id, member]));
   const monthlySummaries = new Map<
     string,
     {
@@ -125,10 +162,15 @@ export function getGuildDashboardStats(
     activeMemberCount,
     currentMonthActivityCount: currentMonthActivities.length,
     currentMonthParticipantMemberCount: currentMonthParticipantIds.size,
+    totalActivityCount: activities.length,
+    totalParticipantMemberCount: totalParticipantIds.size,
+    recordPeriodLabel: getRecordPeriodLabel(activities),
     recentActivity: sortedActivities[0]
-      ? toActivitySummary(sortedActivities[0])
+      ? toActivitySummary(sortedActivities[0], membersById)
       : null,
-    recentActivities: sortedActivities.slice(0, 6).map(toActivitySummary),
+    recentActivities: sortedActivities
+      .slice(0, 6)
+      .map((activity) => toActivitySummary(activity, membersById)),
     monthlyTrends,
   };
 }

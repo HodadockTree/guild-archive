@@ -15,6 +15,10 @@ export type MonthlyActivitySummary = {
   isMostParticipated: boolean;
 };
 
+export type MonthlyActivityDetail = ActivityLog & {
+  participantNames: string[];
+};
+
 export type MonthlyTopParticipant = {
   memberId: string;
   nickname: string;
@@ -39,7 +43,7 @@ export type MonthlyEventSummary = {
 
 export type MonthlyReport = {
   month: string;
-  activities: ActivityLog[];
+  activities: MonthlyActivityDetail[];
   totalActivities: number;
   siegeCount: number;
   airshipCount: number;
@@ -195,10 +199,16 @@ export function getMonthlyReport(
       memo: activity.memo?.trim() || undefined,
       imageDataUrl: activity.imageDataUrl,
     }));
+  const activityDetails = monthlyActivities.map((activity) => ({
+    ...activity,
+    participantNames: activity.participantIds.map(
+      (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+    ),
+  }));
 
   return {
     month,
-    activities: monthlyActivities,
+    activities: activityDetails,
     ...report,
     participantMemberCount: participantMemberIds.size,
     participationCountsByMemberId,

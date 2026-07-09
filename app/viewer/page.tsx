@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog } from "@/src/types";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 import type { MonthlyReport } from "@/src/lib/monthlyReport";
+import {
+  ActivityDetailModal,
+  type ActivityDetail,
+} from "@/src/components/ActivityDetailModal";
 
 type MonthSummary = {
   month: string;
@@ -48,7 +52,7 @@ function getMostFrequentActivityType(report: MonthlyReport) {
   return summaries[0]?.count ? summaries[0] : null;
 }
 
-function getMostParticipatedActivity(activities: ActivityLog[]) {
+function getMostParticipatedActivity<T extends ActivityLog>(activities: T[]) {
   return [...activities].sort((a, b) => {
     const participantOrder = b.participantIds.length - a.participantIds.length;
 
@@ -59,6 +63,19 @@ function getMostParticipatedActivity(activities: ActivityLog[]) {
     const dateOrder = b.date.localeCompare(a.date);
     return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
   })[0];
+}
+
+function toActivityDetail(activity: ActivityLog & { participantNames?: string[] }) {
+  return {
+    id: activity.id,
+    date: activity.date,
+    label: getMonthlyActivityLabel(activity),
+    title: getActivityTitle(activity),
+    participantCount: activity.participantIds.length,
+    participantNames: activity.participantNames ?? [],
+    memo: activity.memo?.trim() || undefined,
+    imageDataUrl: activity.imageDataUrl,
+  };
 }
 
 function subscribeLocation(onStoreChange: () => void) {
@@ -107,6 +124,8 @@ export default function ViewerPage() {
   const [reportState, setReportState] = useState<ReportState>({
     status: "idle",
   });
+  const [selectedActivity, setSelectedActivity] =
+    useState<ActivityDetail | null>(null);
   const queryMonth = useSyncExternalStore<string>(
     subscribeLocation,
     getMonthSnapshot,
@@ -248,6 +267,9 @@ export default function ViewerPage() {
         return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
       })
     : [];
+  const activitiesById = new Map(
+    monthlyReport?.activities.map((activity) => [activity.id, activity]) ?? [],
+  );
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-sky-50 px-5 py-10 text-slate-800">
@@ -435,7 +457,11 @@ export default function ViewerPage() {
                   이 달의 활동 기록이 없습니다.
                 </p>
               ) : (
-                <div className="mt-3 rounded-md bg-sky-50 px-4 py-4 text-sm">
+                <button
+                  className="mt-3 w-full rounded-md bg-sky-50 px-4 py-4 text-left text-sm transition hover:bg-sky-100/70 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                  onClick={() => setSelectedActivity(toActivityDetail(mostParticipatedActivity))}
+                  type="button"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">
@@ -457,7 +483,7 @@ export default function ViewerPage() {
                       {mostParticipatedActivity.memo.trim()}
                     </p>
                   ) : null}
-                </div>
+                </button>
               )}
             </div>
           </section>
@@ -473,6 +499,17 @@ export default function ViewerPage() {
                     className="rounded-md border border-sky-100 bg-white px-3 py-3 text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/40"
                     key={activity.id}
                   >
+                    <button
+                      className="w-full text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                      onClick={() => {
+                        const detailActivity = activitiesById.get(activity.id);
+
+                        if (detailActivity) {
+                          setSelectedActivity(toActivityDetail(detailActivity));
+                        }
+                      }}
+                      type="button"
+                    >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs text-slate-500">
@@ -497,6 +534,7 @@ export default function ViewerPage() {
                         src={activity.imageDataUrl}
                       />
                     ) : null}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -520,6 +558,11 @@ export default function ViewerPage() {
                     }`}
                     key={activity.id}
                   >
+                    <button
+                      className="flex w-full flex-1 flex-col text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                      onClick={() => setSelectedActivity(toActivityDetail(activity))}
+                      type="button"
+                    >
                     {activity.imageDataUrl ? (
                       <ViewerImage
                         alt="활동 첨부 이미지"
@@ -556,6 +599,7 @@ export default function ViewerPage() {
                         </p>
                       ) : null}
                     </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -564,6 +608,10 @@ export default function ViewerPage() {
         </>
       ) : null}
 
+      <ActivityDetailModal
+        activity={selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
     </main>
   );
 }

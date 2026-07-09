@@ -7,6 +7,10 @@ import type {
   DashboardMonthlyTrend,
   DashboardStats,
 } from "@/src/lib/dashboardStats";
+import {
+  ActivityDetailModal,
+  type ActivityDetail,
+} from "@/src/components/ActivityDetailModal";
 
 type DashboardState =
   | { status: "loading" }
@@ -113,13 +117,22 @@ function TrendChart({
   );
 }
 
-function ActivityCard({ activity }: { activity: DashboardActivitySummary }) {
+function ActivityCard({
+  activity,
+  onSelect,
+}: {
+  activity: DashboardActivitySummary;
+  onSelect: (activity: ActivityDetail) => void;
+}) {
   return (
-    <li
+    <li>
+      <button
       className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
         activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
-      }`}
-    >
+      } w-full text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2`}
+        onClick={() => onSelect(activity)}
+        type="button"
+      >
       {activity.imageDataUrl ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
@@ -153,6 +166,7 @@ function ActivityCard({ activity }: { activity: DashboardActivitySummary }) {
           </p>
         ) : null}
       </div>
+      </button>
     </li>
   );
 }
@@ -161,6 +175,8 @@ export default function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading",
   });
+  const [selectedActivity, setSelectedActivity] =
+    useState<ActivityDetail | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -295,6 +311,40 @@ export default function DashboardPage() {
             </dl>
           </section>
 
+          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                지금까지의 냥춘 기록
+              </h2>
+            </div>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm font-medium text-slate-500">
+                  전체 활동
+                </dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {dashboard.totalActivityCount}회
+                </dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm font-medium text-slate-500">
+                  함께한 길드원
+                </dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {dashboard.totalParticipantMemberCount}명
+                </dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm font-medium text-slate-500">
+                  기록 기간
+                </dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {dashboard.recordPeriodLabel}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
           <section className="grid gap-4 lg:grid-cols-2">
             <TrendChart
               title="월별 활동 기록"
@@ -336,11 +386,20 @@ export default function DashboardPage() {
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {dashboard.recentActivities.map((activity) => (
-                  <ActivityCard activity={activity} key={activity.id} />
+                  <ActivityCard
+                    activity={activity}
+                    key={activity.id}
+                    onSelect={setSelectedActivity}
+                  />
                 ))}
               </ul>
             )}
           </section>
+
+          <ActivityDetailModal
+            activity={selectedActivity}
+            onClose={() => setSelectedActivity(null)}
+          />
         </>
       ) : null}
     </main>
