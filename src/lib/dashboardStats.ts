@@ -45,21 +45,11 @@ function getUnknownMemberName(memberId: string) {
 }
 
 function getRecordPeriodLabel(activities: ActivityLog[]) {
-  const months = activities
-    .map((activity) => getMonthKey(activity.date))
-    .filter((month): month is string => Boolean(month))
-    .sort((a, b) => a.localeCompare(b));
-
-  if (months.length === 0) {
+  if (activities.length === 0) {
     return "아직 기록 없음";
   }
 
-  const firstMonth = months[0].replace("-", ".");
-  const lastMonth = months[months.length - 1].replace("-", ".");
-
-  return firstMonth === lastMonth
-    ? `${firstMonth}부터 기록 중`
-    : `${firstMonth} ~ ${lastMonth}`;
+  return "2026.01부터 기록 중";
 }
 
 function toActivitySummary(
