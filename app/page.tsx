@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
   DashboardActivitySummary,
+  DashboardMemberSummary,
   DashboardMonthlyTrend,
   DashboardStats,
 } from "@/src/lib/dashboardStats";
@@ -43,13 +44,11 @@ function SummaryCard({
   label,
   value,
   detail,
-  actionLabel,
   onClick,
 }: {
   label: string;
   value: string;
   detail?: string;
-  actionLabel?: string;
   onClick?: () => void;
 }) {
   const isClickable = Boolean(onClick);
@@ -78,23 +77,42 @@ function SummaryCard({
       {detail ? (
         <p className="mt-2 text-sm leading-6 text-slate-500">{detail}</p>
       ) : null}
-      {actionLabel ? (
-        <p className="mt-3 text-xs font-semibold text-sky-700">
-          {actionLabel}
-        </p>
-      ) : null}
     </div>
   );
 }
 
-function MemberChipList({
+function getDurationLabel(member: DashboardMemberSummary) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(member.joinedAt)) {
+    return "-";
+  }
+
+  const endDate = /^\d{4}-\d{2}-\d{2}$/.test(member.leftAt ?? "")
+    ? member.leftAt
+    : new Date().toISOString().slice(0, 10);
+
+  if (!endDate) {
+    return "-";
+  }
+
+  const startTime = new Date(`${member.joinedAt}T00:00:00`).getTime();
+  const endTime = new Date(`${endDate}T00:00:00`).getTime();
+
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime < startTime) {
+    return "-";
+  }
+
+  const dayCount = Math.floor((endTime - startTime) / 86_400_000) + 1;
+  return member.leftAt ? `${dayCount}일` : `${dayCount}일째`;
+}
+
+function MemberList({
   emptyMessage,
-  names,
+  members,
 }: {
   emptyMessage: string;
-  names: string[];
+  members: DashboardMemberSummary[];
 }) {
-  if (names.length === 0) {
+  if (members.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
         {emptyMessage}
@@ -103,16 +121,53 @@ function MemberChipList({
   }
 
   return (
-    <ul className="flex flex-wrap gap-2">
-      {names.map((name, index) => (
+    <div className="space-y-3">
+      <div className="hidden overflow-hidden rounded-md border border-sky-100 sm:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-sky-50 text-xs font-semibold text-slate-500">
+            <tr>
+              <th className="px-4 py-3">닉네임</th>
+              <th className="px-4 py-3">가입일</th>
+              <th className="px-4 py-3">탈퇴일</th>
+              <th className="px-4 py-3">함께한 기간</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-sky-100 bg-white">
+            {members.map((member) => (
+              <tr key={member.id}>
+                <td className="px-4 py-3 font-semibold text-slate-900">
+                  {member.nickname}
+                </td>
+                <td className="px-4 py-3 text-slate-600">
+                  {member.joinedAt || "-"}
+                </td>
+                <td className="px-4 py-3 text-slate-600">
+                  {member.leftAt || "-"}
+                </td>
+                <td className="px-4 py-3 text-slate-700">
+                  {getDurationLabel(member)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ul className="space-y-2 sm:hidden">
+        {members.map((member) => (
         <li
-          className="max-w-full rounded-md bg-sky-50 px-2.5 py-1 text-sm text-slate-700"
-          key={`${name}-${index}`}
+          className="rounded-md border border-sky-100 bg-sky-50 px-4 py-3"
+          key={member.id}
         >
-          {name}
+          <p className="font-semibold text-slate-900">{member.nickname}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            가입일 {member.joinedAt || "-"} · 탈퇴일 {member.leftAt || "-"} ·{" "}
+            {getDurationLabel(member)}
+          </p>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 
@@ -162,12 +217,10 @@ function ActivitySummaryList({
 }
 
 function CumulativeSummaryCard({
-  actionLabel,
   label,
   onClick,
   value,
 }: {
-  actionLabel?: string;
   label: string;
   onClick?: () => void;
   value: string;
@@ -195,11 +248,6 @@ function CumulativeSummaryCard({
     >
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="mt-1 text-2xl font-bold text-slate-900">{value}</dd>
-      {actionLabel ? (
-        <p className="mt-3 text-xs font-semibold text-sky-700">
-          {actionLabel}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -440,20 +488,17 @@ export default function DashboardPage() {
               <SummaryCard
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
-                actionLabel="목록 보기"
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <SummaryCard
                 label="이번 달 활동 수"
                 value={`${dashboard.currentMonthActivityCount}회`}
-                actionLabel="활동 내역 보기"
                 detail="월별 활동 기록"
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
                 label="이번 달 함께한 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
-                actionLabel="목록 보기"
                 detail="이번 달 한 번 이상 길드 활동에 참여한 인원입니다."
                 onClick={() => setSelectedSummaryModal("currentMonthParticipants")}
               />
@@ -477,13 +522,11 @@ export default function DashboardPage() {
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <CumulativeSummaryCard
-                actionLabel="활동 내역 보기"
                 label="전체 활동"
                 onClick={() => setSelectedSummaryModal("allActivities")}
                 value={`${dashboard.totalActivityCount}회`}
               />
               <CumulativeSummaryCard
-                actionLabel="목록 보기"
                 label="함께했던 길드원"
                 onClick={() => setSelectedSummaryModal("allMembers")}
                 value={`${dashboard.totalMemberCount}명`}
@@ -549,9 +592,9 @@ export default function DashboardPage() {
               onClose={() => setSelectedSummaryModal(null)}
               title="현재 길드원"
             >
-              <MemberChipList
+              <MemberList
                 emptyMessage="현재 활동중인 길드원이 없습니다."
-                names={dashboard.activeMembers.map((member) => member.nickname)}
+                members={dashboard.activeMembers}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -579,11 +622,9 @@ export default function DashboardPage() {
               onClose={() => setSelectedSummaryModal(null)}
               title="이번 달 함께한 인원"
             >
-              <MemberChipList
+              <MemberList
                 emptyMessage="이번 달에 함께한 길드원이 아직 없습니다."
-                names={dashboard.currentMonthParticipantMembers.map(
-                  (member) => member.nickname,
-                )}
+                members={dashboard.currentMonthParticipantMembers}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -611,9 +652,9 @@ export default function DashboardPage() {
               onClose={() => setSelectedSummaryModal(null)}
               title="함께한 길드원"
             >
-              <MemberChipList
+              <MemberList
                 emptyMessage="아직 함께한 길드원 기록이 없습니다."
-                names={dashboard.allMembers.map((member) => member.nickname)}
+                members={dashboard.allMembers}
               />
             </DashboardSummaryModal>
           ) : null}

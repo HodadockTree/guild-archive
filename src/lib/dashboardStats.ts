@@ -21,7 +21,10 @@ export type DashboardActivitySummary = {
 
 export type DashboardMemberSummary = {
   id: string;
+  joinedAt: string;
+  leftAt: string | null;
   nickname: string;
+  status: GuildMember["status"];
 };
 
 export type DashboardStats = {
@@ -101,11 +104,17 @@ export function getGuildDashboardStats(
     .filter((member) => member.status === "active")
     .map((member) => ({
       id: member.id,
+      joinedAt: member.joinedAt,
+      leftAt: member.leftAt,
       nickname: member.nickname,
+      status: member.status,
     }));
   const allMembers = members.map((member) => ({
     id: member.id,
+    joinedAt: member.joinedAt,
+    leftAt: member.leftAt,
     nickname: member.nickname,
+    status: member.status,
   }));
   const sortedActivities = [...activities].sort((a, b) => {
     const dateOrder = b.date.localeCompare(a.date);
@@ -173,7 +182,10 @@ export function getGuildDashboardStats(
     currentMonthParticipantMembers: Array.from(currentMonthParticipantIds).map(
       (memberId) => ({
         id: memberId,
+        joinedAt: membersById.get(memberId)?.joinedAt ?? "",
+        leftAt: membersById.get(memberId)?.leftAt ?? null,
         nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+        status: membersById.get(memberId)?.status ?? "left",
       }),
     ),
     recentActivity: sortedActivities[0]
