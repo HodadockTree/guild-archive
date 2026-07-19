@@ -5,7 +5,7 @@ import { Surface } from "@/src/components/ui/Surface";
 
 type DashboardSummaryModalProps = {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
   disableEscapeClose?: boolean;
   onClose: () => void;
@@ -56,9 +56,11 @@ export function DashboardSummaryModal({
             >
               {title}
             </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              {description}
-            </p>
+            {description ? (
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                {description}
+              </p>
+            ) : null}
           </div>
           <button
             aria-label="모달 닫기"

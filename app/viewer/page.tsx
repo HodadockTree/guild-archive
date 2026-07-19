@@ -119,6 +119,34 @@ function ViewerImage({
   );
 }
 
+function ReportMonthSelect({
+  monthOptions,
+  onChange,
+  value,
+}: {
+  monthOptions: string[];
+  onChange: (month: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="flex w-full max-w-48 flex-col gap-1 text-sm font-medium text-[var(--text-secondary)]">
+      <span className="sr-only">리포트 월</span>
+      <select
+        aria-label="리포트 월"
+        className="ui-focus-ring min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-white px-3 py-2 text-sm"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {monthOptions.map((month) => (
+          <option key={month} value={month}>
+            {getMonthLabel(month)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function ViewerPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [monthsState, setMonthsState] = useState<MonthsState>({
@@ -276,6 +304,12 @@ export default function ViewerPage() {
   const conquestCounts = new Map(
     monthlyReport?.conquestSummaries.map((summary) => [summary.label, summary.count]) ?? [],
   );
+  const recordedConquestSummaries = conquestTypes
+    .map((label) => ({ label, count: conquestCounts.get(label) ?? 0 }))
+    .filter((summary) => summary.count > 0)
+    .sort((first, second) => second.count - first.count);
+  const hasUnrecordedConquestTypes =
+    recordedConquestSummaries.length < conquestTypes.length;
 
   return (
     <main className="app-shell">
@@ -284,23 +318,6 @@ export default function ViewerPage() {
         eyebrow="월간 활동 리포트"
         title="냥춘 활동 리포트"
       />
-
-      <div className="flex justify-end">
-        <label className="flex w-full max-w-48 flex-col gap-1 text-sm font-medium text-[var(--text-secondary)]">
-          <span className="text-xs">리포트 월</span>
-          <select
-            className="ui-focus-ring min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-white px-3 py-2 text-sm"
-            value={reportMonth}
-            onChange={(event) => setSelectedMonth(event.target.value)}
-          >
-            {monthOptions.map((month) => (
-              <option key={month} value={month}>
-                {getMonthLabel(month)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
 
       {monthsState.status === "error" ? (
         <section className="rounded-md border border-red-100 bg-red-50 px-5 py-6">
@@ -330,6 +347,13 @@ export default function ViewerPage() {
 
       {monthlyReport && !hasReportData ? (
         <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
+          <div className="mb-6 flex justify-center">
+            <ReportMonthSelect
+              monthOptions={monthOptions}
+              onChange={setSelectedMonth}
+              value={reportMonth}
+            />
+          </div>
           <h2 className="text-lg font-semibold text-slate-900">
             {getMonthLabel(reportMonth)} 활동 기록이 없습니다.
           </h2>
@@ -342,20 +366,27 @@ export default function ViewerPage() {
       {monthlyReport && hasReportData ? (
         <>
           <section className="space-y-5 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-slate-900">
-                {getMonthLabel(reportMonth)} 활동 리포트
-              </h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {getMonthLabel(reportMonth)} 활동 리포트
+                </h2>
               <p className="text-sm leading-6 text-slate-600">
                 이번 달에는 {monthlyReport.totalActivities}건의 활동이 기록되었고,{" "}
                 {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
               </p>
+              </div>
+              <ReportMonthSelect
+                monthOptions={monthOptions}
+                onChange={setSelectedMonth}
+                value={reportMonth}
+              />
             </div>
 
             <dl className="grid gap-3 sm:grid-cols-3">
               {[
                 ["이번 달 활동 건수", `${monthlyReport.totalActivities}건`],
-                ["참여 인원", `${monthlyReport.participantMemberCount}명`],
+                ["함께한 길드원", `${monthlyReport.participantMemberCount}명`],
                 [
                   "가장 많이 진행한 활동",
                   mostFrequentActivityType
@@ -394,22 +425,26 @@ export default function ViewerPage() {
               <h3 className="mt-5 text-sm font-semibold text-slate-900">
                 점령전 세부 카테고리
               </h3>
-              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                  {conquestTypes.map((label) => {
-                    const count = conquestCounts.get(label) ?? 0;
-                    return (
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
+                  {recordedConquestSummaries.map(({ label, count }) => (
                     <div
-                      className={`rounded-md px-3 py-2.5 ${count === 0 ? "bg-slate-50 text-slate-400" : "bg-[var(--surface-muted)] text-slate-900"}`}
+                      className="rounded-md bg-[var(--surface-muted)] px-3 py-2.5 text-slate-900"
                       key={label}
                     >
                       <dt>{label}</dt>
                       <dd className="font-semibold">{count}건</dd>
                     </div>
-                  );})}
+                  ))}
+                  {hasUnrecordedConquestTypes ? (
+                    <div className="rounded-md bg-slate-50 px-3 py-2.5 text-slate-400">
+                      <dt>그 외 카테고리</dt>
+                      <dd className="font-semibold">0건</dd>
+                    </div>
+                  ) : null}
                 </dl>
             </div>
 
-            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <div className="self-start rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
                 가장 참여가 많았던 활동
               </h2>
@@ -553,9 +588,6 @@ export default function ViewerPage() {
                           {activity.memo.trim()}
                         </p>
                       ) : null}
-                      <span className="mt-3 text-xs font-semibold text-[var(--brand-strong)]">
-                        상세 보기 →
-                      </span>
                     </div>
                     </button>
                   </li>

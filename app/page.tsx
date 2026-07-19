@@ -49,19 +49,17 @@ function getDisplayDate(date: string) {
 function SummaryCard({
   label,
   value,
-  detail,
   onClick,
 }: {
   label: string;
   value: string;
-  detail?: string;
   onClick?: () => void;
 }) {
   const isClickable = Boolean(onClick);
 
   return (
     <div
-      className={`flex min-h-36 flex-col rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+      className={`flex min-h-28 flex-col justify-center rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
         isClickable
           ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
           : ""
@@ -80,9 +78,6 @@ function SummaryCard({
     >
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="mt-2 text-3xl font-bold text-slate-900">{value}</dd>
-      {detail ? (
-        <p className="mt-2 text-sm leading-6 text-slate-500">{detail}</p>
-      ) : null}
     </div>
   );
 }
@@ -114,9 +109,11 @@ function getDurationLabel(member: DashboardMemberSummary) {
 function MemberList({
   emptyMessage,
   members,
+  showLeftAt = true,
 }: {
   emptyMessage: string;
   members: DashboardMemberSummary[];
+  showLeftAt?: boolean;
 }) {
   if (members.length === 0) {
     return (
@@ -134,7 +131,7 @@ function MemberList({
             <tr>
               <th className="px-4 py-3">닉네임</th>
               <th className="px-4 py-3">가입일</th>
-              <th className="px-4 py-3">탈퇴일</th>
+              {showLeftAt ? <th className="px-4 py-3">탈퇴일</th> : null}
               <th className="px-4 py-3">함께한 기간</th>
             </tr>
           </thead>
@@ -147,9 +144,11 @@ function MemberList({
                 <td className="px-4 py-3 text-slate-600">
                   {member.joinedAt ? formatFullDate(member.joinedAt) : "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {member.leftAt ? formatFullDate(member.leftAt) : "-"}
-                </td>
+                {showLeftAt ? (
+                  <td className="px-4 py-3 text-slate-600">
+                    {member.leftAt ? formatFullDate(member.leftAt) : "-"}
+                  </td>
+                ) : null}
                 <td className="px-4 py-3 text-slate-700">
                   {getDurationLabel(member)}
                 </td>
@@ -167,8 +166,8 @@ function MemberList({
         >
           <p className="font-semibold text-slate-900">{member.nickname}</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} · 탈퇴일{" "}
-            {member.leftAt ? formatFullDate(member.leftAt) : "-"} ·{" "}
+            가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} ·{" "}
+            {showLeftAt ? `탈퇴일 ${member.leftAt ? formatFullDate(member.leftAt) : "-"} · ` : ""}
             {getDurationLabel(member)}
           </p>
         </li>
@@ -246,7 +245,9 @@ function ActivitySummaryList({
                 <h3 className="mt-1 font-semibold leading-6 text-slate-900">
                   {activity.title}
                 </h3>
-                <p className="mt-1 text-slate-600">{activity.label}</p>
+                {activity.label.startsWith("점령전 (") ? (
+                  <p className="mt-1 text-slate-600">{activity.label}</p>
+                ) : null}
               </div>
               <span className="w-fit shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                 참여 {activity.participantCount}명
@@ -406,9 +407,6 @@ function ActivityCard({
             {activity.memo}
           </p>
         ) : null}
-        <span className="mt-3 text-xs font-semibold text-[var(--brand-strong)]">
-          상세 보기 →
-        </span>
       </div>
       </button>
     </li>
@@ -518,19 +516,16 @@ export default function DashboardPage() {
               <SummaryCard
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
-                detail="현재 활동 중인 길드원입니다."
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <SummaryCard
                 label="이번 달 활동 건수"
                 value={`${dashboard.currentMonthActivityCount}건`}
-                detail="이번 달에 기록된 활동 건수입니다."
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
-                label="이번 달 함께한 인원"
+                label="함께한 길드원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
-                detail="이번 달 한 번 이상 참여한 인원입니다."
                 onClick={() => {
                   setSelectedMonthMemberId(null);
                   setSelectedSummaryModal("currentMonthParticipants");
@@ -546,7 +541,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <CumulativeSummaryCard label="길드 시작일" value="2026-01-22 ~" />
+              <CumulativeSummaryCard label="길드 시작일" value="2026년 1월 22일부터" />
               <CumulativeSummaryCard
                 label="전체 활동 건수"
                 onClick={() => setSelectedSummaryModal("allActivities")}
@@ -614,13 +609,13 @@ export default function DashboardPage() {
           {selectedSummaryModal === "activeMembers" ? (
             <DashboardSummaryModal
               disableEscapeClose={Boolean(selectedActivity)}
-              description="지금 활동중인 길드원 목록입니다."
               onClose={() => setSelectedSummaryModal(null)}
-              title="현재 길드원"
+              title={`현재 길드원 ${dashboard.activeMemberCount}명`}
             >
               <MemberList
                 emptyMessage="현재 활동중인 길드원이 없습니다."
                 members={dashboard.activeMembers}
+                showLeftAt={false}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -628,9 +623,8 @@ export default function DashboardPage() {
           {selectedSummaryModal === "currentMonthActivities" ? (
             <DashboardSummaryModal
               disableEscapeClose={Boolean(selectedActivity)}
-              description="이번 달에 기록된 활동 내역입니다."
               onClose={() => setSelectedSummaryModal(null)}
-              title="이번 달 활동 건수"
+              title={`${getMonthLabel(new Date().toISOString().slice(0, 7))} 전체 활동`}
             >
               <ActivitySummaryList
                 activities={dashboard.currentMonthActivities}
@@ -647,7 +641,7 @@ export default function DashboardPage() {
               disableEscapeClose={Boolean(selectedActivity)}
               description="이번 달 활동에 한 번 이상 함께한 길드원입니다."
               onClose={() => setSelectedSummaryModal(null)}
-              title="이번 달 함께한 인원"
+              title="함께한 길드원"
             >
               <ParticipantChipList
                 emptyMessage="이번 달에 함께한 길드원이 아직 없습니다."
