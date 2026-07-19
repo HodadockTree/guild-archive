@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
+import { AppHeader } from "@/src/components/ui/AppHeader";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
   representativeEventTitle: string | null;
@@ -71,36 +72,13 @@ export default function ArchivePage() {
     archiveState.status === "success" ? archiveState.months : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-sky-50 px-5 py-10 text-slate-800">
-      <header className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-600">
-              월별 활동 아카이브
-            </p>
-            <h1 className="text-3xl font-bold text-slate-900">
-              냥춘 활동 아카이브
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-              href="/"
-            >
-              홈 대시보드
-            </Link>
-            <Link
-              className="w-fit rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
-              href="/admin"
-            >
-              관리 화면
-            </Link>
-          </div>
-        </div>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600">
-          월별로 모인 활동 기록을 살펴보고, 원하는 달의 리포트로 이동할 수 있습니다.
-        </p>
-      </header>
+    <main className="app-shell">
+      <AppHeader
+        currentPath="/archive"
+        description="월별로 모인 활동 기록을 살펴보고, 원하는 달의 리포트로 이동할 수 있습니다."
+        eyebrow="월별 활동 아카이브"
+        title="냥춘 활동 아카이브"
+      />
 
       {archiveState.status === "loading" ? (
         <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">

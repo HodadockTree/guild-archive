@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ChangeEvent,
   ClipboardEvent,
@@ -39,6 +38,7 @@ import {
   validateBackupData,
 } from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
+import { AppHeader } from "@/src/components/ui/AppHeader";
 import {
   conquestTypes,
   getKnownConquestTypes,
@@ -1142,34 +1142,13 @@ export default function Home() {
 
   return (
     <>
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-5 py-10">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-neutral-500">
-          테일즈런너 길드 활동 아카이브
-        </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="text-3xl font-bold text-neutral-950">
-            냥춘 길드 활동 기록
-          </h1>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-              href="/archive"
-            >
-              월별 아카이브 보기
-            </Link>
-            <Link
-              className="w-fit rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-              href="/viewer"
-            >
-              활동 리포트 보기
-            </Link>
-          </div>
-        </div>
-        <p className="text-sm text-neutral-600">
-          매주 길드 활동을 빠르게 남기고, 참여 길드원을 함께 보관합니다.
-        </p>
-      </header>
+    <main className="app-shell gap-8">
+      <AppHeader
+        currentPath="/admin"
+        description="매주 길드 활동을 빠르게 남기고, 참여 길드원을 함께 보관합니다."
+        eyebrow="테일즈런너 길드 활동 아카이브"
+        title="냥춘 길드 활동 기록"
+      />
 
       <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4">
         <h2 className="text-lg font-semibold text-neutral-900">

@@ -13,6 +13,7 @@ import {
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
+import { AppHeader } from "@/src/components/ui/AppHeader";
 
 type DashboardState =
   | { status: "loading" }
@@ -473,40 +474,13 @@ export default function DashboardPage() {
       : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-7 bg-sky-50 px-5 py-10 text-slate-800">
-      <header className="flex flex-col gap-4 border-b border-sky-100 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-600">
-            냥춘 길드 활동 아카이브
-          </p>
-          <h1 className="text-3xl font-bold text-slate-900">
-            길드 현황 대시보드
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-slate-600">
-            이번 달 활동과 최근 소식을 한눈에 모아봤어요.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-            href="/archive"
-          >
-            월별 아카이브
-          </Link>
-          <Link
-            className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-            href="/viewer"
-          >
-            월간 리포트
-          </Link>
-          <Link
-            className="rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
-            href="/admin"
-          >
-            관리자
-          </Link>
-        </div>
-      </header>
+    <main className="app-shell">
+      <AppHeader
+        currentPath="/"
+        description="이번 달 활동과 최근 소식을 한눈에 모아봤어요."
+        eyebrow="냥춘 길드 활동 아카이브"
+        title="길드 현황 대시보드"
+      />
 
       {dashboardState.status === "loading" ? (
         <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">

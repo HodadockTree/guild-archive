@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect } from "react";
+import { Surface } from "@/src/components/ui/Surface";
 
 type DashboardSummaryModalProps = {
   title: string;
@@ -42,8 +43,9 @@ export function DashboardSummaryModal({
       onClick={onClose}
       role="dialog"
     >
-      <div
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-md border border-sky-100 bg-white shadow-xl shadow-slate-900/15"
+      <Surface
+        as="div"
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto shadow-xl shadow-slate-900/15"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4">
@@ -69,7 +71,7 @@ export function DashboardSummaryModal({
         </div>
 
         <div className="px-5 py-5">{children}</div>
-      </div>
+      </Surface>
     </div>
   );
 }

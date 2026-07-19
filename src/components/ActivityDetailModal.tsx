@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { Badge } from "@/src/components/ui/Badge";
+import { Surface } from "@/src/components/ui/Surface";
 
 export type ActivityDetail = {
   id: string;
@@ -53,17 +55,18 @@ export function ActivityDetailModal({
       onClick={onClose}
       role="dialog"
     >
-      <div
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-md border border-sky-100 bg-white shadow-xl shadow-slate-900/15"
+      <Surface
+        as="div"
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto shadow-xl shadow-slate-900/15"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-slate-500">{activity.date}</span>
-              <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+              <Badge className="py-0.5">
                 {activity.label}
-              </span>
+              </Badge>
             </div>
             <h2
               className="mt-2 text-xl font-bold leading-7 text-slate-900"
@@ -100,9 +103,9 @@ export function ActivityDetailModal({
               <h3 className="text-sm font-semibold text-slate-900">
                 함께한 길드원
               </h3>
-              <span className="rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              <Badge tone="brand">
                 {activity.participantCount}명
-              </span>
+              </Badge>
             </div>
             {activity.participantNames.length > 0 ? (
               <ul className="mt-3 flex flex-wrap gap-2">
@@ -131,7 +134,7 @@ export function ActivityDetailModal({
             </section>
           ) : null}
         </div>
-      </div>
+      </Surface>
     </div>
   );
 }

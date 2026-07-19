@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog } from "@/src/types";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
@@ -9,6 +8,7 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
+import { AppHeader } from "@/src/components/ui/AppHeader";
 
 type MonthSummary = {
   month: string;
@@ -272,39 +272,12 @@ export default function ViewerPage() {
   );
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-sky-50 px-5 py-10 text-slate-800">
-      <header className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-600">
-              월간 활동 리포트
-            </p>
-            <h1 className="text-3xl font-bold text-slate-900">
-              냥춘 활동 리포트
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-              href="/archive"
-            >
-              아카이브로 돌아가기
-            </Link>
-            <Link
-              className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-              href="/"
-            >
-              홈 대시보드
-            </Link>
-            <Link
-              className="w-fit rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sky-300"
-              href="/admin"
-            >
-              관리 화면
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="app-shell">
+      <AppHeader
+        currentPath="/viewer"
+        eyebrow="월간 활동 리포트"
+        title="냥춘 활동 리포트"
+      />
 
       <section className="rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/50">
         <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-slate-700">

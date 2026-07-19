@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f0f9ff;
-  --foreground: #1f2937;
+  --background: #eff8fc;
+  --foreground: #0b1f3a;
+  --surface: #ffffff;
+  --surface-muted: #eaf5fb;
+  --text-primary: #0b1f3a;
+  --text-secondary: #52708f;
+  --brand: #9eddf6;
+  --brand-strong: #44688e;
+  --border: #cfe6f2;
+  --danger: #a33a3a;
+  --focus-ring: #65bfe5;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.5rem;
+  --content-width: 67.5rem;
 }
 
 @theme inline {
@@ -19,5 +38,42 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  outline-color: var(--focus-ring);
+}
+
+@layer components {
+  .app-shell {
+    margin-inline: auto;
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    max-width: var(--content-width);
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: 2.5rem 1.25rem;
+    color: var(--text-primary);
+  }
+
+  .ui-surface {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  .ui-surface-muted {
+    background: var(--surface-muted);
+  }
+
+  .ui-focus-ring:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
 }
