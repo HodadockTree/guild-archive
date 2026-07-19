@@ -2,13 +2,17 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog } from "@/src/types";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import {
+  conquestTypes,
+  getMonthlyActivityLabel,
+} from "@/src/lib/activityLabels";
 import type { MonthlyReport } from "@/src/lib/monthlyReport";
 import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
 
 type MonthSummary = {
   month: string;
@@ -30,12 +34,11 @@ function today() {
 }
 
 function getMonthLabel(month: string) {
-  const [year, monthNumber] = month.split("-");
-  return year && monthNumber ? `${year}년 ${Number(monthNumber)}월` : month;
+  return formatMonth(month);
 }
 
 function getDisplayDate(date: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
+  return formatMonthDay(date);
 }
 
 function getActivityTitle(activity: ActivityLog) {
@@ -270,6 +273,9 @@ export default function ViewerPage() {
   const activitiesById = new Map(
     monthlyReport?.activities.map((activity) => [activity.id, activity]) ?? [],
   );
+  const conquestCounts = new Map(
+    monthlyReport?.conquestSummaries.map((summary) => [summary.label, summary.count]) ?? [],
+  );
 
   return (
     <main className="app-shell">
@@ -279,11 +285,11 @@ export default function ViewerPage() {
         title="냥춘 활동 리포트"
       />
 
-      <section className="rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/50">
-        <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-slate-700">
-          <span>월 선택</span>
+      <div className="flex justify-end">
+        <label className="flex w-full max-w-48 flex-col gap-1 text-sm font-medium text-[var(--text-secondary)]">
+          <span className="text-xs">리포트 월</span>
           <select
-            className="w-full rounded-md border border-sky-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-300"
+            className="ui-focus-ring min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-white px-3 py-2 text-sm"
             value={reportMonth}
             onChange={(event) => setSelectedMonth(event.target.value)}
           >
@@ -294,7 +300,7 @@ export default function ViewerPage() {
             ))}
           </select>
         </label>
-      </section>
+      </div>
 
       {monthsState.status === "error" ? (
         <section className="rounded-md border border-red-100 bg-red-50 px-5 py-6">
@@ -341,25 +347,19 @@ export default function ViewerPage() {
                 {getMonthLabel(reportMonth)} 활동 리포트
               </h2>
               <p className="text-sm leading-6 text-slate-600">
-                이번 달에는 {monthlyReport.totalActivities}개의 활동이 기록되었고,{" "}
+                이번 달에는 {monthlyReport.totalActivities}건의 활동이 기록되었고,{" "}
                 {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
               </p>
             </div>
 
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-3">
               {[
-                ["이번 달 활동", `${monthlyReport.totalActivities}회`],
-                ["함께한 길드원", `${monthlyReport.participantMemberCount}명`],
+                ["이번 달 활동 건수", `${monthlyReport.totalActivities}건`],
+                ["참여 인원", `${monthlyReport.participantMemberCount}명`],
                 [
                   "가장 많이 진행한 활동",
                   mostFrequentActivityType
                     ? `${mostFrequentActivityType.label} ${mostFrequentActivityType.count}회`
-                    : "없음",
-                ],
-                [
-                  "가장 참여가 많았던 활동",
-                  mostParticipatedActivity
-                    ? `${getActivityTitle(mostParticipatedActivity)} · ${mostParticipatedActivity.participantIds.length}명`
                     : "없음",
                 ],
               ].map(([label, value]) => (
@@ -376,49 +376,37 @@ export default function ViewerPage() {
               <h2 className="text-lg font-semibold text-slate-900">
                 활동 종류별 통계
               </h2>
-              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded-md bg-sky-50 px-3 py-3">
-                  <dt className="text-slate-500">비공정</dt>
-                  <dd className="font-semibold text-slate-900">
-                    {monthlyReport.airshipCount}개
-                  </dd>
-                </div>
-                <div className="rounded-md bg-sky-50 px-3 py-3">
-                  <dt className="text-slate-500">점령전</dt>
-                  <dd className="font-semibold text-slate-900">
-                    {monthlyReport.siegeCount}개
-                  </dd>
-                </div>
-                <div className="rounded-md bg-sky-50 px-3 py-3">
-                  <dt className="text-slate-500">이벤트</dt>
-                  <dd className="font-semibold text-slate-900">
-                    {monthlyReport.otherCount}개
-                  </dd>
-                </div>
+              <dl className="mt-3 divide-y divide-[var(--border)] rounded-md bg-[var(--surface-muted)] px-4 text-sm">
+                {[
+                  ["비공정", monthlyReport.airshipCount],
+                  ["점령전", monthlyReport.siegeCount],
+                  ["이벤트", monthlyReport.otherCount],
+                ]
+                  .sort((first, second) => Number(second[1]) - Number(first[1]))
+                  .map(([label, count]) => (
+                    <div className={`flex items-center justify-between py-2.5 ${count === 0 ? "text-slate-400" : "text-slate-900"}`} key={label}>
+                      <dt>{label}</dt>
+                      <dd className={count === 0 ? "font-medium" : "font-bold"}>{count}건</dd>
+                    </div>
+                  ))}
               </dl>
 
               <h3 className="mt-5 text-sm font-semibold text-slate-900">
                 점령전 세부 카테고리
               </h3>
-              {monthlyReport.conquestSummaries.length === 0 ? (
-                <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
-                  기록된 점령전 세부 카테고리가 없습니다.
-                </p>
-              ) : (
-                <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                  {monthlyReport.conquestSummaries.map((summary) => (
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                  {conquestTypes.map((label) => {
+                    const count = conquestCounts.get(label) ?? 0;
+                    return (
                     <div
-                      className="rounded-md bg-sky-50 px-3 py-2.5"
-                      key={summary.label}
+                      className={`rounded-md px-3 py-2.5 ${count === 0 ? "bg-slate-50 text-slate-400" : "bg-[var(--surface-muted)] text-slate-900"}`}
+                      key={label}
                     >
-                      <dt className="text-slate-500">{summary.label}</dt>
-                      <dd className="font-semibold text-slate-900">
-                        {summary.count}회
-                      </dd>
+                      <dt>{label}</dt>
+                      <dd className="font-semibold">{count}건</dd>
                     </div>
-                  ))}
+                  );})}
                 </dl>
-              )}
             </div>
 
             <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
@@ -431,14 +419,14 @@ export default function ViewerPage() {
                 </p>
               ) : (
                 <button
-                  className="mt-3 w-full rounded-md bg-sky-50 px-4 py-4 text-left text-sm transition hover:bg-sky-100/70 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                  className="ui-focus-ring mt-3 w-full cursor-pointer rounded-md bg-sky-50 px-4 py-4 text-left text-sm transition hover:bg-sky-100/70"
                   onClick={() => setSelectedActivity(toActivityDetail(mostParticipatedActivity))}
                   type="button"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">
-                        {mostParticipatedActivity.date}
+                        {getDisplayDate(mostParticipatedActivity.date)}
                       </p>
                       <h3 className="mt-1 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(mostParticipatedActivity)}
@@ -470,7 +458,7 @@ export default function ViewerPage() {
                     key={activity.id}
                   >
                     <button
-                      className="w-full text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                      className="ui-focus-ring w-full cursor-pointer text-left"
                       onClick={() => {
                         const detailActivity = activitiesById.get(activity.id);
 
@@ -483,7 +471,7 @@ export default function ViewerPage() {
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs text-slate-500">
-                          {activity.date}
+                          {getDisplayDate(activity.date)}
                         </p>
                         <h3 className="truncate font-semibold text-slate-900">
                           {activity.title}
@@ -513,7 +501,7 @@ export default function ViewerPage() {
 
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <h2 className="text-lg font-semibold text-slate-900">
-              최근 활동 기록
+              이번 달 전체 활동
             </h2>
             {recentActivities.length === 0 ? (
               <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
@@ -529,7 +517,7 @@ export default function ViewerPage() {
                     key={activity.id}
                   >
                     <button
-                      className="flex w-full flex-1 flex-col text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                      className="ui-focus-ring flex w-full flex-1 cursor-pointer flex-col text-left"
                       onClick={() => setSelectedActivity(toActivityDetail(activity))}
                       type="button"
                     >
@@ -565,6 +553,9 @@ export default function ViewerPage() {
                           {activity.memo.trim()}
                         </p>
                       ) : null}
+                      <span className="mt-3 text-xs font-semibold text-[var(--brand-strong)]">
+                        상세 보기 →
+                      </span>
                     </div>
                     </button>
                   </li>

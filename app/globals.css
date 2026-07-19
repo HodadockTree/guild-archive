@@ -76,4 +76,10 @@ textarea {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
+
+  [data-admin-section="activity"] [data-admin-panel]:not([data-admin-panel="activity"]),
+  [data-admin-section="members"] [data-admin-panel]:not([data-admin-panel="members"]),
+  [data-admin-section="data"] [data-admin-panel]:not([data-admin-panel="data"]) {
+    display: none;
+  }
 }

@@ -40,6 +40,10 @@ import {
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import {
+  AdminSectionNav,
+  type AdminSection,
+} from "@/src/components/admin/AdminSectionNav";
+import {
   conquestTypes,
   getKnownConquestTypes,
   getSiegeActivityLabel,
@@ -398,6 +402,8 @@ export default function Home() {
   const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
+  const [activeAdminSection, setActiveAdminSection] =
+    useState<AdminSection>("activity");
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const activityFormRef = useRef<HTMLElement>(null);
@@ -880,6 +886,7 @@ export default function Home() {
   };
 
   const handleEditMember = (member: GuildMember) => {
+    setActiveAdminSection("members");
     setEditingMemberId(member.id);
     setMemberEditNickname(member.nickname);
     setMemberEditStatus(member.status);
@@ -1079,6 +1086,7 @@ export default function Home() {
   };
 
   const handleEditActivity = (activity: ActivityLog) => {
+    setActiveAdminSection("activity");
     setEditingActivityId(activity.id);
     setActivityDate(activity.date);
     setActivityType(getVisibleActivityType(activity.type));
@@ -1142,7 +1150,7 @@ export default function Home() {
 
   return (
     <>
-    <main className="app-shell gap-8">
+    <main className="app-shell gap-8" data-admin-section={activeAdminSection}>
       <AppHeader
         currentPath="/admin"
         description="매주 길드 활동을 빠르게 남기고, 참여 길드원을 함께 보관합니다."
@@ -1150,7 +1158,17 @@ export default function Home() {
         title="냥춘 길드 활동 기록"
       />
 
-      <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4">
+      <AdminSectionNav
+        activeSection={activeAdminSection}
+        onChange={(section) => {
+          setActiveAdminSection(section);
+          if (section === "data") {
+            setIsDataToolsOpen(true);
+          }
+        }}
+      />
+
+      <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4" data-admin-panel="activity">
         <h2 className="text-lg font-semibold text-neutral-900">
           월별 정산 설정
         </h2>
@@ -1185,7 +1203,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm">
+      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm" data-admin-panel="activity">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-neutral-950">
             냥춘 {getMonthLabel(reportMonth)} 활동 정산
@@ -1398,7 +1416,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-admin-panel="data">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
             데이터 관리 도구
@@ -1472,7 +1490,7 @@ export default function Home() {
                   </select>
                 </label>
                 <button
-                  className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-700"
+                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                   type="button"
                   onClick={handleClearMemberMemos}
                 >
@@ -1671,7 +1689,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
             &#44600;&#46300;&#50896; &#44288;&#47532;
@@ -1731,7 +1749,11 @@ export default function Home() {
                           </p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-wrap gap-2">
+                      <details className="relative shrink-0">
+                        <summary className="ui-focus-ring flex min-h-11 cursor-pointer list-none items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+                          더보기
+                        </summary>
+                        <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-80 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
                         <button
                           className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                           type="button"
@@ -1754,13 +1776,14 @@ export default function Home() {
                           &#53448;&#53748; &#52376;&#47532;
                         </button>
                         <button
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                           type="button"
                           onClick={() => handleDeleteMember(member.id)}
                         >
                           삭제
                         </button>
-                      </div>
+                        </div>
+                      </details>
                     </div>
                   </li>
               ))}
@@ -1822,7 +1845,11 @@ export default function Home() {
                           </p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-wrap gap-2">
+                      <details className="relative shrink-0">
+                        <summary className="ui-focus-ring flex min-h-11 cursor-pointer list-none items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+                          더보기
+                        </summary>
+                        <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-64 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
                         <button
                           className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                           type="button"
@@ -1838,13 +1865,14 @@ export default function Home() {
                           활동 이력 보기
                         </button>
                         <button
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                           type="button"
                           onClick={() => handleDeleteMember(member.id)}
                         >
                           삭제
                         </button>
-                      </div>
+                        </div>
+                      </details>
                     </div>
                   </li>
               ))}
@@ -1854,7 +1882,7 @@ export default function Home() {
       </section>
 
       {isEditingMember ? (
-        <section className="space-y-4" ref={memberFormRef}>
+        <section className="space-y-4" data-admin-panel="members" ref={memberFormRef}>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-neutral-900">
               길드원 정보 수정
@@ -1951,7 +1979,7 @@ export default function Home() {
         </section>
       ) : null}
 
-      <section className="space-y-4" ref={activityFormRef}>
+      <section className="space-y-4" data-admin-panel="activity" ref={activityFormRef}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
             {isEditingActivity ? "활동 기록 수정" : "활동 기록 추가"}
@@ -2256,7 +2284,7 @@ export default function Home() {
                   src={activityImageDataUrl}
                 />
                 <button
-                  className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:border-red-700"
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                   type="button"
                   onClick={handleRemoveActivityImage}
                 >
@@ -2275,7 +2303,7 @@ export default function Home() {
         </form>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-admin-panel="activity">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">
@@ -2343,9 +2371,12 @@ export default function Home() {
 
               return (
                 <li
-                  className="flex min-h-48 flex-col rounded-md border border-neutral-200 bg-white px-4 py-3 shadow-sm"
+                  className={`flex flex-col rounded-md border border-neutral-200 bg-white shadow-sm ${
+                    activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
+                  }`}
                   key={activity.id}
                 >
+                  <div className={activity.imageDataUrl ? "px-4 pt-3" : ""}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="text-xs text-neutral-500">
@@ -2370,7 +2401,8 @@ export default function Home() {
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>
-                  <div className="mt-3 flex flex-1 flex-col gap-2">
+                  </div>
+                  <div className={`mt-3 flex flex-1 flex-col gap-2 ${activity.imageDataUrl ? "px-4" : ""}`}>
                     <h3 className="text-base font-semibold leading-6 text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
@@ -2389,12 +2421,12 @@ export default function Home() {
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         alt="첨부 스크린샷"
-                        className="mt-auto max-h-40 w-full rounded-md border border-neutral-200 object-contain"
+                        className="mt-2 max-h-48 w-full border-y border-neutral-200 object-contain"
                         src={activity.imageDataUrl}
                       />
                     ) : null}
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className={`mt-4 flex flex-wrap gap-2 ${activity.imageDataUrl ? "px-4 pb-3" : ""}`}>
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"
@@ -2403,7 +2435,7 @@ export default function Home() {
                       수정
                     </button>
                     <button
-                      className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 transition hover:border-red-700"
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
                       type="button"
                       onClick={() => handleDeleteActivity(activity.id)}
                     >

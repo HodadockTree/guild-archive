@@ -111,33 +111,27 @@ export default function ArchivePage() {
       ) : null}
 
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
-        <section className="grid gap-4">
+        <section className="grid gap-3">
           {monthlySummaries.map((summary) => (
             <Link
-              className="block rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40"
+              className="ui-focus-ring group block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
               href={`/viewer?month=${summary.month}`}
               key={summary.month}
             >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                <div className="min-w-0 space-y-2">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">
-                      {summary.month}
-                    </p>
-                    <h2 className="text-2xl font-bold text-slate-900">
+                    <h2 className="text-lg font-bold text-slate-900">
                       {getMonthDisplayLabel(summary.month)}
                     </h2>
                   </div>
 
                   {summary.representativeEvents.length > 0 ? (
                     <div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        대표 이벤트
-                      </p>
-                      <ul className="mt-1 flex flex-wrap gap-2">
+                      <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
                         {summary.representativeEvents.map((event) => (
                           <li
-                            className="rounded-sm bg-sky-100 px-2 py-1 text-xs text-slate-700"
+                            className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-slate-700"
                             key={event.id}
                           >
                             {event.title}
@@ -148,39 +142,30 @@ export default function ArchivePage() {
                   ) : null}
                 </div>
 
-                <dl className="grid shrink-0 grid-cols-2 gap-2 text-sm sm:w-72">
-                  <div className="rounded-md bg-sky-50 px-3 py-3">
-                    <dt className="text-xs text-slate-500">활동 수</dt>
+                <dl className="grid grid-cols-3 gap-2 text-sm sm:w-[25rem]">
+                  <div className="rounded-md bg-sky-50 px-3 py-2">
+                    <dt className="text-xs text-slate-500">활동 건수</dt>
                     <dd className="font-semibold text-slate-900">
-                      {summary.activityCount}개
+                      {summary.activityCount}건
                     </dd>
                   </div>
-                  {summary.eventCount > 0 ? (
-                    <div className="rounded-md bg-sky-50 px-3 py-3">
-                      <dt className="text-xs text-slate-500">이벤트 수</dt>
-                      <dd className="font-semibold text-slate-900">
-                        {summary.eventCount}개
-                      </dd>
-                    </div>
-                  ) : null}
-                  <div className="rounded-md bg-sky-50 px-3 py-3">
-                    <dt className="text-xs text-slate-500">함께한 인원</dt>
+                  <div className="rounded-md bg-sky-50 px-3 py-2">
+                    <dt className="text-xs text-slate-500">참여 인원</dt>
                     <dd className="font-semibold text-slate-900">
                       {summary.participantMemberCount}명
                     </dd>
                   </div>
-                  <div className="rounded-md bg-sky-50 px-3 py-3">
+                  <div className="rounded-md bg-sky-50 px-3 py-2">
                     <dt className="text-xs text-slate-500">총 참여 횟수</dt>
                     <dd className="font-semibold text-slate-900">
                       {summary.totalParticipationCount}회
                     </dd>
                   </div>
                 </dl>
+                <span className="text-lg font-bold text-[var(--brand-strong)] transition group-hover:translate-x-1" aria-hidden="true">
+                  →
+                </span>
               </div>
-
-              <span className="mt-4 inline-flex rounded-md bg-sky-200 px-3 py-2 text-sm font-semibold text-slate-800">
-                월간 리포트 보기
-              </span>
             </Link>
           ))}
         </section>

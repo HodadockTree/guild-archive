@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Badge } from "@/src/components/ui/Badge";
 import { Surface } from "@/src/components/ui/Surface";
+import { formatFullDate } from "@/src/lib/displayFormat";
 
 export type ActivityDetail = {
   id: string;
@@ -46,6 +47,9 @@ export function ActivityDetailModal({
   }
 
   const memo = activity.memo?.trim();
+  const detailLabel = activity.label.startsWith("점령전 (")
+    ? activity.label
+    : null;
 
   return (
     <div
@@ -63,10 +67,10 @@ export function ActivityDetailModal({
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sky-100 bg-white px-5 py-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-slate-500">{activity.date}</span>
-              <Badge className="py-0.5">
-                {activity.label}
-              </Badge>
+              <span className="text-sm text-[var(--text-secondary)]">
+                {formatFullDate(activity.date)}
+              </span>
+              {detailLabel ? <Badge className="py-0.5">{detailLabel}</Badge> : null}
             </div>
             <h2
               className="mt-2 text-xl font-bold leading-7 text-slate-900"

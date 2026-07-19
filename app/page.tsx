@@ -14,6 +14,11 @@ import {
 } from "@/src/components/ActivityDetailModal";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import {
+  formatFullDate,
+  formatMonth,
+  formatMonthDay,
+} from "@/src/lib/displayFormat";
 
 type DashboardState =
   | { status: "loading" }
@@ -29,8 +34,7 @@ type SummaryModalKey =
   | "allMembers";
 
 function getMonthLabel(month: string) {
-  const [year, monthNumber] = month.split("-");
-  return year && monthNumber ? `${year}년 ${Number(monthNumber)}월` : month;
+  return formatMonth(month);
 }
 
 function getShortMonthLabel(month: string) {
@@ -39,7 +43,7 @@ function getShortMonthLabel(month: string) {
 }
 
 function getDisplayDate(date: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
+  return formatMonthDay(date);
 }
 
 function SummaryCard({
@@ -57,7 +61,7 @@ function SummaryCard({
 
   return (
     <div
-      className={`rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+      className={`flex min-h-36 flex-col rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
         isClickable
           ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
           : ""
@@ -141,10 +145,10 @@ function MemberList({
                   {member.nickname}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
-                  {member.joinedAt || "-"}
+                  {member.joinedAt ? formatFullDate(member.joinedAt) : "-"}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
-                  {member.leftAt || "-"}
+                  {member.leftAt ? formatFullDate(member.leftAt) : "-"}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
                   {getDurationLabel(member)}
@@ -163,7 +167,8 @@ function MemberList({
         >
           <p className="font-semibold text-slate-900">{member.nickname}</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            가입일 {member.joinedAt || "-"} · 탈퇴일 {member.leftAt || "-"} ·{" "}
+            가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} · 탈퇴일{" "}
+            {member.leftAt ? formatFullDate(member.leftAt) : "-"} ·{" "}
             {getDurationLabel(member)}
           </p>
         </li>
@@ -235,7 +240,9 @@ function ActivitySummaryList({
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs text-slate-500">{activity.date}</p>
+                <p className="text-xs text-slate-500">
+                  {formatFullDate(activity.date)}
+                </p>
                 <h3 className="mt-1 font-semibold leading-6 text-slate-900">
                   {activity.title}
                 </h3>
@@ -364,9 +371,9 @@ function ActivityCard({
   return (
     <li>
       <button
-      className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+      className={`ui-focus-ring flex cursor-pointer rounded-[var(--radius-card)] border border-[var(--border)] bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-[var(--surface-muted)] ${
         activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
-      } w-full text-left focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2`}
+      } w-full text-left`}
         onClick={() => onSelect(activity)}
         type="button"
       >
@@ -399,6 +406,9 @@ function ActivityCard({
             {activity.memo}
           </p>
         ) : null}
+        <span className="mt-3 text-xs font-semibold text-[var(--brand-strong)]">
+          상세 보기 →
+        </span>
       </div>
       </button>
     </li>
@@ -504,35 +514,27 @@ export default function DashboardPage() {
       {dashboard ? (
         <>
           <section>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid gap-3 sm:grid-cols-3">
               <SummaryCard
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
+                detail="현재 활동 중인 길드원입니다."
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <SummaryCard
-                label="이번 달 활동 수"
-                value={`${dashboard.currentMonthActivityCount}회`}
-                detail="월별 활동 기록"
+                label="이번 달 활동 건수"
+                value={`${dashboard.currentMonthActivityCount}건`}
+                detail="이번 달에 기록된 활동 건수입니다."
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
                 label="이번 달 함께한 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
-                detail="이번 달 한 번 이상 길드 활동에 참여한 인원입니다."
+                detail="이번 달 한 번 이상 참여한 인원입니다."
                 onClick={() => {
                   setSelectedMonthMemberId(null);
                   setSelectedSummaryModal("currentMonthParticipants");
                 }}
-              />
-              <SummaryCard
-                label="최근 활동"
-                value={dashboard.recentActivity ? dashboard.recentActivity.title : "없음"}
-                detail={
-                  dashboard.recentActivity
-                    ? dashboard.recentActivity.date
-                    : "아직 기록된 활동이 없습니다."
-                }
               />
             </dl>
           </section>
@@ -546,9 +548,9 @@ export default function DashboardPage() {
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <CumulativeSummaryCard label="길드 시작일" value="2026-01-22 ~" />
               <CumulativeSummaryCard
-                label="전체 활동"
+                label="전체 활동 건수"
                 onClick={() => setSelectedSummaryModal("allActivities")}
-                value={`${dashboard.totalActivityCount}회`}
+                value={`${dashboard.totalActivityCount}건`}
               />
               <CumulativeSummaryCard
                 label="함께했던 길드원"
@@ -565,7 +567,7 @@ export default function DashboardPage() {
               emptyMessage="그래프로 표시할 활동 데이터가 아직 부족합니다."
               trends={dashboard.monthlyTrends}
               valueKey="activityCount"
-              unit="회"
+              unit="건"
             />
             <TrendChart
               title="월별 참여 흐름"
@@ -628,7 +630,7 @@ export default function DashboardPage() {
               disableEscapeClose={Boolean(selectedActivity)}
               description="이번 달에 기록된 활동 내역입니다."
               onClose={() => setSelectedSummaryModal(null)}
-              title="이번 달 활동"
+              title="이번 달 활동 건수"
             >
               <ActivitySummaryList
                 activities={dashboard.currentMonthActivities}
