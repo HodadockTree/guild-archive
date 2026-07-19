@@ -144,9 +144,9 @@ export default function ArchivePage() {
 
                 <dl className="grid grid-cols-3 gap-2 text-sm sm:w-[25rem]">
                   <div className="rounded-md bg-sky-50 px-3 py-2">
-                    <dt className="text-xs text-slate-500">활동 건수</dt>
+                    <dt className="text-xs text-slate-500">활동</dt>
                     <dd className="font-semibold text-slate-900">
-                      {summary.activityCount}건
+                      {summary.activityCount}회
                     </dd>
                   </div>
                   <div className="rounded-md bg-sky-50 px-3 py-2">

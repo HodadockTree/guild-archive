@@ -372,7 +372,7 @@ export default function ViewerPage() {
                   {getMonthLabel(reportMonth)} 활동 리포트
                 </h2>
               <p className="text-sm leading-6 text-slate-600">
-                이번 달에는 {monthlyReport.totalActivities}건의 활동이 기록되었고,{" "}
+                이번 달에는 {monthlyReport.totalActivities}회의 활동이 기록되었고,{" "}
                 {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
               </p>
               </div>
@@ -385,7 +385,7 @@ export default function ViewerPage() {
 
             <dl className="grid gap-3 sm:grid-cols-3">
               {[
-                ["이번 달 활동 건수", `${monthlyReport.totalActivities}건`],
+                ["이번 달 활동", `${monthlyReport.totalActivities}회`],
                 ["함께한 길드원", `${monthlyReport.participantMemberCount}명`],
                 [
                   "가장 많이 진행한 활동",
@@ -417,7 +417,7 @@ export default function ViewerPage() {
                   .map(([label, count]) => (
                     <div className={`flex items-center justify-between py-2.5 ${count === 0 ? "text-slate-400" : "text-slate-900"}`} key={label}>
                       <dt>{label}</dt>
-                      <dd className={count === 0 ? "font-medium" : "font-bold"}>{count}건</dd>
+                      <dd className={count === 0 ? "font-medium" : "font-bold"}>{count}회</dd>
                     </div>
                   ))}
               </dl>
@@ -432,13 +432,13 @@ export default function ViewerPage() {
                       key={label}
                     >
                       <dt>{label}</dt>
-                      <dd className="font-semibold">{count}건</dd>
+                      <dd className="font-semibold">{count}회</dd>
                     </div>
                   ))}
                   {hasUnrecordedConquestTypes ? (
                     <div className="rounded-md bg-slate-50 px-3 py-2.5 text-slate-400">
                       <dt>그 외 카테고리</dt>
-                      <dd className="font-semibold">0건</dd>
+                      <dd className="font-semibold">0회</dd>
                     </div>
                   ) : null}
                 </dl>

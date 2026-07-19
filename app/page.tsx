@@ -519,8 +519,8 @@ export default function DashboardPage() {
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <SummaryCard
-                label="이번 달 활동 건수"
-                value={`${dashboard.currentMonthActivityCount}건`}
+                label="이번 달 활동"
+                value={`${dashboard.currentMonthActivityCount}회`}
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
@@ -543,9 +543,9 @@ export default function DashboardPage() {
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <CumulativeSummaryCard label="길드 시작일" value="2026년 1월 22일부터" />
               <CumulativeSummaryCard
-                label="전체 활동 건수"
+                label="전체 활동"
                 onClick={() => setSelectedSummaryModal("allActivities")}
-                value={`${dashboard.totalActivityCount}건`}
+                value={`${dashboard.totalActivityCount}회`}
               />
               <CumulativeSummaryCard
                 label="함께했던 길드원"

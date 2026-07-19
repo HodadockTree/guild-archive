@@ -18,7 +18,7 @@ export function AdminSectionNav({
   return (
     <nav
       aria-label="관리 작업"
-      className="ui-surface sticky top-3 z-20 flex gap-1 overflow-x-auto p-1 shadow-sm"
+      className="ui-surface flex gap-1 overflow-x-auto p-1"
       role="tablist"
     >
       {sections.map((section) => {
@@ -29,8 +29,8 @@ export function AdminSectionNav({
             aria-selected={isActive}
             className={`ui-focus-ring min-h-11 min-w-fit flex-1 rounded-[var(--radius-control)] px-4 py-2 text-sm font-semibold transition ${
               isActive
-                ? "bg-[var(--brand-strong)] text-white"
-                : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                ? "border-b-2 border-[var(--brand-strong)] bg-[var(--surface-muted)] text-[var(--text-primary)]"
+                : "border-b-2 border-transparent bg-white text-[var(--text-secondary)] hover:bg-neutral-50 hover:text-[var(--text-primary)]"
             }`}
             key={section.id}
             onClick={() => onChange(section.id)}

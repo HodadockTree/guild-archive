@@ -123,6 +123,8 @@ const activitySortOrderLabels: Record<ActivitySortOrder, string> = {
   oldest: "오래된순",
 };
 
+const ACTIVITY_PAGE_SIZE = 12;
+
 const memberStatusLabels: Record<GuildMemberStatus, string> = {
   active: "활동중",
   left: "탈퇴",
@@ -170,8 +172,15 @@ function getMemberActivityStatsSummary(
   memberId: string,
 ) {
   const stats = getMemberActivityStats(activities, memberId);
+  const details = ([
+    ["점령전", stats.siege],
+    ["비공정", stats.airship],
+    ["이벤트", stats.other],
+  ] as Array<[string, number]>)
+    .filter(([, count]) => count > 0)
+    .map(([label, count]) => `${label} ${count}회`);
 
-  return `총 ${stats.total}회 · 점령전 ${stats.siege} · 비공정 ${stats.airship} · 이벤트 ${stats.other}`;
+  return [`총 활동 ${stats.total}회`, ...details].join(" · ");
 }
 
 function getParticipantActivityCountLabel(
@@ -371,6 +380,10 @@ export default function Home() {
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [activitySortOrder, setActivitySortOrder] =
     useState<ActivitySortOrder>("latest");
+  const [activityMonthFilter, setActivityMonthFilter] = useState("all");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [visibleActivityCount, setVisibleActivityCount] =
+    useState(ACTIVITY_PAGE_SIZE);
   const [activityFeedbackMessage, setActivityFeedbackMessage] = useState("");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
     null,
@@ -492,12 +505,30 @@ export default function Home() {
       ? b.id.localeCompare(a.id)
       : a.id.localeCompare(b.id);
   });
-  const filteredActivities =
+  const typeFilteredActivities =
     activityFilter === "all"
       ? sortedActivities
       : sortedActivities.filter(
           (activity) => getVisibleActivityType(activity.type) === activityFilter,
         );
+  const activitySearchKeyword = activitySearch.trim().toLocaleLowerCase("ko");
+  const filteredActivities = typeFilteredActivities.filter((activity) => {
+    const matchesMonth =
+      activityMonthFilter === "all" ||
+      activity.date.startsWith(activityMonthFilter);
+    const matchesSearch =
+      !activitySearchKeyword ||
+      activity.date.includes(activitySearchKeyword) ||
+      (activity.title ?? "")
+        .toLocaleLowerCase("ko")
+        .includes(activitySearchKeyword);
+
+    return matchesMonth && matchesSearch;
+  });
+  const activityMonthOptions = Array.from(
+    new Set(activities.map((activity) => activity.date.slice(0, 7))),
+  ).sort((a, b) => b.localeCompare(a));
+  const visibleActivities = filteredActivities.slice(0, visibleActivityCount);
   const selectedMemberActivities = selectedHistoryMember
     ? sortedActivities.filter((activity) =>
         activity.participantIds.includes(selectedHistoryMember.id),
@@ -1153,9 +1184,9 @@ export default function Home() {
     <main className="app-shell gap-8" data-admin-section={activeAdminSection}>
       <AppHeader
         currentPath="/admin"
-        description="매주 길드 활동을 빠르게 남기고, 참여 길드원을 함께 보관합니다."
+        description="길드 활동과 길드원 정보를 관리합니다."
         eyebrow="테일즈런너 길드 활동 아카이브"
-        title="냥춘 길드 활동 기록"
+        title="냥춘 길드 관리"
       />
 
       <AdminSectionNav
@@ -1431,12 +1462,12 @@ export default function Home() {
         </div>
 
         {isDataToolsOpen ? (
-          <div className="space-y-5 rounded-md border border-neutral-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="grid gap-4 md:grid-cols-2">
+            <p className="sr-only">
               길드원 관리
             </p>
 
-            <div className="space-y-3">
+            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
                   새 길드원 등록
@@ -1454,7 +1485,7 @@ export default function Home() {
                   onChange={(event) => setNickname(event.target.value)}
                 />
                 <button
-                  className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                  className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
                   type="submit"
                 >
                   등록
@@ -1467,7 +1498,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
+            <div className="space-y-3 rounded-md border border-amber-200 bg-white p-4">
               <h3 className="text-base font-semibold text-neutral-900">
                 메모 일괄 삭제
               </h3>
@@ -1506,7 +1537,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
+            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <h3 className="text-base font-semibold text-neutral-900">
                 탈퇴 길드원 복구
               </h3>
@@ -1534,7 +1565,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
+            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 백업 / 복원
               </p>
@@ -1547,7 +1578,7 @@ export default function Home() {
                 </p>
               </div>
               <button
-                className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                className="rounded-md border border-[var(--brand-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)]"
                 type="button"
                 onClick={handleExportBackup}
               >
@@ -1560,7 +1591,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
+            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
                   JSON 백업 가져오기
@@ -1676,12 +1707,16 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-2 border-t border-neutral-200 pt-4">
+            <div className="space-y-2 rounded-md border border-red-200 bg-white p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 주의사항
               </p>
               <ul className="list-disc space-y-1 rounded-md bg-neutral-50 px-4 py-3 pl-8 text-sm text-neutral-600">
-                <li>LocalStorage 기반이라 정기 백업을 권장합니다.</li>
+                <li>
+                  관리 화면의 편집 데이터는 이 브라우저에 저장되므로 정기적인 JSON
+                  백업을 권장합니다.
+                </li>
+                <li>D1 반영은 백업 파일 확인 후 서버 DB로 가져오기를 실행해야 합니다.</li>
                 <li>복원 시 현재 데이터가 백업 파일 내용으로 덮어써집니다.</li>
               </ul>
             </div>
@@ -1705,16 +1740,15 @@ export default function Home() {
           </p>
         ) : null}
 
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-neutral-900">
-            &#54876;&#46041;&#51473; &#44600;&#46300;&#50896; {activeMembers.length}&#47749;
-          </h3>
+        <div>
           <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            aria-expanded={isActiveMembersOpen}
+            className="ui-focus-ring flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50"
             type="button"
             onClick={() => setIsActiveMembersOpen((value) => !value)}
           >
-            {isActiveMembersOpen ? "\uC811\uAE30" : "\uD3BC\uCE58\uAE30"}
+            <span aria-hidden>{isActiveMembersOpen ? "▾" : "▸"}</span>
+            <span>&#54876;&#46041;&#51473; &#44600;&#46300;&#50896; {activeMembers.length}&#47749;</span>
           </button>
         </div>
 
@@ -1727,31 +1761,26 @@ export default function Home() {
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
               {activeMembers.map((member) => (
                   <li
-                    className="flex flex-col gap-3 px-4 py-3"
+                    className="flex gap-3 bg-white px-3 py-2.5"
                     key={member.id}
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-neutral-950">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <div className="min-w-0 sm:flex sm:items-center sm:gap-3">
+                        <p className="truncate font-semibold text-neutral-950 sm:min-w-28">
                           {member.nickname}
                         </p>
                         {member.joinedAt ? (
-                          <p className="text-xs text-neutral-500">
+                          <p className="whitespace-nowrap text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
                           </p>
                         ) : null}
-                        <p className="mt-1 text-xs text-neutral-500">
+                        <p className="truncate text-xs text-neutral-500">
                           {getMemberActivityStatsSummary(activities, member.id)}
                         </p>
-                        {member.memo ? (
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600">
-                            {member.memo}
-                          </p>
-                        ) : null}
                       </div>
                       <details className="relative shrink-0">
-                        <summary className="ui-focus-ring flex min-h-11 cursor-pointer list-none items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
-                          더보기
+                        <summary aria-label="길드원 상세 메뉴" className="ui-focus-ring flex size-11 cursor-pointer list-none items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100">
+                          <span aria-hidden>⋯</span>
                         </summary>
                         <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-80 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
                         <button
@@ -1791,16 +1820,15 @@ export default function Home() {
           )
         ) : null}
 
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <h3 className="text-base font-semibold text-neutral-900">
-            &#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749;
-          </h3>
+        <div className="pt-2">
           <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+            aria-expanded={isLeftMembersOpen}
+            className="ui-focus-ring flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50"
             type="button"
             onClick={() => setIsLeftMembersOpen((value) => !value)}
           >
-            {isLeftMembersOpen ? "\uC811\uAE30" : "\uD3BC\uCE58\uAE30"}
+            <span aria-hidden>{isLeftMembersOpen ? "▾" : "▸"}</span>
+            <span>&#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749;</span>
           </button>
         </div>
 
@@ -1810,10 +1838,10 @@ export default function Home() {
               &#53448;&#53748; &#49345;&#53468;&#51064; &#44600;&#46300;&#50896;&#51060; &#50630;&#49845;&#45768;&#45796;.
             </p>
           ) : (
-            <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-neutral-50">
+            <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
               {leftMembers.map((member) => (
                   <li
-                    className="flex flex-col gap-3 px-4 py-3"
+                    className="flex gap-3 px-3 py-2.5"
                     key={member.id}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1839,15 +1867,10 @@ export default function Home() {
                         <p className="mt-1 text-xs text-neutral-500">
                           {getMemberActivityStatsSummary(activities, member.id)}
                         </p>
-                        {member.memo ? (
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
-                            {member.memo}
-                          </p>
-                        ) : null}
                       </div>
                       <details className="relative shrink-0">
-                        <summary className="ui-focus-ring flex min-h-11 cursor-pointer list-none items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
-                          더보기
+                        <summary aria-label="길드원 상세 메뉴" className="ui-focus-ring flex size-11 cursor-pointer list-none items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100">
+                          <span aria-hidden>⋯</span>
                         </summary>
                         <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-64 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
                         <button
@@ -2000,7 +2023,7 @@ export default function Home() {
           </p>
         ) : null}
         <form
-          className="space-y-4 rounded-md border border-neutral-200 p-4"
+          className="space-y-5 rounded-md border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
           onPaste={handleActivityImagePaste}
           onSubmit={handleSubmitActivity}
         >
@@ -2009,11 +2032,11 @@ export default function Home() {
               {editingActivity?.title || "선택한 활동 기록"}을 수정 중입니다.
             </p>
           ) : null}
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 rounded-md border border-neutral-200 bg-white p-4 md:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>활동 날짜</span>
               <input
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                 type="date"
                 value={activityDate}
                 onChange={(event) => setActivityDate(event.target.value)}
@@ -2024,7 +2047,7 @@ export default function Home() {
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>활동 종류</span>
               <select
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                 value={activityType}
                 onChange={(event) => {
                   const nextType = event.target.value as VisibleActivityType;
@@ -2059,8 +2082,8 @@ export default function Home() {
                       <button
                         className={
                           isSelected
-                            ? "rounded-md bg-neutral-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-                            : "rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                            ? "ui-focus-ring min-h-11 rounded-md border border-[var(--brand-strong)] bg-[var(--surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                            : "ui-focus-ring min-h-11 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
                         }
                         key={airshipType}
                         type="button"
@@ -2086,8 +2109,8 @@ export default function Home() {
                       <button
                         className={
                           isSelected
-                            ? "rounded-md bg-neutral-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-                            : "rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                            ? "ui-focus-ring min-h-11 rounded-md border border-[var(--brand-strong)] bg-[var(--surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                            : "ui-focus-ring min-h-11 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
                         }
                         key={conquestType}
                         type="button"
@@ -2102,10 +2125,10 @@ export default function Home() {
             ) : null}
           </div>
 
-          <label className="block space-y-1 text-sm font-medium text-neutral-700">
+          <label className="block space-y-1 rounded-md border border-neutral-200 bg-white p-4 text-sm font-medium text-neutral-700">
             <span>제목</span>
             <input
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+              className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
               type="text"
               placeholder="예: 6월 4주차 비공정"
               value={activityTitle}
@@ -2113,7 +2136,7 @@ export default function Home() {
             />
           </label>
 
-          <fieldset className="space-y-2">
+          <fieldset className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
             <legend className="space-x-2 text-sm font-medium text-neutral-700">
               <span>참여 길드원</span>
               <span className="text-xs font-semibold text-neutral-500">
@@ -2164,7 +2187,7 @@ export default function Home() {
                       <div className="grid gap-2 sm:grid-cols-2">
                         {selectableActiveMembers.map((member) => (
                           <label
-                            className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
+                            className={`flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm ${selectedMemberIds.includes(member.id) ? "border-[var(--brand-strong)] bg-[var(--surface-muted)] text-[var(--text-primary)]" : "border-neutral-200 bg-white text-neutral-800"}`}
                             key={member.id}
                           >
                             <input
@@ -2213,7 +2236,7 @@ export default function Home() {
                       <div className="grid gap-2 sm:grid-cols-2">
                         {selectableLeftMembers.map((member) => (
                           <label
-                            className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
+                            className={`flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm ${selectedMemberIds.includes(member.id) ? "border-[var(--brand-strong)] bg-[var(--surface-muted)] text-[var(--text-primary)]" : "border-neutral-200 bg-neutral-50 text-neutral-500"}`}
                             key={member.id}
                           >
                             <input
@@ -2295,7 +2318,7 @@ export default function Home() {
           </div>
 
           <button
-            className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+            className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
             type="submit"
           >
             {isEditingActivity ? "활동 기록 수정" : "활동 기록 저장"}
@@ -2311,19 +2334,51 @@ export default function Home() {
             </h2>
             <p className="text-sm text-neutral-500">
               {activitySortOrderLabels[activitySortOrder]}으로{" "}
-              {filteredActivities.length}개 표시 중
+              전체 {filteredActivities.length}회 중 {visibleActivities.length}회 표시
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <span>월 필터</span>
+              <select
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                value={activityMonthFilter}
+                onChange={(event) => {
+                  setActivityMonthFilter(event.target.value);
+                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                }}
+              >
+                <option value="all">전체 월</option>
+                {activityMonthOptions.map((month) => (
+                  <option key={month} value={month}>
+                    {getMonthLabel(month)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <span>제목 또는 날짜 검색</span>
+              <input
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                type="search"
+                placeholder="제목, YYYY-MM-DD"
+                value={activitySearch}
+                onChange={(event) => {
+                  setActivitySearch(event.target.value);
+                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                }}
+              />
+            </label>
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>정렬</span>
               <select
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-36"
                 value={activitySortOrder}
-                onChange={(event) =>
-                  setActivitySortOrder(event.target.value as ActivitySortOrder)
-                }
+                onChange={(event) => {
+                  setActivitySortOrder(event.target.value as ActivitySortOrder);
+                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                }}
               >
                 {Object.entries(activitySortOrderLabels).map(
                   ([value, label]) => (
@@ -2339,9 +2394,10 @@ export default function Home() {
               <select
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-40"
                 value={activityFilter}
-                onChange={(event) =>
-                  setActivityFilter(event.target.value as ActivityFilter)
-                }
+                onChange={(event) => {
+                  setActivityFilter(event.target.value as ActivityFilter);
+                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                }}
               >
                 {Object.entries(activityFilterLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -2359,11 +2415,11 @@ export default function Home() {
           </p>
         ) : filteredActivities.length === 0 ? (
           <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-            선택한 활동 종류에 해당하는 기록이 없습니다.
+            선택한 필터와 검색어에 해당하는 기록이 없습니다.
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredActivities.map((activity) => {
+            {visibleActivities.map((activity) => {
               const participantNames = getParticipantNames(
                 activity,
                 memberNamesById,
@@ -2447,6 +2503,20 @@ export default function Home() {
             })}
           </ul>
         )}
+        {visibleActivities.length < filteredActivities.length ? (
+          <div className="flex justify-center pt-2">
+            <button
+              className="ui-focus-ring min-h-11 rounded-md border border-[var(--brand-strong)] bg-white px-5 py-2 text-sm font-semibold text-[var(--brand-strong)] hover:bg-[var(--surface-muted)]"
+              type="button"
+              onClick={() =>
+                setVisibleActivityCount((count) => count + ACTIVITY_PAGE_SIZE)
+              }
+            >
+              더 불러오기 ({filteredActivities.length - visibleActivities.length}회
+              남음)
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
 
