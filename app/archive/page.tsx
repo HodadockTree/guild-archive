@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
@@ -23,6 +23,17 @@ export default function ArchivePage() {
     status: "loading",
   });
   const [participantMonth, setParticipantMonth] = useState<string | null>(null);
+  const participantTriggerRef = useRef<HTMLElement | null>(null);
+
+  const openParticipantModal = (month: string, trigger: HTMLElement) => {
+    participantTriggerRef.current = trigger;
+    setParticipantMonth(month);
+  };
+
+  const closeParticipantModal = () => {
+    setParticipantMonth(null);
+    requestAnimationFrame(() => participantTriggerRef.current?.focus());
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -114,16 +125,17 @@ export default function ArchivePage() {
           <MonthlyTrendChart
             description="월별로 기록된 길드 활동 수를 보여줍니다. 막대를 선택하면 해당 월 리포트로 이동합니다."
             emptyMessage="그래프로 표시할 활동 기록이 아직 없습니다."
-            linkToReports
+            interaction="report"
             title="월별 활동 수"
             trends={monthlyTrends}
             unit="회"
             valueKey="activityCount"
           />
           <MonthlyTrendChart
-            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다."
+            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다. 막대를 선택하면 함께한 길드원을 확인할 수 있습니다."
             emptyMessage="그래프로 표시할 참여 기록이 아직 없습니다."
-            linkToReports
+            interaction="members"
+            onSelectMembers={openParticipantModal}
             title="월별 함께한 길드원"
             trends={monthlyTrends}
             unit="명"
@@ -193,7 +205,7 @@ export default function ArchivePage() {
                     className="ui-focus-ring rounded-md bg-sky-50 px-3 py-2 text-left transition hover:bg-sky-100"
                     onClick={(event) => {
                       event.stopPropagation();
-                      setParticipantMonth(summary.month);
+                      openParticipantModal(summary.month, event.currentTarget);
                     }}
                     onKeyDown={(event) => event.stopPropagation()}
                     type="button"
@@ -218,21 +230,27 @@ export default function ArchivePage() {
 
       {selectedParticipantMonth ? (
         <DashboardSummaryModal
-          onClose={() => setParticipantMonth(null)}
+          onClose={closeParticipantModal}
           title={`${getMonthDisplayLabel(selectedParticipantMonth.month)} 함께한 길드원 ${selectedParticipantMonth.participantMemberCount}명`}
         >
-          <ul className="divide-y divide-sky-100">
-            {(selectedParticipantMonth.participantMembers ?? []).map((member) => (
-              <li className="flex items-center justify-between gap-4 py-3" key={member.id}>
-                <span className="min-w-0 truncate font-semibold text-slate-900">
-                  {member.nickname}
-                </span>
-                <span className="shrink-0 text-sm text-slate-600">
-                  참여 {member.participationCount}회 · {member.status === "active" ? "활동중" : "탈퇴"}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {(selectedParticipantMonth.participantMembers ?? []).length === 0 ? (
+            <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+              이 달에 함께한 길드원이 없습니다.
+            </p>
+          ) : (
+            <ul className="divide-y divide-sky-100">
+              {(selectedParticipantMonth.participantMembers ?? []).map((member) => (
+                <li className="flex items-center justify-between gap-4 py-3" key={member.id}>
+                  <span className="min-w-0 truncate font-semibold text-slate-900">
+                    {member.nickname}
+                  </span>
+                  <span className="shrink-0 text-sm text-slate-600">
+                    참여 {member.participationCount}회 · {member.status === "active" ? "활동중" : "탈퇴"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </DashboardSummaryModal>
       ) : null}
     </main>

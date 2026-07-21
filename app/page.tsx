@@ -13,6 +13,7 @@ import {
 } from "@/src/components/ActivityDetailModal";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import {
   formatFullDate,
   formatMonth,
@@ -504,15 +505,14 @@ export default function DashboardPage() {
             </dl>
           </section>
 
+          <RecentMonthlyTrendChart trends={dashboard.monthlyTrends.slice(-3)} />
+
           <Link
             className="ui-focus-ring group block rounded-md border border-sky-100 bg-white px-5 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-sky-50/40"
             href={`/viewer?month=${currentMonth}`}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-slate-900">이번 달 한눈에</h2>
-              <span className="text-xs font-semibold text-[var(--brand-strong)]">이번 달 전체 보기</span>
-            </div>
-            <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <h2 className="text-base font-semibold text-slate-900">이번 달 활동 구성</h2>
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.5fr]">
               <div className="rounded-md bg-sky-50 px-3 py-2">
                 <dt className="text-xs text-slate-500">비공정</dt>
                 <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
@@ -545,7 +545,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
-                href="/viewer"
+                href={`/viewer?month=${currentMonth}`}
               >
                 이번 달 전체 보기
               </Link>

@@ -1389,20 +1389,20 @@ export default function Home() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md bg-neutral-100 px-4 py-4 text-neutral-950">
-            <p className="text-xs font-medium text-neutral-500">전체 활동</p>
+          <div className="rounded-md border border-sky-100 bg-sky-50/70 px-4 py-4 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">이번 달 활동</p>
             <p className="text-2xl font-bold">
               {monthlyReport.totalActivities}회
             </p>
           </div>
-          <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-4 text-[var(--text-primary)]">
-            <p className="text-xs font-medium text-[var(--text-secondary)]">참여 길드원</p>
+          <div className="rounded-md border border-sky-100 bg-sky-50/70 px-4 py-4 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">함께한 길드원</p>
             <p className="text-2xl font-bold">
               {monthlyReport.participantMemberCount}명
             </p>
           </div>
-          <div className="rounded-md bg-neutral-100 px-4 py-4 text-neutral-950">
-            <p className="text-xs font-medium text-neutral-500">총 참여 횟수</p>
+          <div className="rounded-md border border-sky-100 bg-sky-50/70 px-4 py-4 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">총 참여 횟수</p>
             <p className="text-2xl font-bold">
               {monthlyReport.totalParticipationCount}회
             </p>
@@ -1579,7 +1579,7 @@ export default function Home() {
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                    <span className="shrink-0 rounded-sm border border-sky-100 bg-sky-50 px-2 py-0.5 text-xs font-medium text-slate-700">
                       참여 {activity.participantCount}명
                     </span>
                   </div>
@@ -2313,7 +2313,7 @@ export default function Home() {
 
           <fieldset className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
             <legend className="space-x-2 text-sm font-medium text-neutral-700">
-              <span>참여 길드원</span>
+              <span>참여자</span>
               <span className="text-xs font-semibold text-neutral-500">
                 선택 {selectedMemberIds.length}명
               </span>
@@ -2643,7 +2643,7 @@ export default function Home() {
                         </span>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                    <span className="shrink-0 rounded-sm border border-sky-100 bg-sky-50 px-2 py-0.5 text-xs font-medium text-slate-700">
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>

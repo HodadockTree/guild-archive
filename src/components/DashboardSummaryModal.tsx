@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Surface } from "@/src/components/ui/Surface";
 
 type DashboardSummaryModalProps = {
@@ -18,6 +18,12 @@ export function DashboardSummaryModal({
   disableEscapeClose = false,
   onClose,
 }: DashboardSummaryModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     if (disableEscapeClose) {
       return;
@@ -75,6 +81,7 @@ export function DashboardSummaryModal({
             aria-label="모달 닫기"
             className="shrink-0 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
             onClick={onClose}
+            ref={closeButtonRef}
             type="button"
           >
             닫기
