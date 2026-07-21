@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   DashboardActivitySummary,
   DashboardMemberSummary,
@@ -365,6 +365,8 @@ export default function DashboardPage() {
   });
   const [selectedActivity, setSelectedActivity] =
     useState<ActivityDetail | null>(null);
+  const mostActivityTriggerRef = useRef<HTMLButtonElement>(null);
+  const restoreMostActivityFocusRef = useRef(false);
   const [selectedSummaryModal, setSelectedSummaryModal] =
     useState<SummaryModalKey | null>(null);
   const [selectedMonthMemberId, setSelectedMonthMemberId] =
@@ -529,7 +531,7 @@ export default function DashboardPage() {
 
             <section className="flex min-w-0 flex-col rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 lg:h-full">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
-              <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-3">
+              <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-4">
                 <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
                   <dt className="text-xs text-slate-500">비공정</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
@@ -538,26 +540,44 @@ export default function DashboardPage() {
                   <dt className="text-xs text-slate-500">점령전</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
                 </div>
-                <div className="col-span-2 rounded-md bg-sky-50 px-3 py-3">
-                  <div className="flex items-baseline justify-between gap-3">
+                <div className="col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md bg-sky-50 px-3 py-2.5">
+                  <div className="min-w-0">
                     <dt className="text-xs text-slate-500">총 참여 횟수</dt>
-                    <dd className="shrink-0 font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+                    <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                      활동별 참여 인원을 합산한 값
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                    각 활동의 참여 인원을 모두 합산한 값
-                  </p>
+                  <dd className="shrink-0 self-center font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3">
                   <dt className="text-xs text-slate-500">최다 참여 활동</dt>
-                  <dd className="mt-1 flex min-w-0 items-start justify-between gap-3">
-                    <span className="min-w-0 break-words font-bold leading-5 text-slate-900">
-                      {currentMonthMostParticipated?.title ?? "기록 없음"}
-                    </span>
+                  <dd className="mt-1 min-w-0">
                     {currentMonthMostParticipated ? (
-                      <span className="shrink-0 text-sm font-semibold text-[var(--brand-strong)]">
-                        {currentMonthMostParticipated.participantCount}명
-                      </span>
-                    ) : null}
+                      <button
+                        aria-label={`${currentMonthMostParticipated.title} 활동 상세 보기`}
+                        className="ui-focus-ring flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md py-1 text-left transition hover:bg-sky-100/70"
+                        onClick={() => {
+                          restoreMostActivityFocusRef.current = true;
+                          setSelectedActivity(currentMonthMostParticipated);
+                        }}
+                        ref={mostActivityTriggerRef}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-xs text-slate-400">
+                            {getDisplayDate(currentMonthMostParticipated.date)}
+                          </span>
+                          <span className="mt-0.5 block break-words font-bold leading-5 text-slate-900">
+                            {currentMonthMostParticipated.title}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-md bg-sky-100 px-2 py-1 text-sm font-semibold text-[var(--brand-strong)]">
+                          {currentMonthMostParticipated.participantCount}명
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="font-bold text-slate-900">기록 없음</span>
+                    )}
                   </dd>
                 </div>
               </dl>
@@ -589,7 +609,10 @@ export default function DashboardPage() {
                   <ActivityCard
                     activity={activity}
                     key={activity.id}
-                    onSelect={setSelectedActivity}
+                    onSelect={(selected) => {
+                      restoreMostActivityFocusRef.current = false;
+                      setSelectedActivity(selected);
+                    }}
                   />
                 ))}
               </ul>
@@ -710,7 +733,13 @@ export default function DashboardPage() {
 
           <ActivityDetailModal
             activity={selectedActivity}
-            onClose={() => setSelectedActivity(null)}
+            onClose={() => {
+              setSelectedActivity(null);
+              if (restoreMostActivityFocusRef.current) {
+                restoreMostActivityFocusRef.current = false;
+                requestAnimationFrame(() => mostActivityTriggerRef.current?.focus());
+              }
+            }}
           />
         </>
       ) : null}

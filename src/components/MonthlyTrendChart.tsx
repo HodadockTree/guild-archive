@@ -141,14 +141,9 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
 
   return (
     <section className="h-full min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
-          <p className="mt-1 text-sm text-slate-500">달력 기준 최근 6개월의 활동과 함께한 길드원을 비교합니다.</p>
-        </div>
-        <Link className="ui-focus-ring rounded-md border border-sky-100 px-2.5 py-1.5 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-sky-200 hover:bg-sky-50" href="/archive">
-          월별 기록 보기 →
-        </Link>
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
+        <p className="mt-1 text-sm text-slate-500">달력 기준 최근 6개월의 활동과 함께한 길드원을 비교합니다.</p>
       </div>
 
       <div aria-label="그래프 범례" className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
@@ -170,41 +165,46 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
               const y = plotBottom - plotHeight * ratio;
               return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
             })}
-            <polyline fill="none" points={activityPoints} stroke="var(--color-sky-300)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            <polyline fill="none" points={memberPoints} stroke="var(--brand-strong)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            <polyline fill="none" pointerEvents="none" points={activityPoints} stroke="var(--color-sky-300)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            <polyline fill="none" pointerEvents="none" points={memberPoints} stroke="var(--brand-strong)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
 
             {trends.map((trend, index) => {
               const x = getX(index);
               const activityY = getY(trend.activityCount);
               const memberY = getY(trend.participantMemberCount);
-              const activityLabelY = activityY <= memberY
-                ? Math.max(12, activityY - 10)
-                : Math.min(158, activityY + 17);
-              const memberLabelY = memberY < activityY
-                ? Math.max(12, memberY - 10)
-                : Math.min(158, memberY + 17);
+              const monthStep = trends.length > 1
+                ? (plotRight - plotLeft) / (trends.length - 1)
+                : plotRight - plotLeft;
+              const hitLeft = Math.max(0, x - monthStep / 2);
+              const hitRight = Math.min(chartWidth, x + monthStep / 2);
+              const memberLabelY = Math.max(12, memberY - 10);
+              let activityLabelY = Math.min(158, activityY + 17);
+
+              if (Math.abs(activityLabelY - memberLabelY) < 14) {
+                activityLabelY = Math.min(158, memberLabelY + 16);
+              }
 
               return (
-                <g
-                  aria-label={`${formatMonth(trend.month)} 활동 수 ${trend.activityCount}회, 함께한 길드원 ${trend.participantMemberCount}명`}
+                <a
+                  aria-label={`${formatMonth(trend.month)} 월간 리포트 보기`}
                   className="group outline-none"
+                  href={`/viewer?month=${trend.month}`}
                   key={trend.month}
-                  role="img"
-                  tabIndex={0}
                 >
                   <title>{`${formatMonth(trend.month)} · 활동 수 ${trend.activityCount}회 · 함께한 길드원 ${trend.participantMemberCount}명`}</title>
-                  <circle className="fill-white stroke-sky-300 transition group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
-                  <circle className="fill-white stroke-[var(--brand-strong)] transition group-focus:stroke-sky-500" cx={x} cy={memberY} r="5" strokeWidth="3" />
+                  <rect className="fill-transparent stroke-transparent transition group-hover:fill-sky-50/60 group-focus:fill-sky-50/60 group-focus:stroke-sky-300" height="178" rx="8" width={hitRight - hitLeft} x={hitLeft} y="4" />
+                  <circle className="fill-white stroke-sky-300 transition group-hover:stroke-sky-500 group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
+                  <circle className="fill-white stroke-[var(--brand-strong)] transition group-hover:stroke-sky-600 group-focus:stroke-sky-600" cx={x} cy={memberY} r="5" strokeWidth="3" />
                   <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={activityLabelY}>
                     {trend.activityCount}회
                   </text>
                   <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={memberLabelY}>
                     {trend.participantMemberCount}명
                   </text>
-                  <text className="fill-slate-500 text-[11px] font-medium sm:text-xs" textAnchor="middle" x={x} y="181">
+                  <text className="fill-slate-500 text-[11px] font-medium transition group-hover:fill-sky-700 group-focus:fill-sky-700 sm:text-xs" textAnchor="middle" x={x} y="181">
                     {getShortMonthLabel(trend.month)}
                   </text>
-                </g>
+                </a>
               );
             })}
           </svg>
