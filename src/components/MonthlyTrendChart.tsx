@@ -143,12 +143,12 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
     <section className="h-full min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
-        <p className="mt-1 text-sm text-slate-500">달력 기준 최근 6개월의 활동과 함께한 길드원을 비교합니다.</p>
+        <p className="mt-1 text-sm text-slate-500">월별 활동 횟수와 활동 참여 인원을 비교합니다.</p>
       </div>
 
       <div aria-label="그래프 범례" className="mt-4 flex flex-wrap gap-5 text-xs text-slate-700">
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-sky-300" />활동 수</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[var(--brand-strong)]" />함께한 길드원</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-sky-300" />활동 횟수</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[var(--brand-strong)]" />활동 참여 인원</span>
       </div>
 
       {trends.length === 0 ? (
@@ -156,7 +156,7 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
       ) : (
         <div className="mt-3 min-w-0 overflow-hidden">
           <svg
-            aria-label="최근 6개월 활동 수와 함께한 길드원 수 변화"
+            aria-label="최근 6개월 활동 횟수와 활동 참여 인원 변화"
             className="block h-auto w-full"
             role="img"
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -193,14 +193,14 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
                   href={`/viewer?month=${trend.month}`}
                   key={trend.month}
                 >
-                  <title>{`${formatMonth(trend.month)} · 활동 수 ${trend.activityCount}회 · 함께한 길드원 ${trend.participantMemberCount}명`}</title>
+                  <title>{`${formatMonth(trend.month)} · 활동 횟수 ${trend.activityCount}회 · 활동 참여 인원 ${trend.participantMemberCount}명`}</title>
                   <rect className="fill-transparent stroke-transparent transition group-hover:fill-sky-50/60 group-focus:fill-sky-50/60 group-focus:stroke-sky-300" height="178" rx="8" width={hitRight - hitLeft} x={hitLeft} y="4" />
                   <circle className="fill-white stroke-sky-300 transition group-hover:stroke-sky-500 group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
                   <circle className="fill-white stroke-[var(--brand-strong)] transition group-hover:stroke-sky-600 group-focus:stroke-sky-600" cx={x} cy={memberY} r="5" strokeWidth="3" />
-                  <text className="fill-slate-600 stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={activityLabelY}>
+                  <text className="fill-sky-700 stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={activityLabelY}>
                     {trend.activityCount}회
                   </text>
-                  <text className="fill-slate-600 stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={memberLabelY}>
+                  <text className="fill-[var(--brand-strong)] stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={memberLabelY}>
                     {trend.participantMemberCount}명
                   </text>
                   <text className="fill-slate-500 text-[11px] font-medium transition group-hover:fill-sky-700 group-focus:fill-sky-700 sm:text-xs" textAnchor="middle" x={x} y="181">

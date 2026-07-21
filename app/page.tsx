@@ -527,7 +527,7 @@ export default function DashboardPage() {
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
-                label="함께한 길드원"
+                label="이번 달 참여 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
                 onClick={() => {
                   setSelectedMonthMemberId(null);
