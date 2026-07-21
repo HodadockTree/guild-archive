@@ -300,7 +300,7 @@ function CumulativeSummaryCard({
       tabIndex={isClickable ? 0 : undefined}
     >
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
-      <dd className="mt-1 text-2xl font-bold text-slate-900">{value}</dd>
+      <dd className={`mt-1 font-bold text-slate-900 ${label === "길드 시작일" ? "text-xl sm:text-2xl" : "text-2xl"}`}>{value}</dd>
     </div>
   );
 }
@@ -316,7 +316,7 @@ function ActivityCard({
     <li>
       <button
       className={`ui-focus-ring flex cursor-pointer rounded-[var(--radius-card)] border border-[var(--border)] bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-[var(--surface-muted)] ${
-        activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
+        activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-3"
       } w-full text-left`}
         onClick={() => onSelect(activity)}
         type="button"
@@ -330,7 +330,7 @@ function ActivityCard({
         />
       ) : null}
 
-      <div className={activity.imageDataUrl ? "flex flex-1 flex-col px-4 py-4" : "flex flex-1 flex-col"}>
+      <div className={activity.imageDataUrl ? "flex flex-1 flex-col px-4 py-3" : "flex flex-1 flex-col"}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="text-xs text-slate-500">
@@ -524,28 +524,30 @@ export default function DashboardPage() {
             </dl>
           </section>
 
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)] lg:items-stretch">
             <RecentMonthlyTrendChart trends={dashboard.monthlyTrends} />
 
-            <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <section className="flex min-w-0 flex-col rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 lg:h-full">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
-              <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <div className="rounded-md bg-sky-50 px-3 py-2">
+              <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-3">
+                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
                   <dt className="text-xs text-slate-500">비공정</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
                 </div>
-                <div className="rounded-md bg-sky-50 px-3 py-2">
+                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
                   <dt className="text-xs text-slate-500">점령전</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
                 </div>
-                <div className="col-span-2 rounded-md bg-sky-50 px-3 py-2 sm:col-span-1">
-                  <dt className="text-xs text-slate-500">총 참여 횟수</dt>
-                  <span className="block text-[11px] leading-4 text-slate-400">
-                    각 활동의 참여 길드원 수 합계
-                  </span>
-                  <dd className="font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+                <div className="col-span-2 rounded-md bg-sky-50 px-3 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                    <dd className="shrink-0 font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                    각 활동의 참여 인원을 모두 합산한 값
+                  </p>
                 </div>
-                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3 sm:col-span-3">
+                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3">
                   <dt className="text-xs text-slate-500">최다 참여 활동</dt>
                   <dd className="mt-1 flex min-w-0 items-start justify-between gap-3">
                     <span className="min-w-0 break-words font-bold leading-5 text-slate-900">

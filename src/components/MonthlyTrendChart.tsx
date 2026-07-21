@@ -119,16 +119,35 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
     ...trends.flatMap((trend) => [trend.activityCount, trend.participantMemberCount]),
     0,
   );
+  const chartWidth = 720;
+  const chartHeight = 190;
+  const plotLeft = 34;
+  const plotRight = 686;
+  const plotTop = 28;
+  const plotBottom = 142;
+  const plotHeight = plotBottom - plotTop;
+  const getX = (index: number) =>
+    trends.length <= 1
+      ? chartWidth / 2
+      : plotLeft + ((plotRight - plotLeft) * index) / (trends.length - 1);
+  const getY = (value: number) =>
+    plotBottom - (value / Math.max(maxValue, 1)) * plotHeight;
+  const activityPoints = trends
+    .map((trend, index) => `${getX(index)},${getY(trend.activityCount)}`)
+    .join(" ");
+  const memberPoints = trends
+    .map((trend, index) => `${getX(index)},${getY(trend.participantMemberCount)}`)
+    .join(" ");
 
   return (
-    <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+    <section className="h-full min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
           <p className="mt-1 text-sm text-slate-500">달력 기준 최근 6개월의 활동과 함께한 길드원을 비교합니다.</p>
         </div>
-        <Link className="ui-focus-ring rounded-md px-2 py-1 text-sm font-semibold text-[var(--brand-strong)] hover:bg-sky-50" href="/archive">
-          월별 기록 보기
+        <Link className="ui-focus-ring rounded-md border border-sky-100 px-2.5 py-1.5 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-sky-200 hover:bg-sky-50" href="/archive">
+          월별 기록 보기 →
         </Link>
       </div>
 
@@ -140,24 +159,55 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
       {trends.length === 0 ? (
         <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">최근 활동 기록이 아직 없습니다.</p>
       ) : (
-        <div className="mt-4 overflow-x-auto pb-1">
-          <div className="mx-auto flex h-52 w-fit min-w-max items-end gap-4 border-b border-sky-100 px-1 pb-3 sm:gap-6 xl:gap-8">
-            {trends.map((trend) => (
-              <div className="flex w-14 shrink-0 flex-col items-center gap-2 sm:w-16 xl:w-[4.5rem]" key={trend.month}>
-                <div className="flex h-32 w-full items-end justify-center gap-2" aria-label={`${formatMonth(trend.month)} 활동 ${trend.activityCount}회, 함께한 길드원 ${trend.participantMemberCount}명`} role="img">
-                  <span className="flex h-full w-6 flex-col justify-end gap-1 text-center text-[10px] font-semibold text-slate-600 sm:w-7 sm:text-[11px]">
-                    <span>{trend.activityCount}회</span>
-                    <span aria-hidden="true" className="w-full rounded-t-sm bg-sky-300" style={{ height: trend.activityCount === 0 ? "0%" : `${Math.max(8, (trend.activityCount / Math.max(maxValue, 1)) * 100)}%` }} />
-                  </span>
-                  <span className="flex h-full w-6 flex-col justify-end gap-1 text-center text-[10px] font-semibold text-slate-600 sm:w-7 sm:text-[11px]">
-                    <span>{trend.participantMemberCount}명</span>
-                    <span aria-hidden="true" className="w-full rounded-t-sm bg-[var(--brand-strong)]" style={{ height: trend.participantMemberCount === 0 ? "0%" : `${Math.max(8, (trend.participantMemberCount / Math.max(maxValue, 1)) * 100)}%` }} />
-                  </span>
-                </div>
-                <span className="text-xs font-medium text-slate-600">{getShortMonthLabel(trend.month)}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-3 min-w-0 overflow-hidden">
+          <svg
+            aria-label="최근 6개월 활동 수와 함께한 길드원 수 변화"
+            className="block h-auto w-full"
+            role="img"
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          >
+            {[0.25, 0.5, 0.75].map((ratio) => {
+              const y = plotBottom - plotHeight * ratio;
+              return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
+            })}
+            <polyline fill="none" points={activityPoints} stroke="var(--color-sky-300)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            <polyline fill="none" points={memberPoints} stroke="var(--brand-strong)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+
+            {trends.map((trend, index) => {
+              const x = getX(index);
+              const activityY = getY(trend.activityCount);
+              const memberY = getY(trend.participantMemberCount);
+              const activityLabelY = activityY <= memberY
+                ? Math.max(12, activityY - 10)
+                : Math.min(158, activityY + 17);
+              const memberLabelY = memberY < activityY
+                ? Math.max(12, memberY - 10)
+                : Math.min(158, memberY + 17);
+
+              return (
+                <g
+                  aria-label={`${formatMonth(trend.month)} 활동 수 ${trend.activityCount}회, 함께한 길드원 ${trend.participantMemberCount}명`}
+                  className="group outline-none"
+                  key={trend.month}
+                  role="img"
+                  tabIndex={0}
+                >
+                  <title>{`${formatMonth(trend.month)} · 활동 수 ${trend.activityCount}회 · 함께한 길드원 ${trend.participantMemberCount}명`}</title>
+                  <circle className="fill-white stroke-sky-300 transition group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
+                  <circle className="fill-white stroke-[var(--brand-strong)] transition group-focus:stroke-sky-500" cx={x} cy={memberY} r="5" strokeWidth="3" />
+                  <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={activityLabelY}>
+                    {trend.activityCount}회
+                  </text>
+                  <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={memberLabelY}>
+                    {trend.participantMemberCount}명
+                  </text>
+                  <text className="fill-slate-500 text-[11px] font-medium sm:text-xs" textAnchor="middle" x={x} y="181">
+                    {getShortMonthLabel(trend.month)}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
       )}
     </section>
