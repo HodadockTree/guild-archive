@@ -14,6 +14,7 @@ import {
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
+import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import {
   formatFullDate,
   formatMonth,
@@ -105,10 +106,12 @@ function MemberList({
   emptyMessage,
   members,
   showLeftAt = true,
+  onSelectMember,
 }: {
   emptyMessage: string;
   members: DashboardMemberSummary[];
   showLeftAt?: boolean;
+  onSelectMember?: (member: DashboardMemberSummary, trigger: HTMLButtonElement) => void;
 }) {
   if (members.length === 0) {
     return (
@@ -134,7 +137,11 @@ function MemberList({
             {members.map((member) => (
               <tr key={member.id}>
                 <td className="px-4 py-3 font-semibold text-slate-900">
-                  {member.nickname}
+                  {onSelectMember ? (
+                    <button aria-label={`${member.nickname} 활동 기록 보기`} className="ui-focus-ring min-h-11 cursor-pointer rounded-md px-2 py-1 text-left transition hover:bg-sky-100" onClick={(event) => onSelectMember(member, event.currentTarget)} type="button">
+                      {member.nickname}
+                    </button>
+                  ) : member.nickname}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {member.joinedAt ? formatFullDate(member.joinedAt) : "-"}
@@ -159,7 +166,13 @@ function MemberList({
           className="rounded-md border border-sky-100 bg-sky-50 px-4 py-3"
           key={member.id}
         >
-          <p className="font-semibold text-slate-900">{member.nickname}</p>
+          {onSelectMember ? (
+            <button aria-label={`${member.nickname} 활동 기록 보기`} className="ui-focus-ring min-h-11 cursor-pointer rounded-md px-2 py-1 text-left font-semibold text-slate-900 transition hover:bg-sky-100" onClick={(event) => onSelectMember(member, event.currentTarget)} type="button">
+              {member.nickname}
+            </button>
+          ) : (
+            <p className="font-semibold text-slate-900">{member.nickname}</p>
+          )}
           <p className="mt-1 text-sm leading-6 text-slate-600">
             가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} ·{" "}
             {showLeftAt ? `탈퇴일 ${member.leftAt ? formatFullDate(member.leftAt) : "-"} · ` : ""}
@@ -179,7 +192,7 @@ function ParticipantChipList({
 }: {
   emptyMessage: string;
   members: DashboardMemberSummary[];
-  onSelectMember: (member: DashboardMemberSummary) => void;
+  onSelectMember: (member: DashboardMemberSummary, trigger: HTMLButtonElement) => void;
 }) {
   if (members.length === 0) {
     return (
@@ -194,8 +207,9 @@ function ParticipantChipList({
       {members.map((member) => (
         <li key={member.id}>
           <button
-            className="max-w-full rounded-md bg-sky-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
-            onClick={() => onSelectMember(member)}
+            aria-label={`${member.nickname} 활동 기록 보기`}
+            className="ui-focus-ring min-h-11 max-w-full cursor-pointer rounded-md bg-sky-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-sky-100"
+            onClick={(event) => onSelectMember(member, event.currentTarget)}
             type="button"
           >
             {member.nickname}
@@ -355,6 +369,8 @@ export default function DashboardPage() {
     useState<SummaryModalKey | null>(null);
   const [selectedMonthMemberId, setSelectedMonthMemberId] =
     useState<string | null>(null);
+  const [memberReturnModal, setMemberReturnModal] =
+    useState<SummaryModalKey>("currentMonthParticipants");
 
   useEffect(() => {
     let isActive = true;
@@ -403,15 +419,18 @@ export default function DashboardPage() {
 
   const dashboard =
     dashboardState.status === "success" ? dashboardState.dashboard : null;
-  const selectedMonthMember = dashboard?.currentMonthParticipantMembers.find(
+  const selectedMonthMember = dashboard?.allMembers.find(
     (member) => member.id === selectedMonthMemberId,
   );
-  const selectedMonthMemberActivities =
+  const selectedMemberInitialData =
     dashboard && selectedMonthMember
-      ? dashboard.currentMonthActivities.filter((activity) =>
-          activity.participantIds.includes(selectedMonthMember.id),
-        )
-      : [];
+      ? {
+          member: selectedMonthMember,
+          activities: dashboard.allActivities.filter((activity) =>
+            activity.participantIds.includes(selectedMonthMember.id),
+          ),
+        }
+      : undefined;
   const currentMonthTypeCounts = dashboard?.currentMonthActivities.reduce(
     (counts, activity) => {
       counts[activity.statsType] += 1;
@@ -505,10 +524,10 @@ export default function DashboardPage() {
             </dl>
           </section>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)] lg:items-stretch">
-            <RecentMonthlyTrendChart trends={dashboard.monthlyTrends.slice(-3)} />
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+            <RecentMonthlyTrendChart trends={dashboard.monthlyTrends} />
 
-            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
               <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <div className="rounded-md bg-sky-50 px-3 py-2">
@@ -521,6 +540,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="col-span-2 rounded-md bg-sky-50 px-3 py-2 sm:col-span-1">
                   <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                  <span className="block text-[11px] leading-4 text-slate-400">
+                    각 활동의 참여 길드원 수 합계
+                  </span>
                   <dd className="font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3 sm:col-span-3">
@@ -582,6 +604,11 @@ export default function DashboardPage() {
                 emptyMessage="현재 활동중인 길드원이 없습니다."
                 members={dashboard.activeMembers}
                 showLeftAt={false}
+                onSelectMember={(member) => {
+                  setSelectedMonthMemberId(member.id);
+                  setMemberReturnModal("activeMembers");
+                  setSelectedSummaryModal("memberMonthActivities");
+                }}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -614,6 +641,7 @@ export default function DashboardPage() {
                 members={dashboard.currentMonthParticipantMembers}
                 onSelectMember={(member) => {
                   setSelectedMonthMemberId(member.id);
+                  setMemberReturnModal("currentMonthParticipants");
                   setSelectedSummaryModal("memberMonthActivities");
                 }}
               />
@@ -623,22 +651,21 @@ export default function DashboardPage() {
           {selectedSummaryModal === "memberMonthActivities" && selectedMonthMember ? (
             <DashboardSummaryModal
               disableEscapeClose={Boolean(selectedActivity)}
-              description={`${selectedMonthMember.nickname}님이 이번 달 함께한 활동입니다.`}
               onClose={() => {
                 setSelectedMonthMemberId(null);
-                setSelectedSummaryModal("currentMonthParticipants");
+                setSelectedSummaryModal(memberReturnModal);
+                requestAnimationFrame(() => {
+                  const label = `${selectedMonthMember.nickname} 활동 기록 보기`;
+                  const trigger = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
+                    .find((button) => button.getAttribute("aria-label") === label);
+                  trigger?.focus();
+                });
               }}
-              title="이번 달 함께한 활동"
+              title={`${selectedMonthMember.nickname}님의 활동 기록`}
             >
-              <div className="mb-4 rounded-md bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                이번 달 함께한 활동 {selectedMonthMemberActivities.length}회
-              </div>
-              <ActivitySummaryList
-                activities={selectedMonthMemberActivities}
-                emptyMessage="이번 달 함께한 활동이 아직 없습니다."
-                onSelectActivity={(activity) => {
-                  setSelectedActivity(activity);
-                }}
+              <MemberActivityPanel
+                initialData={selectedMemberInitialData}
+                memberId={selectedMonthMember.id}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -670,6 +697,11 @@ export default function DashboardPage() {
               <MemberList
                 emptyMessage="아직 함께한 길드원 기록이 없습니다."
                 members={dashboard.allMembers}
+                onSelectMember={(member) => {
+                  setSelectedMonthMemberId(member.id);
+                  setMemberReturnModal("allMembers");
+                  setSelectedSummaryModal("memberMonthActivities");
+                }}
               />
             </DashboardSummaryModal>
           ) : null}

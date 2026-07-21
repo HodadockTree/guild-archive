@@ -608,6 +608,10 @@ export default function Home() {
 
     return matchesMonth && matchesSearch;
   });
+  const maxFilteredParticipantCount = filteredActivities.reduce(
+    (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
+    0,
+  );
   const activityMonthOptions = Array.from(
     new Set(activities.map((activity) => activity.date.slice(0, 7))),
   ).sort((a, b) => b.localeCompare(a));
@@ -1574,7 +1578,7 @@ export default function Home() {
                         {activity.displayDate} {activity.label}
                       </span>
                     </span>
-                    <span className="shrink-0 rounded-sm border border-sky-100 bg-sky-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span className={`shrink-0 rounded-sm border px-2 py-0.5 text-xs font-medium text-slate-700 ${activity.isMostParticipated ? "border-sky-300 bg-sky-200" : "border-sky-100 bg-sky-50"}`}>
                       참여 {activity.participantCount}명
                     </span>
                   </div>
@@ -2638,7 +2642,7 @@ export default function Home() {
                         </span>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-sm border border-sky-100 bg-sky-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span className={`shrink-0 rounded-sm border px-2 py-0.5 text-xs font-medium text-slate-700 ${maxFilteredParticipantCount > 0 && activity.participantIds.length === maxFilteredParticipantCount ? "border-sky-300 bg-sky-200" : "border-sky-100 bg-sky-50"}`}>
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>

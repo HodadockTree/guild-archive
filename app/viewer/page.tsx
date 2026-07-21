@@ -55,7 +55,10 @@ function toActivityDetail(activity: ActivityLog & { participantNames?: string[] 
     label: getMonthlyActivityLabel(activity),
     title: getActivityTitle(activity),
     participantCount: activity.participantIds.length,
-    participantNames: activity.participantNames ?? [],
+    participants: activity.participantIds.map((memberId, index) => ({
+      id: memberId,
+      nickname: activity.participantNames?.[index] ?? `알 수 없는 길드원 ${memberId.slice(0, 6)}`,
+    })),
     memo: activity.memo?.trim() || undefined,
     imageDataUrl: activity.imageDataUrl,
   };

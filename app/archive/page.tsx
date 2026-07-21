@@ -7,6 +7,7 @@ import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { MonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
+import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
   representativeEventTitle: string | null;
@@ -24,6 +25,11 @@ export default function ArchivePage() {
   });
   const [participantMonth, setParticipantMonth] = useState<string | null>(null);
   const participantTriggerRef = useRef<HTMLElement | null>(null);
+  const memberTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [selectedArchiveMember, setSelectedArchiveMember] = useState<{
+    id: string;
+    nickname: string;
+  } | null>(null);
 
   const openParticipantModal = (month: string, trigger: HTMLElement) => {
     participantTriggerRef.current = trigger;
@@ -31,6 +37,12 @@ export default function ArchivePage() {
   };
 
   const closeParticipantModal = () => {
+    if (selectedArchiveMember) {
+      setSelectedArchiveMember(null);
+      requestAnimationFrame(() => memberTriggerRef.current?.focus());
+      return;
+    }
+
     setParticipantMonth(null);
     requestAnimationFrame(() => participantTriggerRef.current?.focus());
   };
@@ -231,19 +243,34 @@ export default function ArchivePage() {
       {selectedParticipantMonth ? (
         <DashboardSummaryModal
           onClose={closeParticipantModal}
-          title={`${getMonthDisplayLabel(selectedParticipantMonth.month)} 함께한 길드원 ${selectedParticipantMonth.participantMemberCount}명`}
+          title={selectedArchiveMember ? `${selectedArchiveMember.nickname}님의 활동 기록` : `${getMonthDisplayLabel(selectedParticipantMonth.month)} 함께한 길드원 ${selectedParticipantMonth.participantMemberCount}명`}
         >
-          {(selectedParticipantMonth.participantMembers ?? []).length === 0 ? (
+          {selectedArchiveMember ? (
+            <div>
+              <button autoFocus className="ui-focus-ring mb-4 rounded-md px-2 py-1 text-sm font-semibold text-[var(--brand-strong)] hover:bg-sky-50" onClick={closeParticipantModal} type="button">
+                ← 함께한 길드원으로 돌아가기
+              </button>
+              <MemberActivityPanel memberId={selectedArchiveMember.id} />
+            </div>
+          ) : (selectedParticipantMonth.participantMembers ?? []).length === 0 ? (
             <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
               이 달에 함께한 길드원이 없습니다.
             </p>
           ) : (
             <ul className="divide-y divide-sky-100">
               {(selectedParticipantMonth.participantMembers ?? []).map((member) => (
-                <li className="flex items-center justify-between gap-4 py-3" key={member.id}>
-                  <span className="min-w-0 truncate font-semibold text-slate-900">
+                <li className="flex items-center justify-between gap-4 py-2" key={member.id}>
+                  <button
+                    aria-label={`${member.nickname} 활동 기록 보기`}
+                    className="ui-focus-ring min-h-11 min-w-0 cursor-pointer truncate rounded-md px-2 py-1 text-left font-semibold text-slate-900 transition hover:bg-sky-100"
+                    onClick={(event) => {
+                      memberTriggerRef.current = event.currentTarget;
+                      setSelectedArchiveMember({ id: member.id, nickname: member.nickname });
+                    }}
+                    type="button"
+                  >
                     {member.nickname}
-                  </span>
+                  </button>
                   <span className="shrink-0 text-sm text-slate-600">
                     참여 {member.participationCount}회 · {member.status === "active" ? "활동중" : "탈퇴"}
                   </span>

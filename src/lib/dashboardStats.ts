@@ -1,6 +1,7 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType } from "@/src/lib/activityStats";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import type { ActivityParticipant } from "@/src/lib/memberActivity";
 
 export type DashboardMonthlyTrend = {
   month: string;
@@ -17,6 +18,7 @@ export type DashboardActivitySummary = {
   title: string;
   participantCount: number;
   participantNames: string[];
+  participants: ActivityParticipant[];
   memo?: string;
   imageDataUrl?: string;
 };
@@ -47,6 +49,12 @@ export type DashboardStats = {
 
 function getMonthKey(date: string) {
   return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : "";
+}
+
+function getPreviousMonth(month: string, offset: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber - 1 - offset, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function getActivityTitle(activity: ActivityLog) {
@@ -89,6 +97,11 @@ function toActivitySummary(
           membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
       )
       .sort((a, b) => a.localeCompare(b, "ko")),
+    participants: activity.participantIds.map((memberId) => ({
+      id: memberId,
+      nickname:
+        membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+    })),
     memo: activity.memo?.trim() || undefined,
     imageDataUrl: activity.imageDataUrl,
   };
@@ -177,14 +190,24 @@ export function getGuildDashboardStats(
     monthlySummaries.set(month, summary);
   });
 
-  const monthlyTrends = Array.from(monthlySummaries.values())
-    .sort((a, b) => a.month.localeCompare(b.month))
-    .slice(-monthLimit)
-    .map((summary) => ({
-      month: summary.month,
-      activityCount: summary.activityCount,
-      participantMemberCount: summary.participantMemberIds.size,
-    }));
+  const guildStartMonth = [
+    ...members.map((member) => getMonthKey(member.joinedAt)),
+    ...activities.map((activity) => getMonthKey(activity.date)),
+  ]
+    .filter(Boolean)
+    .sort()[0];
+  const trendMonths = Array.from({ length: monthLimit }, (_, index) =>
+    getPreviousMonth(currentMonth, monthLimit - index - 1),
+  ).filter((month) => !guildStartMonth || month >= guildStartMonth);
+  const monthlyTrends = trendMonths.map((month) => {
+    const summary = monthlySummaries.get(month);
+
+    return {
+      month,
+      activityCount: summary?.activityCount ?? 0,
+      participantMemberCount: summary?.participantMemberIds.size ?? 0,
+    };
+  });
 
   return {
     activeMemberCount,
