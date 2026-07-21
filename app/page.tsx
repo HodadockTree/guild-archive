@@ -485,7 +485,7 @@ export default function DashboardPage() {
     <main className="app-shell">
       <AppHeader
         currentPath="/"
-        description="이번 달 활동과 최근 소식을 한눈에 모아봤어요."
+        description="지금의 길드 현황과 지금까지 쌓인 기록을 한눈에 살펴보세요."
         eyebrow="냥춘 길드 활동 아카이브"
         title="길드 현황 대시보드"
       />
@@ -585,7 +585,7 @@ export default function DashboardPage() {
                 className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
                 href="/viewer"
               >
-                리포트로 보기
+                이번 달 전체 보기
               </Link>
             </div>
 

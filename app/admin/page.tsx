@@ -4,6 +4,7 @@ import {
   ChangeEvent,
   ClipboardEvent,
   FormEvent,
+  MouseEvent as ReactMouseEvent,
   useEffect,
   useRef,
   useState,
@@ -39,6 +40,7 @@ import {
 } from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { Pagination } from "@/src/components/ui/Pagination";
 import {
   AdminSectionNav,
   type AdminSection,
@@ -124,6 +126,14 @@ const activitySortOrderLabels: Record<ActivitySortOrder, string> = {
 };
 
 const ACTIVITY_PAGE_SIZE = 12;
+const MEMBER_PAGE_SIZE = 10;
+
+type MemberMenuPosition = {
+  bottom?: number;
+  memberId: string;
+  right: number;
+  top?: number;
+};
 
 const memberStatusLabels: Record<GuildMemberStatus, string> = {
   active: "활동중",
@@ -207,7 +217,9 @@ let cachedActivitiesValue: string | null = null;
 let cachedActivitiesSnapshot: ActivityLog[] = EMPTY_ACTIVITIES;
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 10);
 }
 
 function getMonthLabel(month: string) {
@@ -382,8 +394,7 @@ export default function Home() {
     useState<ActivitySortOrder>("latest");
   const [activityMonthFilter, setActivityMonthFilter] = useState("all");
   const [activitySearch, setActivitySearch] = useState("");
-  const [visibleActivityCount, setVisibleActivityCount] =
-    useState(ACTIVITY_PAGE_SIZE);
+  const [activityPage, setActivityPage] = useState(1);
   const [activityFeedbackMessage, setActivityFeedbackMessage] = useState("");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
     null,
@@ -419,6 +430,14 @@ export default function Home() {
     useState<AdminSection>("activity");
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
+  const [activeMemberSearch, setActiveMemberSearch] = useState("");
+  const [leftMemberSearch, setLeftMemberSearch] = useState("");
+  const [activeMemberPage, setActiveMemberPage] = useState(1);
+  const [leftMemberPage, setLeftMemberPage] = useState(1);
+  const [memberMenuPosition, setMemberMenuPosition] =
+    useState<MemberMenuPosition | null>(null);
+  const [leavingMemberId, setLeavingMemberId] = useState<string | null>(null);
+  const [leaveDate, setLeaveDate] = useState(today());
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -440,8 +459,45 @@ export default function Home() {
   );
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
+  const menuMember = memberMenuPosition
+    ? members.find((member) => member.id === memberMenuPosition.memberId) ?? null
+    : null;
+  const leavingMember = leavingMemberId
+    ? members.find((member) => member.id === leavingMemberId) ?? null
+    : null;
   const activeMembers = members.filter((member) => member.status === "active");
   const leftMembers = members.filter((member) => member.status === "left");
+  const filteredActiveMembers = activeMemberSearch.trim()
+    ? activeMembers.filter((member) =>
+        matchesMemberKeyword(member.nickname, activeMemberSearch.trim()),
+      )
+    : activeMembers;
+  const filteredLeftMembers = leftMemberSearch.trim()
+    ? leftMembers.filter((member) =>
+        matchesMemberKeyword(member.nickname, leftMemberSearch.trim()),
+      )
+    : leftMembers;
+  const activeMemberTotalPages = Math.max(
+    1,
+    Math.ceil(filteredActiveMembers.length / MEMBER_PAGE_SIZE),
+  );
+  const leftMemberTotalPages = Math.max(
+    1,
+    Math.ceil(filteredLeftMembers.length / MEMBER_PAGE_SIZE),
+  );
+  const currentActiveMemberPage = Math.min(
+    activeMemberPage,
+    activeMemberTotalPages,
+  );
+  const currentLeftMemberPage = Math.min(leftMemberPage, leftMemberTotalPages);
+  const paginatedActiveMembers = filteredActiveMembers.slice(
+    (currentActiveMemberPage - 1) * MEMBER_PAGE_SIZE,
+    currentActiveMemberPage * MEMBER_PAGE_SIZE,
+  );
+  const paginatedLeftMembers = filteredLeftMembers.slice(
+    (currentLeftMemberPage - 1) * MEMBER_PAGE_SIZE,
+    currentLeftMemberPage * MEMBER_PAGE_SIZE,
+  );
   const participationCounts = activities.reduce<Record<string, number>>(
     (counts, activity) => {
       activity.participantIds.forEach((memberId) => {
@@ -528,7 +584,22 @@ export default function Home() {
   const activityMonthOptions = Array.from(
     new Set(activities.map((activity) => activity.date.slice(0, 7))),
   ).sort((a, b) => b.localeCompare(a));
-  const visibleActivities = filteredActivities.slice(0, visibleActivityCount);
+  const activityTotalPages = Math.max(
+    1,
+    Math.ceil(filteredActivities.length / ACTIVITY_PAGE_SIZE),
+  );
+  const currentActivityPage = Math.min(activityPage, activityTotalPages);
+  const activityRangeStart = filteredActivities.length
+    ? (currentActivityPage - 1) * ACTIVITY_PAGE_SIZE + 1
+    : 0;
+  const activityRangeEnd = Math.min(
+    currentActivityPage * ACTIVITY_PAGE_SIZE,
+    filteredActivities.length,
+  );
+  const visibleActivities = filteredActivities.slice(
+    (currentActivityPage - 1) * ACTIVITY_PAGE_SIZE,
+    currentActivityPage * ACTIVITY_PAGE_SIZE,
+  );
   const selectedMemberActivities = selectedHistoryMember
     ? sortedActivities.filter((activity) =>
         activity.participantIds.includes(selectedHistoryMember.id),
@@ -664,12 +735,50 @@ export default function Home() {
     notifyMembersChanged();
   };
 
-  const handleLeaveMember = (memberId: string) => {
-    markMemberAsLeft(memberId);
+  const handleOpenMemberMenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    memberId: string,
+  ) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isMobile = window.innerWidth < 640;
+    const shouldOpenUp = window.innerHeight - rect.bottom < 220;
+
+    setMemberMenuPosition({
+      memberId,
+      right: isMobile ? 12 : Math.max(12, window.innerWidth - rect.right),
+      ...(isMobile || shouldOpenUp
+        ? { bottom: isMobile ? 12 : window.innerHeight - rect.top + 6 }
+        : { top: rect.bottom + 6 }),
+    });
+  };
+
+  const handleRequestLeaveMember = (memberId: string) => {
+    setMemberMenuPosition(null);
+    setLeavingMemberId(memberId);
+    setLeaveDate(today());
+  };
+
+  const handleRestoreMember = (memberId: string) => {
+    setMemberMenuPosition(null);
+    updateMember(memberId, { status: "active", leftAt: null });
+    setRestoreLeftMembersResult(null);
+    notifyMembersChanged();
+  };
+
+  const handleConfirmLeaveMember = () => {
+    if (!leavingMemberId || !leaveDate) {
+      return;
+    }
+
+    markMemberAsLeft(leavingMemberId, leaveDate);
     setSelectedMemberIds((currentIds) =>
-      currentIds.filter((selectedMemberId) => selectedMemberId !== memberId),
+      currentIds.filter(
+        (selectedMemberId) => selectedMemberId !== leavingMemberId,
+      ),
     );
     setRestoreLeftMembersResult(null);
+    setLeavingMemberId(null);
     notifyMembersChanged();
   };
 
@@ -1248,8 +1357,8 @@ export default function Home() {
               {monthlyReport.totalActivities}회
             </p>
           </div>
-          <div className="rounded-md bg-neutral-950 px-4 py-4 text-white">
-            <p className="text-xs font-medium text-neutral-300">참여 길드원</p>
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-4 text-[var(--text-primary)]">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">참여 길드원</p>
             <p className="text-2xl font-bold">
               {monthlyReport.participantMemberCount}명
             </p>
@@ -1338,7 +1447,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-3">
           <div className="rounded-md border border-neutral-200 p-4">
             <h3 className="text-sm font-semibold text-neutral-900">
               참여 TOP
@@ -1348,14 +1457,17 @@ export default function Home() {
                 이 달의 참여 기록이 없습니다.
               </p>
             ) : (
-              <ol className="mt-3 space-y-2">
+              <ol className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {monthlyReport.topParticipants.map((participant, index) => (
                   <li
                     className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
                     key={participant.memberId}
                   >
-                    <span className="min-w-0 truncate font-medium text-neutral-900">
-                      {index + 1}. {participant.nickname}
+                    <span className="shrink-0 font-bold text-[var(--brand-strong)]">
+                      {index + 1}위
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium text-neutral-900">
+                      {participant.nickname}
                     </span>
                     <span className="shrink-0 font-semibold text-neutral-950">
                       {participant.count}회
@@ -1386,7 +1498,7 @@ export default function Home() {
                           {activity.title}
                         </span>
                       </span>
-                      <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                      <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
                         참여 {activity.participantCount}명
                       </span>
                     </div>
@@ -1436,7 +1548,7 @@ export default function Home() {
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                    <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
                       참여 {activity.participantCount}명
                     </span>
                   </div>
@@ -1603,7 +1715,7 @@ export default function Home() {
               </div>
               <input
                 ref={backupFileInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
                 type="file"
                 accept="application/json,.json"
                 onChange={handleBackupFileChange}
@@ -1661,14 +1773,14 @@ export default function Home() {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+                      className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
                       type="button"
                       onClick={handleRestoreBackup}
                     >
                       이 백업으로 복원
                     </button>
                     <button
-                      className="rounded-md border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400"
+                      className="rounded-md border border-[var(--brand-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400"
                       type="button"
                       disabled={serverImportState.status === "loading"}
                       onClick={handleImportBackupToServer}
@@ -1745,7 +1857,10 @@ export default function Home() {
             aria-expanded={isActiveMembersOpen}
             className="ui-focus-ring flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50"
             type="button"
-            onClick={() => setIsActiveMembersOpen((value) => !value)}
+            onClick={() => {
+              setIsActiveMembersOpen((value) => !value);
+              setActiveMemberPage(1);
+            }}
           >
             <span aria-hidden>{isActiveMembersOpen ? "▾" : "▸"}</span>
             <span>&#54876;&#46041;&#51473; &#44600;&#46300;&#50896; {activeMembers.length}&#47749;</span>
@@ -1758,8 +1873,27 @@ export default function Home() {
               &#50500;&#51649; &#46321;&#47197;&#46108; &#54876;&#46041;&#51473; &#44600;&#46300;&#50896;&#51060; &#50630;&#49845;&#45768;&#45796;.
             </p>
           ) : (
+            <div className="space-y-3">
+              <label className="block space-y-1 text-sm font-medium text-neutral-700">
+                <span>활동중 길드원 검색</span>
+                <input
+                  className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm sm:max-w-sm"
+                  onChange={(event) => {
+                    setActiveMemberSearch(event.target.value);
+                    setActiveMemberPage(1);
+                  }}
+                  placeholder="닉네임 검색"
+                  type="search"
+                  value={activeMemberSearch}
+                />
+              </label>
+              {filteredActiveMembers.length === 0 ? (
+                <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+                  검색 결과가 없습니다.
+                </p>
+              ) : (
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
-              {activeMembers.map((member) => (
+              {paginatedActiveMembers.map((member) => (
                   <li
                     className="flex gap-3 bg-white px-3 py-2.5"
                     key={member.id}
@@ -1778,45 +1912,26 @@ export default function Home() {
                           {getMemberActivityStatsSummary(activities, member.id)}
                         </p>
                       </div>
-                      <details className="relative shrink-0">
-                        <summary aria-label="길드원 상세 메뉴" className="ui-focus-ring flex size-11 cursor-pointer list-none items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100">
+                      <button
+                        aria-label="길드원 상세 메뉴"
+                        className="ui-focus-ring flex size-11 shrink-0 items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100"
+                        onClick={(event) => handleOpenMemberMenu(event, member.id)}
+                        type="button"
+                      >
                           <span aria-hidden>⋯</span>
-                        </summary>
-                        <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-80 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                          type="button"
-                          onClick={() => handleEditMember(member)}
-                        >
-                          &#49688;&#51221;
-                        </button>
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                          type="button"
-                          onClick={() => handleViewMemberHistory(member.id)}
-                        >
-                          활동 이력 보기
-                        </button>
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                          type="button"
-                          onClick={() => handleLeaveMember(member.id)}
-                        >
-                          &#53448;&#53748; &#52376;&#47532;
-                        </button>
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
-                          type="button"
-                          onClick={() => handleDeleteMember(member.id)}
-                        >
-                          삭제
-                        </button>
-                        </div>
-                      </details>
+                      </button>
                     </div>
                   </li>
               ))}
             </ul>
+              )}
+              <Pagination
+                currentPage={currentActiveMemberPage}
+                label="활동중 길드원 페이지"
+                onPageChange={setActiveMemberPage}
+                totalPages={activeMemberTotalPages}
+              />
+            </div>
           )
         ) : null}
 
@@ -1825,7 +1940,10 @@ export default function Home() {
             aria-expanded={isLeftMembersOpen}
             className="ui-focus-ring flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50"
             type="button"
-            onClick={() => setIsLeftMembersOpen((value) => !value)}
+            onClick={() => {
+              setIsLeftMembersOpen((value) => !value);
+              setLeftMemberPage(1);
+            }}
           >
             <span aria-hidden>{isLeftMembersOpen ? "▾" : "▸"}</span>
             <span>&#53448;&#53748; &#44600;&#46300;&#50896; {leftMembers.length}&#47749;</span>
@@ -1838,8 +1956,27 @@ export default function Home() {
               &#53448;&#53748; &#49345;&#53468;&#51064; &#44600;&#46300;&#50896;&#51060; &#50630;&#49845;&#45768;&#45796;.
             </p>
           ) : (
+            <div className="space-y-3">
+              <label className="block space-y-1 text-sm font-medium text-neutral-700">
+                <span>탈퇴 길드원 검색</span>
+                <input
+                  className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm sm:max-w-sm"
+                  onChange={(event) => {
+                    setLeftMemberSearch(event.target.value);
+                    setLeftMemberPage(1);
+                  }}
+                  placeholder="닉네임 검색"
+                  type="search"
+                  value={leftMemberSearch}
+                />
+              </label>
+              {filteredLeftMembers.length === 0 ? (
+                <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
+                  검색 결과가 없습니다.
+                </p>
+              ) : (
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
-              {leftMembers.map((member) => (
+              {paginatedLeftMembers.map((member) => (
                   <li
                     className="flex gap-3 px-3 py-2.5"
                     key={member.id}
@@ -1868,38 +2005,26 @@ export default function Home() {
                           {getMemberActivityStatsSummary(activities, member.id)}
                         </p>
                       </div>
-                      <details className="relative shrink-0">
-                        <summary aria-label="길드원 상세 메뉴" className="ui-focus-ring flex size-11 cursor-pointer list-none items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100">
+                      <button
+                        aria-label="길드원 상세 메뉴"
+                        className="ui-focus-ring flex size-11 shrink-0 items-center justify-center rounded-md border border-neutral-200 text-xl font-bold text-neutral-600 hover:bg-neutral-100"
+                        onClick={(event) => handleOpenMemberMenu(event, member.id)}
+                        type="button"
+                      >
                           <span aria-hidden>⋯</span>
-                        </summary>
-                        <div className="mt-2 flex flex-wrap justify-end gap-2 sm:absolute sm:right-0 sm:z-10 sm:w-64 sm:rounded-md sm:border sm:border-neutral-200 sm:bg-white sm:p-3 sm:shadow-lg">
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                          type="button"
-                          onClick={() => handleEditMember(member)}
-                        >
-                          &#49688;&#51221;
-                        </button>
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-                          type="button"
-                          onClick={() => handleViewMemberHistory(member.id)}
-                        >
-                          활동 이력 보기
-                        </button>
-                        <button
-                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
-                          type="button"
-                          onClick={() => handleDeleteMember(member.id)}
-                        >
-                          삭제
-                        </button>
-                        </div>
-                      </details>
+                      </button>
                     </div>
                   </li>
               ))}
             </ul>
+              )}
+              <Pagination
+                currentPage={currentLeftMemberPage}
+                label="탈퇴 길드원 페이지"
+                onPageChange={setLeftMemberPage}
+                totalPages={leftMemberTotalPages}
+              />
+            </div>
           )
         ) : null}
       </section>
@@ -1993,7 +2118,7 @@ export default function Home() {
             </label>
 
             <button
-              className="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
               type="submit"
             >
               길드원 정보 저장
@@ -2281,7 +2406,7 @@ export default function Home() {
               <span>참고 스크린샷</span>
               <input
                 ref={imageInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
                 type="file"
                 accept="image/*"
                 onChange={handleActivityImageChange}
@@ -2334,7 +2459,7 @@ export default function Home() {
             </h2>
             <p className="text-sm text-neutral-500">
               {activitySortOrderLabels[activitySortOrder]}으로{" "}
-              전체 {filteredActivities.length}회 중 {visibleActivities.length}회 표시
+              전체 {filteredActivities.length}개 중 {activityRangeStart}–{activityRangeEnd}
             </p>
           </div>
 
@@ -2346,7 +2471,7 @@ export default function Home() {
                 value={activityMonthFilter}
                 onChange={(event) => {
                   setActivityMonthFilter(event.target.value);
-                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                  setActivityPage(1);
                 }}
               >
                 <option value="all">전체 월</option>
@@ -2366,7 +2491,7 @@ export default function Home() {
                 value={activitySearch}
                 onChange={(event) => {
                   setActivitySearch(event.target.value);
-                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                  setActivityPage(1);
                 }}
               />
             </label>
@@ -2377,7 +2502,7 @@ export default function Home() {
                 value={activitySortOrder}
                 onChange={(event) => {
                   setActivitySortOrder(event.target.value as ActivitySortOrder);
-                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                  setActivityPage(1);
                 }}
               >
                 {Object.entries(activitySortOrderLabels).map(
@@ -2396,7 +2521,7 @@ export default function Home() {
                 value={activityFilter}
                 onChange={(event) => {
                   setActivityFilter(event.target.value as ActivityFilter);
-                  setVisibleActivityCount(ACTIVITY_PAGE_SIZE);
+                  setActivityPage(1);
                 }}
               >
                 {Object.entries(activityFilterLabels).map(([value, label]) => (
@@ -2453,7 +2578,7 @@ export default function Home() {
                         </span>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                    <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>
@@ -2503,22 +2628,141 @@ export default function Home() {
             })}
           </ul>
         )}
-        {visibleActivities.length < filteredActivities.length ? (
-          <div className="flex justify-center pt-2">
-            <button
-              className="ui-focus-ring min-h-11 rounded-md border border-[var(--brand-strong)] bg-white px-5 py-2 text-sm font-semibold text-[var(--brand-strong)] hover:bg-[var(--surface-muted)]"
-              type="button"
-              onClick={() =>
-                setVisibleActivityCount((count) => count + ACTIVITY_PAGE_SIZE)
-              }
-            >
-              더 불러오기 ({filteredActivities.length - visibleActivities.length}회
-              남음)
-            </button>
-          </div>
-        ) : null}
+        <Pagination
+          currentPage={currentActivityPage}
+          label="전체 활동 기록 페이지"
+          onPageChange={setActivityPage}
+          totalPages={activityTotalPages}
+        />
       </section>
     </main>
+
+    {memberMenuPosition && menuMember ? (
+      <div
+        className="fixed inset-0 z-50"
+        onClick={() => setMemberMenuPosition(null)}
+        role="presentation"
+      >
+        <div
+          aria-label={`${menuMember.nickname} 관리 메뉴`}
+          className="fixed z-[60] grid w-64 max-w-[calc(100vw-1.5rem)] gap-1 rounded-md border border-[var(--border)] bg-white p-2 shadow-xl sm:w-56"
+          onClick={(event) => event.stopPropagation()}
+          role="menu"
+          style={{
+            bottom: memberMenuPosition.bottom,
+            right: memberMenuPosition.right,
+            top: memberMenuPosition.top,
+          }}
+        >
+          <p className="truncate border-b border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+            {menuMember.nickname}
+          </p>
+          <button
+            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+            onClick={() => {
+              setMemberMenuPosition(null);
+              handleEditMember(menuMember);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            수정
+          </button>
+          <button
+            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+            onClick={() => {
+              setMemberMenuPosition(null);
+              handleViewMemberHistory(menuMember.id);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            활동 이력 보기
+          </button>
+          {menuMember.status === "active" ? (
+            <button
+              className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+              onClick={() => handleRequestLeaveMember(menuMember.id)}
+              role="menuitem"
+              type="button"
+            >
+              탈퇴 처리
+            </button>
+          ) : (
+            <button
+              className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+              onClick={() => handleRestoreMember(menuMember.id)}
+              role="menuitem"
+              type="button"
+            >
+              활동중으로 복구
+            </button>
+          )}
+          <button
+            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--danger)] hover:bg-red-50"
+            onClick={() => {
+              setMemberMenuPosition(null);
+              handleDeleteMember(menuMember.id);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    ) : null}
+
+    {leavingMember ? (
+      <div
+        className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4"
+        onClick={() => setLeavingMemberId(null)}
+        role="presentation"
+      >
+        <div
+          aria-labelledby="leave-member-title"
+          aria-modal="true"
+          className="w-full max-w-md rounded-md border border-[var(--border)] bg-white p-5 shadow-xl"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <h2 className="text-lg font-bold text-[var(--text-primary)]" id="leave-member-title">
+            길드원 탈퇴 처리
+          </h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            <strong className="text-[var(--text-primary)]">{leavingMember.nickname}</strong>님의
+            탈퇴일을 확인해주세요. 기존 활동 기록과 길드원 ID는 유지됩니다.
+          </p>
+          <label className="mt-5 block space-y-1 text-sm font-medium text-[var(--text-primary)]">
+            <span>탈퇴일</span>
+            <input
+              className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2"
+              onChange={(event) => setLeaveDate(event.target.value)}
+              required
+              type="date"
+              value={leaveDate}
+            />
+          </label>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              className="ui-focus-ring min-h-11 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--text-secondary)] hover:bg-neutral-50"
+              onClick={() => setLeavingMemberId(null)}
+              type="button"
+            >
+              취소
+            </button>
+            <button
+              className="ui-focus-ring min-h-11 rounded-md bg-[var(--brand-strong)] px-4 text-sm font-semibold text-white hover:brightness-95 disabled:opacity-40"
+              disabled={!leaveDate}
+              onClick={handleConfirmLeaveMember}
+              type="button"
+            >
+              탈퇴 처리 확인
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
 
     {selectedHistoryMember && historyMemberStats ? (
       <div
@@ -2635,7 +2879,7 @@ export default function Home() {
                             </span>
                           ) : null}
                         </div>
-                        <span className="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1 text-xs font-semibold text-white">
+                        <span className="shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
                           참여 {activity.participantIds.length}명
                         </span>
                       </div>

@@ -13,7 +13,7 @@ export async function GET() {
     return Response.json(
       {
         ok: false,
-        error: "월별 아카이브 데이터를 불러오지 못했습니다.",
+        error: "월별 기록 데이터를 불러오지 못했습니다.",
       },
       { status: 500 },
     );

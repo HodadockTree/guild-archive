@@ -55,19 +55,6 @@ function getMostFrequentActivityType(report: MonthlyReport) {
   return summaries[0]?.count ? summaries[0] : null;
 }
 
-function getMostParticipatedActivity<T extends ActivityLog>(activities: T[]) {
-  return [...activities].sort((a, b) => {
-    const participantOrder = b.participantIds.length - a.participantIds.length;
-
-    if (participantOrder !== 0) {
-      return participantOrder;
-    }
-
-    const dateOrder = b.date.localeCompare(a.date);
-    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
-  })[0];
-}
-
 function toActivityDetail(activity: ActivityLog & { participantNames?: string[] }) {
   return {
     id: activity.id,
@@ -289,9 +276,6 @@ export default function ViewerPage() {
   const mostFrequentActivityType = monthlyReport
     ? getMostFrequentActivityType(monthlyReport)
     : null;
-  const mostParticipatedActivity = monthlyReport
-    ? getMostParticipatedActivity(monthlyReport.activities)
-    : null;
   const recentActivities = monthlyReport
     ? [...monthlyReport.activities].sort((a, b) => {
         const dateOrder = b.date.localeCompare(a.date);
@@ -402,7 +386,7 @@ export default function ViewerPage() {
             </dl>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section>
             <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
                 활동 종류별 통계
@@ -444,41 +428,6 @@ export default function ViewerPage() {
                 </dl>
             </div>
 
-            <div className="self-start rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">
-                가장 참여가 많았던 활동
-              </h2>
-              {!mostParticipatedActivity ? (
-                <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
-                  이 달의 활동 기록이 없습니다.
-                </p>
-              ) : (
-                <button
-                  className="ui-focus-ring mt-3 w-full cursor-pointer rounded-md bg-sky-50 px-4 py-4 text-left text-sm transition hover:bg-sky-100/70"
-                  onClick={() => setSelectedActivity(toActivityDetail(mostParticipatedActivity))}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">
-                        {getDisplayDate(mostParticipatedActivity.date)}
-                      </p>
-                      <h3 className="mt-1 text-base font-semibold leading-6 text-slate-900">
-                        {getActivityTitle(mostParticipatedActivity)}
-                      </h3>
-                    </div>
-                    <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                      참여 {mostParticipatedActivity.participantIds.length}명
-                    </span>
-                  </div>
-                  {mostParticipatedActivity.memo?.trim() ? (
-                    <p className="mt-3 line-clamp-4 whitespace-pre-wrap leading-6 text-slate-600">
-                      {mostParticipatedActivity.memo.trim()}
-                    </p>
-                  ) : null}
-                </button>
-              )}
-            </div>
           </section>
 
           {monthlyReport.eventSummaries.length > 0 ? (

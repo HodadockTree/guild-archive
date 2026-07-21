@@ -39,7 +39,7 @@ export default function ArchivePage() {
           !("months" in data) ||
           !Array.isArray(data.months)
         ) {
-          throw new Error("월별 아카이브 데이터를 불러오지 못했습니다.");
+          throw new Error("월별 기록 데이터를 불러오지 못했습니다.");
         }
 
         if (isActive) {
@@ -55,7 +55,7 @@ export default function ArchivePage() {
             message:
               error instanceof Error
                 ? error.message
-                : "월별 아카이브 데이터를 불러오지 못했습니다.",
+                : "월별 기록 데이터를 불러오지 못했습니다.",
           });
         }
       }
@@ -75,15 +75,15 @@ export default function ArchivePage() {
     <main className="app-shell">
       <AppHeader
         currentPath="/archive"
-        description="월별로 모인 활동 기록을 살펴보고, 원하는 달의 리포트로 이동할 수 있습니다."
-        eyebrow="월별 활동 아카이브"
-        title="냥춘 활동 아카이브"
+        description="월별로 쌓인 길드 활동을 살펴보고, 원하는 달의 리포트를 확인할 수 있습니다."
+        eyebrow="월별 활동 기록"
+        title="냥춘 월별 기록"
       />
 
       {archiveState.status === "loading" ? (
         <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
           <h2 className="text-lg font-semibold text-slate-900">
-            아카이브 데이터를 불러오는 중입니다.
+            월별 기록을 불러오는 중입니다.
           </h2>
         </section>
       ) : null}
@@ -91,7 +91,7 @@ export default function ArchivePage() {
       {archiveState.status === "error" ? (
         <section className="rounded-md border border-red-100 bg-red-50 px-5 py-10 text-center">
           <h2 className="text-lg font-semibold text-red-800">
-            아카이브 데이터를 불러오지 못했습니다.
+            월별 기록을 불러오지 못했습니다.
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-red-700">
             {archiveState.message}
@@ -105,7 +105,7 @@ export default function ArchivePage() {
             아직 기록된 활동이 없습니다.
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-            활동 기록이 생기면 월별 아카이브가 표시됩니다.
+            활동 기록이 생기면 월별 기록이 표시됩니다.
           </p>
         </section>
       ) : null}
@@ -117,8 +117,14 @@ export default function ArchivePage() {
               className="ui-focus-ring group block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
               href={`/viewer?month=${summary.month}`}
               key={summary.month}
+              onKeyDown={(event) => {
+                if (event.key === " ") {
+                  event.preventDefault();
+                  event.currentTarget.click();
+                }
+              }}
             >
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="min-w-0 space-y-2">
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">
@@ -150,7 +156,7 @@ export default function ArchivePage() {
                     </dd>
                   </div>
                   <div className="rounded-md bg-sky-50 px-3 py-2">
-                    <dt className="text-xs text-slate-500">참여 인원</dt>
+                    <dt className="text-xs text-slate-500">함께한 길드원</dt>
                     <dd className="font-semibold text-slate-900">
                       {summary.participantMemberCount}명
                     </dd>
@@ -162,9 +168,6 @@ export default function ArchivePage() {
                     </dd>
                   </div>
                 </dl>
-                <span className="text-lg font-bold text-[var(--brand-strong)] transition group-hover:translate-x-1" aria-hidden="true">
-                  →
-                </span>
               </div>
             </Link>
           ))}
