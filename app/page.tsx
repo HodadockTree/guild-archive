@@ -545,7 +545,7 @@ export default function DashboardPage() {
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <CumulativeSummaryCard
-                description={guildAgeDays ? `길드 만든 지 ${guildAgeDays}일째` : undefined}
+                description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
                 label="길드 시작일"
                 value="2026년 1월 22일"
               />

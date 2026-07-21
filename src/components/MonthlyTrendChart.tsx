@@ -146,9 +146,9 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
         <p className="mt-1 text-sm text-slate-500">달력 기준 최근 6개월의 활동과 함께한 길드원을 비교합니다.</p>
       </div>
 
-      <div aria-label="그래프 범례" className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-sky-300" />활동 수</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[var(--brand-strong)]" />함께한 길드원</span>
+      <div aria-label="그래프 범례" className="mt-4 flex flex-wrap gap-5 text-xs text-slate-700">
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-sky-300" />활동 수</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[var(--brand-strong)]" />함께한 길드원</span>
       </div>
 
       {trends.length === 0 ? (
@@ -178,12 +178,12 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
               const hitLeft = Math.max(0, x - monthStep / 2);
               const hitRight = Math.min(chartWidth, x + monthStep / 2);
               const pointDistance = Math.abs(activityY - memberY);
-              const collisionOffset = Math.max(0, 18 - pointDistance) * 0.45;
-              const memberLabelY = Math.max(12, memberY - 10 - collisionOffset);
-              let activityLabelY = Math.min(158, activityY + 17 + collisionOffset);
+              const collisionOffset = Math.max(0, 24 - pointDistance) * 0.55;
+              const memberLabelY = Math.max(12, memberY - 12 - collisionOffset);
+              let activityLabelY = Math.min(158, activityY + 19 + collisionOffset);
 
-              if (Math.abs(activityLabelY - memberLabelY) < 16) {
-                activityLabelY = Math.min(158, memberLabelY + 18);
+              if (Math.abs(activityLabelY - memberLabelY) < 22) {
+                activityLabelY = Math.min(158, memberLabelY + 24);
               }
 
               return (
@@ -197,10 +197,10 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
                   <rect className="fill-transparent stroke-transparent transition group-hover:fill-sky-50/60 group-focus:fill-sky-50/60 group-focus:stroke-sky-300" height="178" rx="8" width={hitRight - hitLeft} x={hitLeft} y="4" />
                   <circle className="fill-white stroke-sky-300 transition group-hover:stroke-sky-500 group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
                   <circle className="fill-white stroke-[var(--brand-strong)] transition group-hover:stroke-sky-600 group-focus:stroke-sky-600" cx={x} cy={memberY} r="5" strokeWidth="3" />
-                  <text className="fill-slate-600 stroke-white stroke-[3px] text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={activityLabelY}>
+                  <text className="fill-slate-600 stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={activityLabelY}>
                     {trend.activityCount}회
                   </text>
-                  <text className="fill-slate-600 stroke-white stroke-[3px] text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={memberLabelY}>
+                  <text className="fill-slate-600 stroke-white stroke-2 text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={memberLabelY}>
                     {trend.participantMemberCount}명
                   </text>
                   <text className="fill-slate-500 text-[11px] font-medium transition group-hover:fill-sky-700 group-focus:fill-sky-700 sm:text-xs" textAnchor="middle" x={x} y="181">
