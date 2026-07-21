@@ -566,7 +566,7 @@ export default function DashboardPage() {
             <RecentMonthlyTrendChart trends={dashboard.monthlyTrends} />
 
             <section className="flex min-w-0 flex-col rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 lg:h-full">
-              <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
+              <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 요약</h2>
               <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-4">
                 <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
                   <dt className="text-xs font-medium text-slate-600">비공정</dt>
@@ -580,7 +580,7 @@ export default function DashboardPage() {
                   <div className="min-w-0">
                     <dt className="text-xs font-medium text-slate-600">총 참여 횟수</dt>
                     <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                      활동별 참여 인원을 합산한 값
+                      한 사람이 여러 활동에 참여하면 참여한 횟수만큼 포함돼요.
                     </p>
                   </div>
                   <dd className="shrink-0 self-center font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
