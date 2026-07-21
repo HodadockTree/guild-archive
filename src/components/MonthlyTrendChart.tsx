@@ -140,10 +140,10 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
       {trends.length === 0 || maxValue === 0 ? (
         <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">최근 활동 기록이 아직 없습니다.</p>
       ) : (
-        <div className="mt-5 overflow-x-auto pb-1">
-          <div className="flex h-52 min-w-[18rem] items-end gap-4 border-b border-sky-100 pb-3 sm:gap-8">
+        <div className="mt-4 overflow-x-auto pb-1">
+          <div className="mx-auto flex h-52 w-fit min-w-max items-end gap-10 border-b border-sky-100 px-1 pb-3 sm:gap-12">
             {trends.map((trend) => (
-              <div className="flex min-w-20 flex-1 flex-col items-center gap-2" key={trend.month}>
+              <div className="flex w-20 shrink-0 flex-col items-center gap-2 sm:w-24" key={trend.month}>
                 <div className="flex h-32 w-full items-end justify-center gap-2" aria-label={`${formatMonth(trend.month)} 활동 ${trend.activityCount}회, 함께한 길드원 ${trend.participantMemberCount}명`} role="img">
                   <span className="flex h-full w-8 flex-col justify-end gap-1 text-center text-[11px] font-semibold text-slate-600 sm:w-10">
                     <span>{trend.activityCount}회</span>

@@ -505,36 +505,40 @@ export default function DashboardPage() {
             </dl>
           </section>
 
-          <RecentMonthlyTrendChart trends={dashboard.monthlyTrends.slice(-3)} />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)] lg:items-stretch">
+            <RecentMonthlyTrendChart trends={dashboard.monthlyTrends.slice(-3)} />
 
-          <Link
-            className="ui-focus-ring group block rounded-md border border-sky-100 bg-white px-5 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-sky-50/40"
-            href={`/viewer?month=${currentMonth}`}
-          >
-            <h2 className="text-base font-semibold text-slate-900">이번 달 활동 구성</h2>
-            <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.5fr]">
-              <div className="rounded-md bg-sky-50 px-3 py-2">
-                <dt className="text-xs text-slate-500">비공정</dt>
-                <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
-              </div>
-              <div className="rounded-md bg-sky-50 px-3 py-2">
-                <dt className="text-xs text-slate-500">점령전</dt>
-                <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
-              </div>
-              <div className="rounded-md bg-sky-50 px-3 py-2">
-                <dt className="text-xs text-slate-500">총 참여 횟수</dt>
-                <dd className="font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
-              </div>
-              <div className="min-w-0 rounded-md bg-sky-50 px-3 py-2">
-                <dt className="text-xs text-slate-500">최다 참여 활동</dt>
-                <dd className="truncate font-bold text-slate-900">
-                  {currentMonthMostParticipated
-                    ? `${currentMonthMostParticipated.title} · ${currentMonthMostParticipated.participantCount}명`
-                    : "기록 없음"}
-                </dd>
-              </div>
-            </dl>
-          </Link>
+            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+              <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
+              <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="rounded-md bg-sky-50 px-3 py-2">
+                  <dt className="text-xs text-slate-500">비공정</dt>
+                  <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
+                </div>
+                <div className="rounded-md bg-sky-50 px-3 py-2">
+                  <dt className="text-xs text-slate-500">점령전</dt>
+                  <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
+                </div>
+                <div className="col-span-2 rounded-md bg-sky-50 px-3 py-2 sm:col-span-1">
+                  <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                  <dd className="font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+                </div>
+                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3 sm:col-span-3">
+                  <dt className="text-xs text-slate-500">최다 참여 활동</dt>
+                  <dd className="mt-1 flex min-w-0 items-start justify-between gap-3">
+                    <span className="min-w-0 break-words font-bold leading-5 text-slate-900">
+                      {currentMonthMostParticipated?.title ?? "기록 없음"}
+                    </span>
+                    {currentMonthMostParticipated ? (
+                      <span className="shrink-0 text-sm font-semibold text-[var(--brand-strong)]">
+                        {currentMonthMostParticipated.participantCount}명
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          </div>
 
           <section className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

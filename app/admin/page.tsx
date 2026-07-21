@@ -1573,11 +1573,6 @@ export default function Home() {
                       <span className="block truncate font-medium text-neutral-900">
                         {activity.displayDate} {activity.label}
                       </span>
-                      {activity.isMostParticipated ? (
-                        <span className="mt-1 inline-flex rounded-sm bg-white px-1.5 py-0.5 text-[11px] font-medium text-neutral-700">
-                          최다 참여
-                        </span>
-                      ) : null}
                     </span>
                     <span className="shrink-0 rounded-sm border border-sky-100 bg-sky-50 px-2 py-0.5 text-xs font-medium text-slate-700">
                       참여 {activity.participantCount}명
