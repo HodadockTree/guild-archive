@@ -6,7 +6,10 @@ import {
   conquestTypes,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
-import type { MonthlyReport } from "@/src/lib/monthlyReport";
+import {
+  getMostParticipatedActivity,
+  type MonthlyReport,
+} from "@/src/lib/monthlyReport";
 import {
   ActivityDetailModal,
   type ActivityDetail,
@@ -43,16 +46,6 @@ function getDisplayDate(date: string) {
 
 function getActivityTitle(activity: ActivityLog) {
   return activity.title?.trim() || getMonthlyActivityLabel(activity);
-}
-
-function getMostFrequentActivityType(report: MonthlyReport) {
-  const summaries = [
-    { label: "비공정", count: report.airshipCount },
-    { label: "점령전", count: report.siegeCount },
-    { label: "이벤트", count: report.otherCount },
-  ].sort((a, b) => b.count - a.count);
-
-  return summaries[0]?.count ? summaries[0] : null;
 }
 
 function toActivityDetail(activity: ActivityLog & { participantNames?: string[] }) {
@@ -273,8 +266,8 @@ export default function ViewerPage() {
     reportState.status === "success" ? reportState.report : null;
   const hasReportData =
     reportState.status === "success" ? reportState.hasData : false;
-  const mostFrequentActivityType = monthlyReport
-    ? getMostFrequentActivityType(monthlyReport)
+  const mostParticipatedActivity = monthlyReport
+    ? getMostParticipatedActivity(monthlyReport.activities)
     : null;
   const recentActivities = monthlyReport
     ? [...monthlyReport.activities].sort((a, b) => {
@@ -292,8 +285,28 @@ export default function ViewerPage() {
     .map((label) => ({ label, count: conquestCounts.get(label) ?? 0 }))
     .filter((summary) => summary.count > 0)
     .sort((first, second) => second.count - first.count);
-  const hasUnrecordedConquestTypes =
-    recordedConquestSummaries.length < conquestTypes.length;
+  const averageParticipation = monthlyReport?.totalActivities
+    ? monthlyReport.totalParticipationCount / monthlyReport.totalActivities
+    : 0;
+  const activeMemberParticipationRate = monthlyReport?.activeMemberCount
+    ? Math.round(
+        (monthlyReport.activeParticipantMemberCount /
+          monthlyReport.activeMemberCount) *
+          100,
+      )
+    : 0;
+  const activityComposition = monthlyReport
+    ? [
+        { label: "비공정", count: monthlyReport.airshipCount },
+        { label: "점령전", count: monthlyReport.siegeCount },
+        { label: "이벤트", count: monthlyReport.otherCount },
+      ].map((item) => ({
+        ...item,
+        percentage: monthlyReport.totalActivities
+          ? Math.round((item.count / monthlyReport.totalActivities) * 100)
+          : 0,
+      }))
+    : [];
 
   return (
     <main className="app-shell">
@@ -368,48 +381,93 @@ export default function ViewerPage() {
             </div>
 
             <dl className="grid gap-3 sm:grid-cols-3">
-              {[
-                ["이번 달 활동", `${monthlyReport.totalActivities}회`],
-                ["함께한 길드원", `${monthlyReport.participantMemberCount}명`],
-                [
-                  "가장 많이 진행한 활동",
-                  mostFrequentActivityType
-                    ? `${mostFrequentActivityType.label} ${mostFrequentActivityType.count}회`
-                    : "없음",
-                ],
-              ].map(([label, value]) => (
-                <div className="rounded-md bg-sky-50 px-4 py-4" key={label}>
-                  <dt className="text-xs font-medium text-slate-500">{label}</dt>
-                  <dd className="text-2xl font-bold text-slate-900">{value}</dd>
-                </div>
-              ))}
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">이번 달 활동</dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {monthlyReport.totalActivities}회
+                </dd>
+              </div>
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">함께한 길드원</dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {monthlyReport.participantMemberCount}명
+                </dd>
+              </div>
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">최다 참여 활동</dt>
+                <dd className="mt-1 min-w-0 text-slate-900">
+                  {mostParticipatedActivity ? (
+                    <>
+                      <span className="block line-clamp-2 text-base font-bold leading-6">
+                        {getActivityTitle(mostParticipatedActivity)}
+                      </span>
+                      <span className="block text-sm font-semibold text-[var(--brand-strong)]">
+                        {mostParticipatedActivity.participantIds.length}명
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-2xl font-bold">없음</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <h2 className="text-lg font-semibold text-slate-900">이번 달 참여 분석</h2>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm text-slate-500">총 참여 횟수</dt>
+                <dd className="mt-1 text-xl font-bold text-slate-900">
+                  {monthlyReport.totalParticipationCount}회
+                </dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm text-slate-500">활동당 평균 참여</dt>
+                <dd className="mt-1 text-xl font-bold text-slate-900">
+                  {averageParticipation.toFixed(1)}명
+                </dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-sm text-slate-500">현재 길드원 참여율</dt>
+                <dd className="mt-1 text-xl font-bold text-slate-900">
+                  {activeMemberParticipationRate}%
+                </dd>
+                <p className="mt-1 text-xs text-slate-500">
+                  {monthlyReport.activeParticipantMemberCount}명 / 현재 {monthlyReport.activeMemberCount}명
+                </p>
+              </div>
             </dl>
           </section>
 
           <section>
             <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">
-                활동 종류별 통계
+                활동 구성
               </h2>
-              <dl className="mt-3 divide-y divide-[var(--border)] rounded-md bg-[var(--surface-muted)] px-4 text-sm">
-                {[
-                  ["비공정", monthlyReport.airshipCount],
-                  ["점령전", monthlyReport.siegeCount],
-                  ["이벤트", monthlyReport.otherCount],
-                ]
-                  .sort((first, second) => Number(second[1]) - Number(first[1]))
-                  .map(([label, count]) => (
-                    <div className={`flex items-center justify-between py-2.5 ${count === 0 ? "text-slate-400" : "text-slate-900"}`} key={label}>
+              <dl className="mt-4 space-y-3">
+                {activityComposition.map(({ label, count, percentage }) => (
+                  <div className={count === 0 ? "text-slate-400" : "text-slate-900"} key={label}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
                       <dt>{label}</dt>
-                      <dd className={count === 0 ? "font-medium" : "font-bold"}>{count}회</dd>
+                      <dd className={count === 0 ? "font-medium" : "font-bold"}>
+                        {count}회 · {percentage}%
+                      </dd>
                     </div>
-                  ))}
+                    {count > 0 ? (
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sky-50" aria-hidden="true">
+                        <div className="h-full rounded-full bg-[var(--brand-strong)]" style={{ width: `${percentage}%` }} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
               </dl>
 
               <h3 className="mt-5 text-sm font-semibold text-slate-900">
-                점령전 세부 카테고리
+                점령전
               </h3>
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
+              {recordedConquestSummaries.length > 0 ? (
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
                   {recordedConquestSummaries.map(({ label, count }) => (
                     <div
                       className="rounded-md bg-[var(--surface-muted)] px-3 py-2.5 text-slate-900"
@@ -419,13 +477,12 @@ export default function ViewerPage() {
                       <dd className="font-semibold">{count}회</dd>
                     </div>
                   ))}
-                  {hasUnrecordedConquestTypes ? (
-                    <div className="rounded-md bg-slate-50 px-3 py-2.5 text-slate-400">
-                      <dt>그 외 카테고리</dt>
-                      <dd className="font-semibold">0회</dd>
-                    </div>
-                  ) : null}
                 </dl>
+              ) : (
+                <p className="mt-3 rounded-md bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                  이번 달 기록 없음
+                </p>
+              )}
             </div>
 
           </section>

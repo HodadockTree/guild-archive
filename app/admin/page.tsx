@@ -547,6 +547,10 @@ export default function Home() {
     ? availableReportMonths
     : [reportMonth, ...availableReportMonths].filter(Boolean);
   const monthlyReport = getMonthlyReport(activities, members, reportMonth);
+  const airshipDetailSummaries = [
+    { label: "오션헤븐", count: monthlyReport.oceanAirshipCount },
+    { label: "아우로라", count: monthlyReport.auroraAirshipCount },
+  ].filter((summary) => summary.count > 0);
   const sortedActivities = [...activities].sort((a, b) => {
     const dateOrder =
       activitySortOrder === "latest"
@@ -568,13 +572,19 @@ export default function Home() {
           (activity) => getVisibleActivityType(activity.type) === activityFilter,
         );
   const activitySearchKeyword = activitySearch.trim().toLocaleLowerCase("ko");
+  const shortDateSearchMatch = /^(\d{2})\/(\d{2})$/.exec(
+    activitySearchKeyword,
+  );
+  const activityDateSearchKeyword = shortDateSearchMatch
+    ? `-${shortDateSearchMatch[1]}-${shortDateSearchMatch[2]}`
+    : activitySearchKeyword;
   const filteredActivities = typeFilteredActivities.filter((activity) => {
     const matchesMonth =
       activityMonthFilter === "all" ||
       activity.date.startsWith(activityMonthFilter);
     const matchesSearch =
       !activitySearchKeyword ||
-      activity.date.includes(activitySearchKeyword) ||
+      activity.date.includes(activityDateSearchKeyword) ||
       (activity.title ?? "")
         .toLocaleLowerCase("ko")
         .includes(activitySearchKeyword);
@@ -1397,43 +1407,36 @@ export default function Home() {
           </dl>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="rounded-md border border-neutral-200 p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">
-              세부 기록
-            </h3>
-            <p className="mt-3 text-xs font-medium text-neutral-500">
-              비공정
-            </p>
-            <dl className="mt-2 grid grid-cols-2 gap-2 text-center text-sm">
-              <div className="rounded-md bg-neutral-100 px-3 py-2.5">
-                <dt className="text-neutral-500">오션헤븐</dt>
-                <dd className="font-semibold text-neutral-950">
-                  {monthlyReport.oceanAirshipCount}회
-                </dd>
-              </div>
-              <div className="rounded-md bg-neutral-100 px-3 py-2.5">
-                <dt className="text-neutral-500">아우로라</dt>
-                <dd className="font-semibold text-neutral-950">
-                  {monthlyReport.auroraAirshipCount}회
-                </dd>
-              </div>
-            </dl>
+        <div className="grid items-stretch gap-3 lg:grid-cols-2">
+          <div className="flex h-full flex-col rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">비공정</h3>
+            {airshipDetailSummaries.length === 0 ? (
+              <p className="mt-3 rounded-md bg-neutral-50 px-3 py-4 text-center text-sm text-neutral-500">
+                이번 달 기록 없음
+              </p>
+            ) : (
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm">
+                {airshipDetailSummaries.map((summary) => (
+                  <div className="flex min-h-16 flex-col justify-center rounded-md bg-neutral-100 px-3 py-2.5" key={summary.label}>
+                    <dt className="text-neutral-500">{summary.label}</dt>
+                    <dd className="font-semibold text-neutral-950">{summary.count}회</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
 
-          <div className="rounded-md border border-neutral-200 p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">
-              점령전 세부 카테고리
-            </h3>
+          <div className="flex h-full flex-col rounded-md border border-neutral-200 p-4">
+            <h3 className="text-sm font-semibold text-neutral-900">점령전</h3>
             {monthlyReport.conquestSummaries.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-neutral-300 px-3 py-5 text-center text-sm text-neutral-500">
-                기록된 점령전 세부 카테고리가 없습니다.
+              <p className="mt-3 rounded-md bg-neutral-50 px-3 py-4 text-center text-sm text-neutral-500">
+                이번 달 기록 없음
               </p>
             ) : (
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
                 {monthlyReport.conquestSummaries.map((summary) => (
                   <div
-                    className="rounded-md bg-neutral-100 px-3 py-2.5"
+                    className="flex min-h-16 flex-col justify-center rounded-md bg-neutral-100 px-3 py-2.5"
                     key={summary.label}
                   >
                     <dt className="text-neutral-500">{summary.label}</dt>
@@ -1457,7 +1460,7 @@ export default function Home() {
                 이 달의 참여 기록이 없습니다.
               </p>
             ) : (
-              <ol className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              <ol className="mt-3 grid gap-2 md:grid-flow-col md:grid-cols-2 md:grid-rows-6 lg:grid-cols-3 lg:grid-rows-4">
                 {monthlyReport.topParticipants.map((participant, index) => (
                   <li
                     className="flex items-center justify-between gap-3 rounded-md bg-neutral-100 px-3 py-2 text-sm"
@@ -2463,9 +2466,9 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>월 필터</span>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[10rem_minmax(16rem,1fr)_9rem_10rem_auto] lg:items-end">
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              <span className="h-5">월 선택</span>
               <select
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
                 value={activityMonthFilter}
@@ -2482,12 +2485,12 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>제목 또는 날짜 검색</span>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              <span className="h-5">제목·날짜 검색</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
                 type="search"
-                placeholder="제목, YYYY-MM-DD"
+                placeholder="제목, YYYY-MM-DD, MM/DD"
                 value={activitySearch}
                 onChange={(event) => {
                   setActivitySearch(event.target.value);
@@ -2495,10 +2498,10 @@ export default function Home() {
                 }}
               />
             </label>
-            <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>정렬</span>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              <span className="h-5">정렬</span>
               <select
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-36"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
                 value={activitySortOrder}
                 onChange={(event) => {
                   setActivitySortOrder(event.target.value as ActivitySortOrder);
@@ -2514,10 +2517,10 @@ export default function Home() {
                 )}
               </select>
             </label>
-            <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>활동 종류 필터</span>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+              <span className="h-5">활동 종류</span>
               <select
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 sm:w-40"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
                 value={activityFilter}
                 onChange={(event) => {
                   setActivityFilter(event.target.value as ActivityFilter);
@@ -2531,6 +2534,19 @@ export default function Home() {
                 ))}
               </select>
             </label>
+            <button
+              className="ui-focus-ring min-h-11 rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] md:col-span-2 lg:col-span-1"
+              onClick={() => {
+                setActivityMonthFilter("all");
+                setActivitySearch("");
+                setActivitySortOrder("latest");
+                setActivityFilter("all");
+                setActivityPage(1);
+              }}
+              type="button"
+            >
+              필터 초기화
+            </button>
           </div>
         </div>
 

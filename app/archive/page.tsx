@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { MonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
   representativeEventTitle: string | null;
@@ -70,6 +71,9 @@ export default function ArchivePage() {
 
   const monthlySummaries =
     archiveState.status === "success" ? archiveState.months : [];
+  const monthlyTrends = [...monthlySummaries].sort((a, b) =>
+    a.month.localeCompare(b.month),
+  );
 
   return (
     <main className="app-shell">
@@ -99,6 +103,29 @@ export default function ArchivePage() {
         </section>
       ) : null}
 
+      {archiveState.status === "success" ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <MonthlyTrendChart
+            description="월별로 기록된 길드 활동 수를 보여줍니다. 막대를 선택하면 해당 월 리포트로 이동합니다."
+            emptyMessage="그래프로 표시할 활동 기록이 아직 없습니다."
+            linkToReports
+            title="월별 활동 수"
+            trends={monthlyTrends}
+            unit="회"
+            valueKey="activityCount"
+          />
+          <MonthlyTrendChart
+            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다."
+            emptyMessage="그래프로 표시할 참여 기록이 아직 없습니다."
+            linkToReports
+            title="월별 함께한 길드원"
+            trends={monthlyTrends}
+            unit="명"
+            valueKey="participantMemberCount"
+          />
+        </section>
+      ) : null}
+
       {archiveState.status === "success" && monthlySummaries.length === 0 ? (
         <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -125,15 +152,12 @@ export default function ArchivePage() {
               }}
             >
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0 space-y-2">
-                  <div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-bold text-slate-900">
                       {getMonthDisplayLabel(summary.month)}
                     </h2>
-                  </div>
-
-                  {summary.representativeEvents.length > 0 ? (
-                    <div>
+                    {summary.representativeEvents.length > 0 ? (
                       <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
                         {summary.representativeEvents.map((event) => (
                           <li
@@ -144,8 +168,8 @@ export default function ArchivePage() {
                           </li>
                         ))}
                       </ul>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
 
                 <dl className="grid grid-cols-3 gap-2 text-sm sm:w-[25rem]">

@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import type {
   DashboardActivitySummary,
   DashboardMemberSummary,
-  DashboardMonthlyTrend,
   DashboardStats,
 } from "@/src/lib/dashboardStats";
 import {
@@ -35,11 +34,6 @@ type SummaryModalKey =
 
 function getMonthLabel(month: string) {
   return formatMonth(month);
-}
-
-function getShortMonthLabel(month: string) {
-  const [, monthNumber] = month.split("-");
-  return monthNumber ? `${Number(monthNumber)}월` : month;
 }
 
 function getDisplayDate(date: string) {
@@ -296,72 +290,6 @@ function CumulativeSummaryCard({
   );
 }
 
-function TrendChart({
-  title,
-  description,
-  emptyMessage,
-  trends,
-  valueKey,
-  unit,
-}: {
-  title: string;
-  description: string;
-  emptyMessage: string;
-  trends: DashboardMonthlyTrend[];
-  valueKey: "activityCount" | "participantMemberCount";
-  unit: string;
-}) {
-  const maxValue = Math.max(...trends.map((trend) => trend[valueKey]), 0);
-
-  return (
-    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-      </div>
-
-      {trends.length < 2 || maxValue === 0 ? (
-        <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="mt-6 flex h-64 items-end gap-3 border-b border-sky-100 pb-3">
-          {trends.map((trend) => {
-            const value = trend[valueKey];
-            const height = Math.max(8, Math.round((value / maxValue) * 100));
-
-            return (
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={trend.month}>
-                <span
-                  className={`text-xs font-semibold ${
-                    value === maxValue ? "text-slate-700" : "text-slate-500"
-                  }`}
-                >
-                  {value}
-                  {unit}
-                </span>
-                <div className="flex h-44 w-full items-end rounded-sm bg-sky-50">
-                  <div
-                    className={`w-full rounded-sm ${
-                      value === maxValue ? "bg-slate-500" : "bg-sky-200"
-                    }`}
-                    style={{ height: `${height}%` }}
-                    aria-label={`${getMonthLabel(trend.month)} ${value}${unit}`}
-                    title={`${getMonthLabel(trend.month)} ${value}${unit}`}
-                  />
-                </div>
-                <span className="w-full truncate text-center text-xs text-slate-500">
-                  {getShortMonthLabel(trend.month)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function ActivityCard({
   activity,
   onSelect,
@@ -485,7 +413,7 @@ export default function DashboardPage() {
     <main className="app-shell">
       <AppHeader
         currentPath="/"
-        description="지금의 길드 현황과 지금까지 쌓인 기록을 한눈에 살펴보세요."
+        description="길드의 현재 현황과 쌓여온 활동 기록을 한눈에 살펴보세요."
         eyebrow="냥춘 길드 활동 아카이브"
         title="길드 현황 대시보드"
       />
@@ -537,7 +465,7 @@ export default function DashboardPage() {
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                지금까지의 냥춘 기록
+                냥춘 누적 기록
               </h2>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -553,25 +481,6 @@ export default function DashboardPage() {
                 value={`${dashboard.totalMemberCount}명`}
               />
             </dl>
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-2">
-            <TrendChart
-              title="월별 활동 기록"
-              description="월별로 기록된 길드 활동 수를 보여줍니다."
-              emptyMessage="그래프로 표시할 활동 데이터가 아직 부족합니다."
-              trends={dashboard.monthlyTrends}
-              valueKey="activityCount"
-              unit="건"
-            />
-            <TrendChart
-              title="월별 참여 흐름"
-              description="월별로 함께한 길드원 수를 보여줍니다."
-              emptyMessage="그래프로 표시할 참여 데이터가 아직 부족합니다."
-              trends={dashboard.monthlyTrends}
-              valueKey="participantMemberCount"
-              unit="명"
-            />
           </section>
 
           <section className="space-y-4">

@@ -52,6 +52,8 @@ export type MonthlyReport = {
   auroraAirshipCount: number;
   totalParticipationCount: number;
   participantMemberCount: number;
+  activeMemberCount: number;
+  activeParticipantMemberCount: number;
   participationCountsByMemberId: Record<string, number>;
   topParticipantLimit: number;
   topParticipants: MonthlyTopParticipant[];
@@ -62,6 +64,21 @@ export type MonthlyReport = {
 
 function getMonthKey(date: string) {
   return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : "";
+}
+
+export function getMostParticipatedActivity<T extends ActivityLog>(
+  activities: T[],
+) {
+  return [...activities].sort((a, b) => {
+    const participantOrder = b.participantIds.length - a.participantIds.length;
+
+    if (participantOrder !== 0) {
+      return participantOrder;
+    }
+
+    const dateOrder = b.date.localeCompare(a.date);
+    return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
+  })[0] ?? null;
 }
 
 function getDisplayDate(date: string) {
@@ -113,6 +130,9 @@ export function getMonthlyReport(
     conquestTypes.map((conquestType) => [conquestType, 0]),
   ) as Record<(typeof conquestTypes)[number], number>;
   const participantMemberIds = new Set<string>();
+  const activeMemberIds = new Set(
+    members.filter((member) => member.status === "active").map((member) => member.id),
+  );
 
   const report = monthlyActivities.reduce(
     (summary, activity) => {
@@ -164,7 +184,7 @@ export function getMonthlyReport(
   const topParticipantLimit = Math.min(
     monthlyActivities.length,
     participantMemberIds.size,
-    15,
+    12,
   );
   const maxActivityParticipantCount = monthlyActivities.reduce(
     (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
@@ -211,6 +231,10 @@ export function getMonthlyReport(
     activities: activityDetails,
     ...report,
     participantMemberCount: participantMemberIds.size,
+    activeMemberCount: activeMemberIds.size,
+    activeParticipantMemberCount: Array.from(participantMemberIds).filter(
+      (memberId) => activeMemberIds.has(memberId),
+    ).length,
     participationCountsByMemberId,
     topParticipantLimit,
     topParticipants,
