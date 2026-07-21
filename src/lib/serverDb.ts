@@ -1,7 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
 import type { ActivityLog, GuildArchiveBackup, GuildMember } from "@/src/types";
-import { getMonthlyArchiveSummaries } from "@/src/lib/monthlyArchive";
+import {
+  getMonthlyArchiveParticipants,
+  getMonthlyArchiveSummaries,
+} from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
 
 const D1_BINDING_MISSING_ERROR_MESSAGE =
@@ -283,10 +286,18 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
 }
 
 export async function getServerArchiveMonths() {
-  const activities = await getServerActivities();
+  const [activities, members] = await Promise.all([
+    getServerActivities(),
+    getServerMembers(),
+  ]);
 
   return getMonthlyArchiveSummaries(activities).map((summary) => ({
     ...summary,
+    participantMembers: getMonthlyArchiveParticipants(
+      activities,
+      members,
+      summary.month,
+    ),
     representativeEventTitle: summary.representativeEvents[0]?.title ?? null,
   }));
 }

@@ -1,4 +1,4 @@
-import type { ActivityLog } from "@/src/types";
+import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType } from "@/src/lib/activityStats";
 
 export type MonthlyArchiveEventSummary = {
@@ -14,7 +14,42 @@ export type MonthlyArchiveSummary = {
   participantMemberCount: number;
   totalParticipationCount: number;
   representativeEvents: MonthlyArchiveEventSummary[];
+  participantMembers?: MonthlyArchiveParticipant[];
 };
+
+export type MonthlyArchiveParticipant = {
+  id: string;
+  nickname: string;
+  participationCount: number;
+  status: GuildMember["status"];
+};
+
+export function getMonthlyArchiveParticipants(
+  activities: ActivityLog[],
+  members: GuildMember[],
+  month: string,
+): MonthlyArchiveParticipant[] {
+  const counts = new Map<string, number>();
+  const membersById = new Map(members.map((member) => [member.id, member]));
+
+  activities
+    .filter((activity) => getMonthKey(activity.date) === month)
+    .forEach((activity) => {
+      new Set(activity.participantIds).forEach((memberId) => {
+        counts.set(memberId, (counts.get(memberId) ?? 0) + 1);
+      });
+    });
+
+  return Array.from(counts, ([id, participationCount]) => ({
+    id,
+    nickname: membersById.get(id)?.nickname ?? `알 수 없는 길드원 ${id.slice(0, 6)}`,
+    participationCount,
+    status: membersById.get(id)?.status ?? "left",
+  })).sort((a, b) => {
+    const countOrder = b.participationCount - a.participationCount;
+    return countOrder || a.nickname.localeCompare(b.nickname, "ko");
+  });
+}
 
 function getMonthKey(date: string) {
   return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : "";

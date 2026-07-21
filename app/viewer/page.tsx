@@ -288,10 +288,11 @@ export default function ViewerPage() {
   const averageParticipation = monthlyReport?.totalActivities
     ? monthlyReport.totalParticipationCount / monthlyReport.totalActivities
     : 0;
-  const activeMemberParticipationRate = monthlyReport?.activeMemberCount
+  const averageParticipationLabel = Number(averageParticipation.toFixed(1)).toString();
+  const memberParticipationRate = monthlyReport?.monthMemberCount
     ? Math.round(
-        (monthlyReport.activeParticipantMemberCount /
-          monthlyReport.activeMemberCount) *
+        (monthlyReport.monthParticipantMemberCount /
+          monthlyReport.monthMemberCount) *
           100,
       )
     : 0;
@@ -425,16 +426,19 @@ export default function ViewerPage() {
               <div className="rounded-md bg-sky-50 px-4 py-4">
                 <dt className="text-sm text-slate-500">활동당 평균 참여</dt>
                 <dd className="mt-1 text-xl font-bold text-slate-900">
-                  {averageParticipation.toFixed(1)}명
+                  {averageParticipationLabel}명
                 </dd>
               </div>
               <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm text-slate-500">현재 길드원 참여율</dt>
+                <dt className="text-sm text-slate-500">길드원 참여율</dt>
                 <dd className="mt-1 text-xl font-bold text-slate-900">
-                  {activeMemberParticipationRate}%
+                  {memberParticipationRate}%
                 </dd>
                 <p className="mt-1 text-xs text-slate-500">
-                  {monthlyReport.activeParticipantMemberCount}명 / 현재 {monthlyReport.activeMemberCount}명
+                  {monthlyReport.monthParticipantMemberCount}명 / {monthlyReport.monthMemberCount}명
+                  <span className="mt-0.5 block">
+                    해당 월에 소속되어 있던 길드원을 기준으로 계산
+                  </span>
                 </p>
               </div>
             </dl>

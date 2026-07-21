@@ -12,6 +12,7 @@ export type DashboardActivitySummary = {
   id: string;
   date: string;
   label: string;
+  statsType: "airship" | "siege" | "other";
   participantIds: string[];
   title: string;
   participantCount: number;
@@ -78,6 +79,7 @@ function toActivitySummary(
     id: activity.id,
     date: activity.date,
     label: getMonthlyActivityLabel(activity),
+    statsType: getActivityStatsType(activity.type),
     title: getActivityTitle(activity),
     participantIds: activity.participantIds,
     participantCount: activity.participantIds.length,

@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { MonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
+import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
   representativeEventTitle: string | null;
@@ -17,9 +18,11 @@ type ArchiveState =
   | { status: "success"; months: ServerMonthlyArchiveSummary[] };
 
 export default function ArchivePage() {
+  const router = useRouter();
   const [archiveState, setArchiveState] = useState<ArchiveState>({
     status: "loading",
   });
+  const [participantMonth, setParticipantMonth] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -73,6 +76,9 @@ export default function ArchivePage() {
     archiveState.status === "success" ? archiveState.months : [];
   const monthlyTrends = [...monthlySummaries].sort((a, b) =>
     a.month.localeCompare(b.month),
+  );
+  const selectedParticipantMonth = monthlySummaries.find(
+    (summary) => summary.month === participantMonth,
   );
 
   return (
@@ -140,16 +146,19 @@ export default function ArchivePage() {
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
         <section className="grid gap-3">
           {monthlySummaries.map((summary) => (
-            <Link
+            <article
+              aria-label={`${getMonthDisplayLabel(summary.month)} 리포트 보기`}
               className="ui-focus-ring group block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
-              href={`/viewer?month=${summary.month}`}
               key={summary.month}
+              onClick={() => router.push(`/viewer?month=${summary.month}`)}
               onKeyDown={(event) => {
-                if (event.key === " ") {
+                if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  event.currentTarget.click();
+                  router.push(`/viewer?month=${summary.month}`);
                 }
               }}
+              role="link"
+              tabIndex={0}
             >
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="min-w-0">
@@ -179,12 +188,21 @@ export default function ArchivePage() {
                       {summary.activityCount}회
                     </dd>
                   </div>
-                  <div className="rounded-md bg-sky-50 px-3 py-2">
+                  <button
+                    aria-label={`${getMonthDisplayLabel(summary.month)} 함께한 길드원 ${summary.participantMemberCount}명 보기`}
+                    className="ui-focus-ring rounded-md bg-sky-50 px-3 py-2 text-left transition hover:bg-sky-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setParticipantMonth(summary.month);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
                     <dt className="text-xs text-slate-500">함께한 길드원</dt>
                     <dd className="font-semibold text-slate-900">
                       {summary.participantMemberCount}명
                     </dd>
-                  </div>
+                  </button>
                   <div className="rounded-md bg-sky-50 px-3 py-2">
                     <dt className="text-xs text-slate-500">총 참여 횟수</dt>
                     <dd className="font-semibold text-slate-900">
@@ -193,9 +211,29 @@ export default function ArchivePage() {
                   </div>
                 </dl>
               </div>
-            </Link>
+            </article>
           ))}
         </section>
+      ) : null}
+
+      {selectedParticipantMonth ? (
+        <DashboardSummaryModal
+          onClose={() => setParticipantMonth(null)}
+          title={`${getMonthDisplayLabel(selectedParticipantMonth.month)} 함께한 길드원 ${selectedParticipantMonth.participantMemberCount}명`}
+        >
+          <ul className="divide-y divide-sky-100">
+            {(selectedParticipantMonth.participantMembers ?? []).map((member) => (
+              <li className="flex items-center justify-between gap-4 py-3" key={member.id}>
+                <span className="min-w-0 truncate font-semibold text-slate-900">
+                  {member.nickname}
+                </span>
+                <span className="shrink-0 text-sm text-slate-600">
+                  참여 {member.participationCount}회 · {member.status === "active" ? "활동중" : "탈퇴"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </DashboardSummaryModal>
       ) : null}
     </main>
   );

@@ -52,8 +52,8 @@ export type MonthlyReport = {
   auroraAirshipCount: number;
   totalParticipationCount: number;
   participantMemberCount: number;
-  activeMemberCount: number;
-  activeParticipantMemberCount: number;
+  monthMemberCount: number;
+  monthParticipantMemberCount: number;
   participationCountsByMemberId: Record<string, number>;
   topParticipantLimit: number;
   topParticipants: MonthlyTopParticipant[];
@@ -118,9 +118,21 @@ export function getMonthlyReport(
   members: GuildMember[],
   month: string,
 ): MonthlyReport {
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const monthStart = `${month}-01`;
+  const [year, monthNumber] = month.split("-").map(Number);
+  const calendarMonthEnd = new Date(Date.UTC(year, monthNumber, 0))
+    .toISOString()
+    .slice(0, 10);
+  const periodEnd = month === today.slice(0, 7) ? today : calendarMonthEnd;
   const membersById = new Map(members.map((member) => [member.id, member]));
   const monthlyActivities = activities
-    .filter((activity) => getMonthKey(activity.date) === month)
+    .filter(
+      (activity) =>
+        getMonthKey(activity.date) === month && activity.date <= periodEnd,
+    )
     .sort((a, b) => {
       const dateOrder = a.date.localeCompare(b.date);
       return dateOrder === 0 ? a.id.localeCompare(b.id) : dateOrder;
@@ -130,8 +142,14 @@ export function getMonthlyReport(
     conquestTypes.map((conquestType) => [conquestType, 0]),
   ) as Record<(typeof conquestTypes)[number], number>;
   const participantMemberIds = new Set<string>();
-  const activeMemberIds = new Set(
-    members.filter((member) => member.status === "active").map((member) => member.id),
+  const monthMemberIds = new Set(
+    members
+      .filter(
+        (member) =>
+          member.joinedAt <= periodEnd &&
+          (!member.leftAt || member.leftAt >= monthStart),
+      )
+      .map((member) => member.id),
   );
 
   const report = monthlyActivities.reduce(
@@ -231,9 +249,9 @@ export function getMonthlyReport(
     activities: activityDetails,
     ...report,
     participantMemberCount: participantMemberIds.size,
-    activeMemberCount: activeMemberIds.size,
-    activeParticipantMemberCount: Array.from(participantMemberIds).filter(
-      (memberId) => activeMemberIds.has(memberId),
+    monthMemberCount: monthMemberIds.size,
+    monthParticipantMemberCount: Array.from(participantMemberIds).filter(
+      (memberId) => monthMemberIds.has(memberId),
     ).length,
     participationCountsByMemberId,
     topParticipantLimit,

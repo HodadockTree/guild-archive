@@ -342,6 +342,9 @@ function ActivityCard({
 }
 
 export default function DashboardPage() {
+  const [currentMonth] = useState(() =>
+    new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7),
+  );
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading",
   });
@@ -368,7 +371,7 @@ export default function DashboardPage() {
           data === null ||
           !("dashboard" in data)
         ) {
-          throw new Error("홈 대시보드 데이터를 불러오지 못했습니다.");
+          throw new Error("홈 데이터를 불러오지 못했습니다.");
         }
 
         if (isActive) {
@@ -384,7 +387,7 @@ export default function DashboardPage() {
             message:
               error instanceof Error
                 ? error.message
-                : "홈 대시보드 데이터를 불러오지 못했습니다.",
+                : "홈 데이터를 불러오지 못했습니다.",
           });
         }
       }
@@ -408,6 +411,24 @@ export default function DashboardPage() {
           activity.participantIds.includes(selectedMonthMember.id),
         )
       : [];
+  const currentMonthTypeCounts = dashboard?.currentMonthActivities.reduce(
+    (counts, activity) => {
+      counts[activity.statsType] += 1;
+      return counts;
+    },
+    { airship: 0, siege: 0, other: 0 },
+  );
+  const currentMonthTotalParticipation =
+    dashboard?.currentMonthActivities.reduce(
+      (total, activity) => total + activity.participantCount,
+      0,
+    ) ?? 0;
+  const currentMonthMostParticipated = dashboard
+    ? [...dashboard.currentMonthActivities].sort((a, b) => {
+        const participantOrder = b.participantCount - a.participantCount;
+        return participantOrder || b.date.localeCompare(a.date) || b.id.localeCompare(a.id);
+      })[0] ?? null
+    : null;
 
   return (
     <main className="app-shell">
@@ -415,7 +436,7 @@ export default function DashboardPage() {
         currentPath="/"
         description="길드의 현재 현황과 쌓여온 활동 기록을 한눈에 살펴보세요."
         eyebrow="냥춘 길드 활동 아카이브"
-        title="길드 현황 대시보드"
+        title="냥춘 활동 대시보드"
       />
 
       {dashboardState.status === "loading" ? (
@@ -482,6 +503,38 @@ export default function DashboardPage() {
               />
             </dl>
           </section>
+
+          <Link
+            className="ui-focus-ring group block rounded-md border border-sky-100 bg-white px-5 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-sky-50/40"
+            href={`/viewer?month=${currentMonth}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-slate-900">이번 달 한눈에</h2>
+              <span className="text-xs font-semibold text-[var(--brand-strong)]">이번 달 전체 보기</span>
+            </div>
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-md bg-sky-50 px-3 py-2">
+                <dt className="text-xs text-slate-500">비공정</dt>
+                <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-3 py-2">
+                <dt className="text-xs text-slate-500">점령전</dt>
+                <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
+              </div>
+              <div className="rounded-md bg-sky-50 px-3 py-2">
+                <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                <dd className="font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+              </div>
+              <div className="min-w-0 rounded-md bg-sky-50 px-3 py-2">
+                <dt className="text-xs text-slate-500">최다 참여 활동</dt>
+                <dd className="truncate font-bold text-slate-900">
+                  {currentMonthMostParticipated
+                    ? `${currentMonthMostParticipated.title} · ${currentMonthMostParticipated.participantCount}명`
+                    : "기록 없음"}
+                </dd>
+              </div>
+            </dl>
+          </Link>
 
           <section className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

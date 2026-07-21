@@ -125,6 +125,19 @@ const activitySortOrderLabels: Record<ActivitySortOrder, string> = {
   oldest: "오래된순",
 };
 
+function getNextSiegeTitle(activities: ActivityLog[]) {
+  const maxRound = activities.reduce((currentMax, activity) => {
+    if (getVisibleActivityType(activity.type) !== "siege") {
+      return currentMax;
+    }
+
+    const match = activity.title?.trim().match(/^(\d+)회차(?:\s|$)/);
+    return match ? Math.max(currentMax, Number(match[1])) : currentMax;
+  }, 0);
+
+  return `${maxRound + 1}회차 점령전`;
+}
+
 const ACTIVITY_PAGE_SIZE = 12;
 const MEMBER_PAGE_SIZE = 10;
 
@@ -382,6 +395,10 @@ export default function Home() {
     ConquestType[]
   >([]);
   const [activityTitle, setActivityTitle] = useState("");
+  const [isSiegeTitleAutoSuggested, setIsSiegeTitleAutoSuggested] =
+    useState(false);
+  const [hasManuallyEditedActivityTitle, setHasManuallyEditedActivityTitle] =
+    useState(false);
   const [activityMemo, setActivityMemo] = useState("");
   const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
   const [activityImageError, setActivityImageError] = useState("");
@@ -610,6 +627,11 @@ export default function Home() {
     (currentActivityPage - 1) * ACTIVITY_PAGE_SIZE,
     currentActivityPage * ACTIVITY_PAGE_SIZE,
   );
+  const hasActiveActivityFilters =
+    activityMonthFilter !== "all" ||
+    activitySearch.trim() !== "" ||
+    activitySortOrder !== "latest" ||
+    activityFilter !== "all";
   const selectedMemberActivities = selectedHistoryMember
     ? sortedActivities.filter((activity) =>
         activity.participantIds.includes(selectedHistoryMember.id),
@@ -703,6 +725,8 @@ export default function Home() {
     setActivityAirshipType("ocean");
     setActivityConquestTypes([]);
     setActivityTitle("");
+    setIsSiegeTitleAutoSuggested(false);
+    setHasManuallyEditedActivityTitle(false);
     setActivityMemo("");
     setActivityImageDataUrl("");
     setActivityImageError("");
@@ -1131,6 +1155,8 @@ export default function Home() {
   const handleSelectAirshipPreset = (airshipType: AirshipType) => {
     setActivityAirshipType(airshipType);
     setActivityTitle(getAirshipAutoTitle(airshipType));
+    setIsSiegeTitleAutoSuggested(false);
+    setHasManuallyEditedActivityTitle(true);
   };
 
   const handleToggleConquestType = (conquestType: ConquestType) => {
@@ -1243,6 +1269,8 @@ export default function Home() {
     setActivityAirshipType(getKnownAirshipType(activity.airshipType) ?? "ocean");
     setActivityConquestTypes(getKnownConquestTypes(activity.conquestTypes));
     setActivityTitle(activity.title ?? "");
+    setIsSiegeTitleAutoSuggested(false);
+    setHasManuallyEditedActivityTitle(true);
     setActivityMemo(activity.memo ?? "");
     setActivityImageDataUrl(activity.imageDataUrl ?? "");
     setActivityImageError("");
@@ -2181,6 +2209,16 @@ export default function Home() {
                   const nextType = event.target.value as VisibleActivityType;
                   setActivityType(nextType);
 
+                  if (
+                    nextType === "siege" &&
+                    !editingActivityId &&
+                    !activityTitle.trim() &&
+                    !hasManuallyEditedActivityTitle
+                  ) {
+                    setActivityTitle(getNextSiegeTitle(activities));
+                    setIsSiegeTitleAutoSuggested(true);
+                  }
+
                   if (nextType !== "airship") {
                     setActivityAirshipType("ocean");
                   }
@@ -2260,8 +2298,17 @@ export default function Home() {
               type="text"
               placeholder="예: 6월 4주차 비공정"
               value={activityTitle}
-              onChange={(event) => setActivityTitle(event.target.value)}
+              onChange={(event) => {
+                setActivityTitle(event.target.value);
+                setIsSiegeTitleAutoSuggested(false);
+                setHasManuallyEditedActivityTitle(true);
+              }}
             />
+            {isSiegeTitleAutoSuggested ? (
+              <span className="block text-xs font-normal text-[var(--brand-strong)]">
+                기존 점령전 기록을 기준으로 다음 회차를 입력했습니다.
+              </span>
+            ) : null}
           </label>
 
           <fieldset className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
@@ -2461,8 +2508,7 @@ export default function Home() {
               전체 활동 기록
             </h2>
             <p className="text-sm text-neutral-500">
-              {activitySortOrderLabels[activitySortOrder]}으로{" "}
-              전체 {filteredActivities.length}개 중 {activityRangeStart}–{activityRangeEnd}
+              전체 {filteredActivities.length}개 중 {activityRangeStart}–{activityRangeEnd}개 표시
             </p>
           </div>
 
@@ -2534,19 +2580,22 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            <button
-              className="ui-focus-ring min-h-11 rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] md:col-span-2 lg:col-span-1"
-              onClick={() => {
-                setActivityMonthFilter("all");
-                setActivitySearch("");
-                setActivitySortOrder("latest");
-                setActivityFilter("all");
-                setActivityPage(1);
-              }}
-              type="button"
-            >
-              필터 초기화
-            </button>
+            {hasActiveActivityFilters ? (
+              <button
+                aria-label="활동 기록 필터 초기화"
+                className="ui-focus-ring min-h-11 justify-self-end rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] md:col-span-2 lg:col-span-1"
+                onClick={() => {
+                  setActivityMonthFilter("all");
+                  setActivitySearch("");
+                  setActivitySortOrder("latest");
+                  setActivityFilter("all");
+                  setActivityPage(1);
+                }}
+                type="button"
+              >
+                ↶ 초기화
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -2556,7 +2605,7 @@ export default function Home() {
           </p>
         ) : filteredActivities.length === 0 ? (
           <p className="rounded-md border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500">
-            선택한 필터와 검색어에 해당하는 기록이 없습니다.
+            조건에 맞는 활동이 없습니다.
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

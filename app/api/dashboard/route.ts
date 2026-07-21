@@ -23,7 +23,7 @@ export async function GET() {
     return Response.json(
       {
         ok: false,
-        error: "홈 대시보드 데이터를 불러오지 못했습니다.",
+        error: "홈 데이터를 불러오지 못했습니다.",
       },
       { status: 500 },
     );
