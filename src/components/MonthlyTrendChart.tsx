@@ -177,11 +177,13 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
                 : plotRight - plotLeft;
               const hitLeft = Math.max(0, x - monthStep / 2);
               const hitRight = Math.min(chartWidth, x + monthStep / 2);
-              const memberLabelY = Math.max(12, memberY - 10);
-              let activityLabelY = Math.min(158, activityY + 17);
+              const pointDistance = Math.abs(activityY - memberY);
+              const collisionOffset = Math.max(0, 18 - pointDistance) * 0.45;
+              const memberLabelY = Math.max(12, memberY - 10 - collisionOffset);
+              let activityLabelY = Math.min(158, activityY + 17 + collisionOffset);
 
-              if (Math.abs(activityLabelY - memberLabelY) < 14) {
-                activityLabelY = Math.min(158, memberLabelY + 16);
+              if (Math.abs(activityLabelY - memberLabelY) < 16) {
+                activityLabelY = Math.min(158, memberLabelY + 18);
               }
 
               return (
@@ -195,10 +197,10 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
                   <rect className="fill-transparent stroke-transparent transition group-hover:fill-sky-50/60 group-focus:fill-sky-50/60 group-focus:stroke-sky-300" height="178" rx="8" width={hitRight - hitLeft} x={hitLeft} y="4" />
                   <circle className="fill-white stroke-sky-300 transition group-hover:stroke-sky-500 group-focus:stroke-sky-500" cx={x} cy={activityY} r="5" strokeWidth="3" />
                   <circle className="fill-white stroke-[var(--brand-strong)] transition group-hover:stroke-sky-600 group-focus:stroke-sky-600" cx={x} cy={memberY} r="5" strokeWidth="3" />
-                  <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={activityLabelY}>
+                  <text className="fill-slate-600 stroke-white stroke-[3px] text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={activityLabelY}>
                     {trend.activityCount}회
                   </text>
-                  <text className="fill-slate-600 text-[10px] font-semibold sm:text-[11px]" textAnchor="middle" x={x} y={memberLabelY}>
+                  <text className="fill-slate-600 stroke-white stroke-[3px] text-[10px] font-semibold [paint-order:stroke] sm:text-[11px]" pointerEvents="none" strokeLinejoin="round" textAnchor="middle" x={x} y={memberLabelY}>
                     {trend.participantMemberCount}명
                   </text>
                   <text className="fill-slate-500 text-[11px] font-medium transition group-hover:fill-sky-700 group-focus:fill-sky-700 sm:text-xs" textAnchor="middle" x={x} y="181">

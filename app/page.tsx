@@ -42,6 +42,24 @@ function getDisplayDate(date: string) {
   return formatMonthDay(date);
 }
 
+const GUILD_STARTED_AT = { year: 2026, monthIndex: 0, day: 22 } as const;
+
+function getGuildAgeDays(today: Date) {
+  const todayDate = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const startedDate = Date.UTC(
+    GUILD_STARTED_AT.year,
+    GUILD_STARTED_AT.monthIndex,
+    GUILD_STARTED_AT.day,
+  );
+  const elapsedDays = Math.floor((todayDate - startedDate) / 86_400_000) + 1;
+
+  return elapsedDays > 0 ? elapsedDays : null;
+}
+
 function SummaryCard({
   label,
   value,
@@ -270,10 +288,12 @@ function ActivitySummaryList({
 }
 
 function CumulativeSummaryCard({
+  description,
   label,
   onClick,
   value,
 }: {
+  description?: string;
   label: string;
   onClick?: () => void;
   value: string;
@@ -301,6 +321,9 @@ function CumulativeSummaryCard({
     >
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className={`mt-1 font-bold text-slate-900 ${label === "길드 시작일" ? "text-xl sm:text-2xl" : "text-2xl"}`}>{value}</dd>
+      {description ? (
+        <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+      ) : null}
     </div>
   );
 }
@@ -363,6 +386,7 @@ export default function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading",
   });
+  const [guildAgeDays, setGuildAgeDays] = useState<number | null>(null);
   const [selectedActivity, setSelectedActivity] =
     useState<ActivityDetail | null>(null);
   const mostActivityTriggerRef = useRef<HTMLButtonElement>(null);
@@ -373,6 +397,14 @@ export default function DashboardPage() {
     useState<string | null>(null);
   const [memberReturnModal, setMemberReturnModal] =
     useState<SummaryModalKey>("currentMonthParticipants");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setGuildAgeDays(getGuildAgeDays(new Date()));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -512,7 +544,11 @@ export default function DashboardPage() {
               </h2>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <CumulativeSummaryCard label="길드 시작일" value="2026년 1월 22일부터" />
+              <CumulativeSummaryCard
+                description={guildAgeDays ? `길드 만든 지 ${guildAgeDays}일째` : undefined}
+                label="길드 시작일"
+                value="2026년 1월 22일"
+              />
               <CumulativeSummaryCard
                 label="전체 활동"
                 onClick={() => setSelectedSummaryModal("allActivities")}
@@ -533,16 +569,16 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 구성</h2>
               <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-4">
                 <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs text-slate-500">비공정</dt>
+                  <dt className="text-xs font-medium text-slate-600">비공정</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
                 </div>
                 <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs text-slate-500">점령전</dt>
+                  <dt className="text-xs font-medium text-slate-600">점령전</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
                 </div>
                 <div className="col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md bg-sky-50 px-3 py-2.5">
                   <div className="min-w-0">
-                    <dt className="text-xs text-slate-500">총 참여 횟수</dt>
+                    <dt className="text-xs font-medium text-slate-600">총 참여 횟수</dt>
                     <p className="mt-1 text-[11px] leading-4 text-slate-400">
                       활동별 참여 인원을 합산한 값
                     </p>
@@ -550,7 +586,7 @@ export default function DashboardPage() {
                   <dd className="shrink-0 self-center font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3">
-                  <dt className="text-xs text-slate-500">최다 참여 활동</dt>
+                  <dt className="text-xs font-medium text-slate-600">최다 참여 활동</dt>
                   <dd className="mt-1 min-w-0">
                     {currentMonthMostParticipated ? (
                       <button
