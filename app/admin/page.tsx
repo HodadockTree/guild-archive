@@ -90,8 +90,10 @@ const MEMBERS_STORAGE_KEY = "guild-archive:members";
 const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
 const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
-const MAX_IMAGE_WIDTH = 1000;
-const IMAGE_JPEG_QUALITY = 0.72;
+const MAX_IMAGE_WIDTH = 800;
+const IMAGE_JPEG_QUALITY = 0.68;
+const MAX_IMAGE_DATA_URL_LENGTH = 180_000;
+const MIN_IMAGE_JPEG_QUALITY = 0.36;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -376,13 +378,35 @@ async function resizeImageFile(file: File) {
     throw new Error("이미지를 처리하지 못했습니다.");
   }
 
-  canvas.width = width;
-  canvas.height = height;
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-  context.drawImage(image, 0, 0, width, height);
+  let targetWidth = width;
+  let targetHeight = height;
 
-  return canvas.toDataURL("image/jpeg", IMAGE_JPEG_QUALITY);
+  while (true) {
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    for (
+      let quality = IMAGE_JPEG_QUALITY;
+      quality >= MIN_IMAGE_JPEG_QUALITY;
+      quality -= 0.08
+    ) {
+      const result = canvas.toDataURL("image/jpeg", quality);
+
+      if (result.length <= MAX_IMAGE_DATA_URL_LENGTH) {
+        return result;
+      }
+    }
+
+    if (targetWidth <= 320) {
+      throw new Error("이미지 용량을 저장 가능한 크기로 줄이지 못했습니다.");
+    }
+
+    targetWidth = Math.max(320, Math.round(targetWidth * 0.8));
+    targetHeight = Math.max(1, Math.round(targetHeight * 0.8));
+  }
 }
 
 export default function Home() {
@@ -1250,10 +1274,23 @@ export default function Home() {
 
     const wasEditingActivity = Boolean(editingActivityId);
 
-    if (editingActivityId) {
-      updateActivityLog(editingActivityId, activityData);
-    } else {
-      addActivityLog(activityData);
+    try {
+      if (editingActivityId) {
+        updateActivityLog(editingActivityId, activityData);
+      } else {
+        addActivityLog(activityData);
+      }
+    } catch (error) {
+      const isStorageQuotaError =
+        error instanceof DOMException &&
+        (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
+
+      setActivityFeedbackMessage(
+        isStorageQuotaError
+          ? "브라우저 저장 공간이 가득 차 활동을 저장하지 못했습니다. 기존 기록의 큰 이미지를 삭제한 뒤 다시 시도해 주세요."
+          : "활동 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+      return;
     }
 
     resetActivityForm();
