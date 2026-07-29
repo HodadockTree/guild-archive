@@ -478,6 +478,12 @@ export default function DashboardPage() {
       (total, activity) => total + activity.participantCount,
       0,
     ) ?? 0;
+  const currentMonthAverageParticipation =
+    dashboard && dashboard.currentMonthActivityCount > 0
+      ? (
+          currentMonthTotalParticipation / dashboard.currentMonthActivityCount
+        ).toFixed(1)
+      : null;
   const currentMonthMostParticipated = dashboard
     ? [...dashboard.currentMonthActivities].sort((a, b) => {
         const participantOrder = b.participantCount - a.participantCount;
@@ -577,14 +583,19 @@ export default function DashboardPage() {
                   <dt className="text-xs font-medium text-slate-600">점령전</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
                 </div>
-                <div className="col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md bg-sky-50 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <dt className="text-xs font-medium text-slate-600">총 참여 횟수</dt>
-                    <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                      한 사람이 여러 활동에 참여하면 참여한 횟수만큼 포함돼요.
-                    </p>
-                  </div>
-                  <dd className="shrink-0 self-center font-bold text-slate-900">{currentMonthTotalParticipation}회</dd>
+                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
+                  <dt className="text-xs font-medium text-slate-600">참여 합계</dt>
+                  <dd className="font-bold text-slate-900">
+                    {currentMonthTotalParticipation}회
+                  </dd>
+                </div>
+                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
+                  <dt className="text-xs font-medium text-slate-600">활동당 평균</dt>
+                  <dd className="font-bold text-slate-900">
+                    {currentMonthAverageParticipation
+                      ? `${currentMonthAverageParticipation}명`
+                      : "0명"}
+                  </dd>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3">
                   <dt className="text-xs font-medium text-slate-600">최다 참여 활동</dt>

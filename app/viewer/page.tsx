@@ -435,33 +435,29 @@ export default function ViewerPage() {
 
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <h2 className="text-lg font-semibold text-slate-900">이번 달 참여 분석</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <div className="grid grid-cols-2 divide-x divide-sky-200 rounded-md bg-sky-50">
-                <div className="px-4 py-4">
-                  <dt className="text-sm text-slate-500">참여 합계</dt>
-                  <dd className="mt-1 text-xl font-bold text-slate-900">
-                    {monthlyReport.totalParticipationCount}회
-                  </dd>
-                </div>
-                <div className="px-4 py-4">
-                  <dt className="text-sm text-slate-500">활동당 평균</dt>
-                  <dd className="mt-1 text-xl font-bold text-slate-900">
-                    {monthlyReport.totalActivities === 0
-                      ? "0명"
-                      : `${averageParticipationLabel}명`}
-                  </dd>
-                </div>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">참여 합계</dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {monthlyReport.totalParticipationCount}회
+                </dd>
               </div>
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm text-slate-500">길드원 참여율</dt>
-                <dd className="mt-1 text-xl font-bold text-slate-900">
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">활동당 평균</dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
+                  {monthlyReport.totalActivities === 0
+                    ? "0명"
+                    : `${averageParticipationLabel}명`}
+                </dd>
+              </div>
+              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
+                <dt className="text-xs font-medium text-slate-500">길드원 참여율</dt>
+                <dd className="mt-1 text-2xl font-bold text-slate-900">
                   {memberParticipationRate}%
                 </dd>
                 <p className="mt-1 text-xs text-slate-500">
-                  {monthlyReport.monthParticipantMemberCount}명 / {monthlyReport.monthMemberCount}명
-                  <span className="mt-0.5 block">
-                    해당 월에 소속되어 있던 길드원을 기준으로 계산
-                  </span>
+                  {monthlyReport.monthParticipantMemberCount}명 /{" "}
+                  {monthlyReport.monthMemberCount}명 · 해당 월 소속 기준
                 </p>
               </div>
             </dl>
