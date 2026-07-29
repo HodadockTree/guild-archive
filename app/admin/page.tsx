@@ -62,6 +62,12 @@ import {
   getMonthlyReport,
   getMonthlyShareText,
 } from "@/src/lib/monthlyReport";
+import {
+  createImageDataMigrationBatches,
+  MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
+  type ImageDataMigrationItem,
+  type ImageDataMigrationMode,
+} from "@/src/lib/imageDataMigration";
 
 type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
@@ -87,6 +93,22 @@ type ServerImportState =
       participantCount: number;
       conquestTypeCount: number;
     }
+  | { status: "error"; message: string };
+type ImageMigrationSummary = {
+  sourceCount: number;
+  validCount: number;
+  eligibleCount: number;
+  missingCount: number;
+  alreadyStoredCount: number;
+  oversizedCount: number;
+  invalidCount: number;
+  updatedCount: number;
+};
+type ImageMigrationState =
+  | { status: "idle" }
+  | { status: "loading"; mode: ImageDataMigrationMode }
+  | { status: "preview"; summary: ImageMigrationSummary }
+  | { status: "success"; summary: ImageMigrationSummary }
   | { status: "error"; message: string };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
@@ -470,6 +492,8 @@ export default function Home() {
   const [serverImportState, setServerImportState] = useState<ServerImportState>({
     status: "idle",
   });
+  const [imageMigrationState, setImageMigrationState] =
+    useState<ImageMigrationState>({ status: "idle" });
   const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
@@ -958,6 +982,7 @@ export default function Home() {
 
     setRestoreResultMessage("");
     setServerImportState({ status: "idle" });
+    setImageMigrationState({ status: "idle" });
 
     try {
       const fileText = await readFileAsText(file);
@@ -1002,6 +1027,7 @@ export default function Home() {
 
   const handleCancelBackupImport = () => {
     setBackupImportState({ status: "idle" });
+    setImageMigrationState({ status: "idle" });
   };
 
   const handleRestoreBackup = () => {
@@ -1097,6 +1123,133 @@ export default function Home() {
           error instanceof Error
             ? error.message
             : "서버 DB 가져오기 중 문제가 발생했습니다.",
+      });
+    }
+  };
+
+  const handleMigrateBackupImages = async (mode: ImageDataMigrationMode) => {
+    if (backupImportState.status !== "valid") {
+      return;
+    }
+
+    const trimmedServerImportToken = serverImportToken.trim();
+
+    if (!trimmedServerImportToken) {
+      setImageMigrationState({
+        status: "error",
+        message: "과거 이미지 보충을 위해 서버 반영 토큰을 입력해 주세요.",
+      });
+      return;
+    }
+
+    const sourceImages = backupImportState.backup.activityLogs.flatMap(
+      (activity) =>
+        typeof activity.imageDataUrl === "string" &&
+        activity.imageDataUrl.trim()
+          ? [{ id: activity.id, imageDataUrl: activity.imageDataUrl.trim() }]
+          : [],
+    );
+    const oversizedCount = sourceImages.filter(
+      (image) =>
+        image.imageDataUrl.length > MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
+    ).length;
+    const validImages = sourceImages.filter(
+      (image) =>
+        image.imageDataUrl.length <= MAX_MIGRATION_IMAGE_DATA_URL_LENGTH &&
+        /^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(image.imageDataUrl),
+    );
+    const invalidCount = sourceImages.length - oversizedCount - validImages.length;
+
+    if (sourceImages.length === 0) {
+      setImageMigrationState({
+        status: "error",
+        message: "선택한 백업에는 보충할 imageDataUrl이 없습니다.",
+      });
+      return;
+    }
+
+    if (validImages.length === 0) {
+      setImageMigrationState({
+        status: "error",
+        message:
+          "안전하게 보충할 수 있는 이미지가 없습니다. 크기 또는 데이터 형식을 확인해 주세요.",
+      });
+      return;
+    }
+
+    if (
+      mode === "apply" &&
+      !window.confirm(
+        "사전 점검에서 확인한 활동에 과거 이미지를 보충할까요?\n기존 imageUrl과 이미 저장된 imageDataUrl은 변경하지 않습니다.",
+      )
+    ) {
+      return;
+    }
+
+    setImageMigrationState({ status: "loading", mode });
+
+    try {
+      const batches = createImageDataMigrationBatches(
+        validImages as ImageDataMigrationItem[],
+      );
+      let eligibleCount = 0;
+      let missingCount = 0;
+      let alreadyStoredCount = 0;
+      let updatedCount = 0;
+
+      for (const images of batches) {
+        const response = await fetch("/api/import/images", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${trimmedServerImportToken}`,
+          },
+          body: JSON.stringify({ mode, images }),
+        });
+        const result = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          eligibleCount?: number;
+          updatedCount?: number;
+          missingIds?: string[];
+          alreadyStoredIds?: string[];
+        };
+
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error ?? "과거 이미지 보충 요청에 실패했습니다.",
+          );
+        }
+
+        eligibleCount += result.eligibleCount ?? 0;
+        updatedCount += result.updatedCount ?? 0;
+        missingCount += result.missingIds?.length ?? 0;
+        alreadyStoredCount += result.alreadyStoredIds?.length ?? 0;
+      }
+
+      const summary: ImageMigrationSummary = {
+        sourceCount: sourceImages.length,
+        validCount: validImages.length,
+        eligibleCount,
+        missingCount,
+        alreadyStoredCount,
+        oversizedCount,
+        invalidCount,
+        updatedCount,
+      };
+
+      setImageMigrationState(
+        mode === "preview"
+          ? { status: "preview", summary }
+          : { status: "success", summary },
+      );
+    } catch (error) {
+      setImageMigrationState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "과거 이미지 보충 중 오류가 발생했습니다.",
       });
     }
   };
@@ -1860,6 +2013,67 @@ export default function Home() {
                     입력한 토큰은 저장되지 않고 이 화면에서만 사용되며, 서버 DB로
                     가져오기를 요청할 때만 서버로 전송됩니다.
                   </p>
+                  <div className="space-y-3 rounded-md border border-sky-200 bg-sky-50 p-3">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">
+                        과거 첨부 이미지 안전 보충
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">
+                        백업의 비어 있지 않은 imageDataUrl만 같은 활동 ID에
+                        보충합니다. 기존 imageUrl, 이미 저장된 이미지와 다른 활동
+                        데이터는 변경하지 않습니다.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        type="button"
+                        disabled={imageMigrationState.status === "loading"}
+                        onClick={() => handleMigrateBackupImages("preview")}
+                      >
+                        {imageMigrationState.status === "loading" &&
+                        imageMigrationState.mode === "preview"
+                          ? "사전 점검 중"
+                          : "과거 이미지 사전 점검"}
+                      </button>
+                      <button
+                        className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                        type="button"
+                        disabled={
+                          imageMigrationState.status !== "preview" ||
+                          imageMigrationState.summary.eligibleCount === 0
+                        }
+                        onClick={() => handleMigrateBackupImages("apply")}
+                      >
+                        누락 이미지 보충 실행
+                      </button>
+                    </div>
+                    {imageMigrationState.status === "preview" ||
+                    imageMigrationState.status === "success" ? (
+                      <div className="grid gap-1 rounded-md bg-white px-3 py-2 text-xs text-neutral-700 sm:grid-cols-2">
+                        <p>백업 이미지: {imageMigrationState.summary.sourceCount}개</p>
+                        <p>형식·크기 통과: {imageMigrationState.summary.validCount}개</p>
+                        <p>보충 대상: {imageMigrationState.summary.eligibleCount}개</p>
+                        <p>서버에 없는 활동: {imageMigrationState.summary.missingCount}개</p>
+                        <p>
+                          이미 저장됨:{" "}
+                          {imageMigrationState.summary.alreadyStoredCount}개
+                        </p>
+                        <p>크기 초과: {imageMigrationState.summary.oversizedCount}개</p>
+                        <p>잘못된 형식: {imageMigrationState.summary.invalidCount}개</p>
+                        {imageMigrationState.status === "success" ? (
+                          <p className="font-semibold text-emerald-700">
+                            실제 보충: {imageMigrationState.summary.updatedCount}개
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {imageMigrationState.status === "error" ? (
+                      <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {imageMigrationState.message}
+                      </p>
+                    ) : null}
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"

@@ -7,6 +7,10 @@ import {
 } from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
 import { validateActivityImageUrl } from "@/src/lib/activityImage";
+import type {
+  ImageDataMigrationItem,
+  ImageDataMigrationMode,
+} from "@/src/lib/imageDataMigration";
 
 const D1_BINDING_MISSING_ERROR_MESSAGE =
   "Cloudflare D1 바인딩(DB)을 찾을 수 없습니다. wrangler.jsonc의 d1_databases 설정과 " +
@@ -40,6 +44,11 @@ type ParticipantRow = {
 type ConquestTypeRow = {
   activityId: string;
   conquestType: string;
+};
+
+type ActivityImageMigrationRow = {
+  id: string;
+  imageDataUrl: string | null;
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -300,6 +309,77 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
       | ActivityLog["conquestTypes"]
       | undefined,
   }));
+}
+
+export async function migrateActivityImageData(
+  mode: ImageDataMigrationMode,
+  images: ImageDataMigrationItem[],
+) {
+  const db = await getDb();
+  const placeholders = images.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT id, imageDataUrl
+       FROM activities
+       WHERE id IN (${placeholders})`,
+    )
+    .bind(...images.map((image) => image.id))
+    .all<ActivityImageMigrationRow>();
+  const rowsById = new Map(results.map((row) => [row.id, row]));
+  const missingIds: string[] = [];
+  const alreadyStoredIds: string[] = [];
+  const eligibleImages: ImageDataMigrationItem[] = [];
+
+  images.forEach((image) => {
+    const row = rowsById.get(image.id);
+
+    if (!row) {
+      missingIds.push(image.id);
+    } else if (row.imageDataUrl?.trim()) {
+      alreadyStoredIds.push(image.id);
+    } else {
+      eligibleImages.push(image);
+    }
+  });
+
+  if (mode === "preview" || eligibleImages.length === 0) {
+    return {
+      ok: true,
+      mode,
+      requestedCount: images.length,
+      eligibleCount: eligibleImages.length,
+      updatedCount: 0,
+      missingIds,
+      alreadyStoredIds,
+    };
+  }
+
+  const updateResults = await db.batch(
+    eligibleImages.map((image) =>
+      db
+        .prepare(
+          `UPDATE activities
+           SET imageDataUrl = ?
+           WHERE id = ?
+             AND (imageDataUrl IS NULL OR TRIM(imageDataUrl) = '')`,
+        )
+        .bind(image.imageDataUrl, image.id),
+    ),
+  );
+  const updatedCount = updateResults.reduce(
+    (sum, result) => sum + (result.meta.changes ?? 0),
+    0,
+  );
+
+  return {
+    ok: true,
+    mode,
+    requestedCount: images.length,
+    eligibleCount: eligibleImages.length,
+    updatedCount,
+    missingIds,
+    alreadyStoredIds,
+  };
 }
 
 export async function getServerArchiveMonths() {
