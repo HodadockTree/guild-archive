@@ -26,7 +26,8 @@ export async function GET(
       ok: true,
       ...(await getServerMonthlyReport(month)),
     });
-  } catch {
+  } catch (error) {
+    console.error(`Failed to load monthly report for ${month}`, error);
     return Response.json(
       {
         ok: false,

@@ -14,7 +14,9 @@
     "db:migrate:local": "wrangler d1 execute guild-archive-db --local --file=./schema.sql",
     "db:migrate:remote": "wrangler d1 execute guild-archive-db --remote --file=./schema.sql",
     "db:image-url:local": "wrangler d1 execute guild-archive-db --local --file=./migrations/0001_add_activity_image_url.sql",
-    "db:image-url:remote": "wrangler d1 execute guild-archive-db --remote --file=./migrations/0001_add_activity_image_url.sql"
+    "db:image-url:remote": "wrangler d1 execute guild-archive-db --remote --file=./migrations/0001_add_activity_image_url.sql",
+    "db:archive-metadata:local": "wrangler d1 execute guild-archive-db --local --file=./migrations/0002_add_monthly_highlights_and_member_demographics.sql",
+    "db:archive-metadata:remote": "wrangler d1 execute guild-archive-db --remote --file=./migrations/0002_add_monthly_highlights_and_member_demographics.sql"
   },
   "dependencies": {
     "next": "16.2.9",

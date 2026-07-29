@@ -29,6 +29,25 @@ function hasBasicMemberFields(member: unknown) {
   );
 }
 
+function hasValidOptionalMemberDemographics(member: unknown) {
+  if (!isPlainObject(member)) {
+    return false;
+  }
+
+  const genderIsValid =
+    member.gender === undefined ||
+    member.gender === "female" ||
+    member.gender === "male" ||
+    member.gender === "other";
+  const birthYearIsValid =
+    member.birthYear === undefined ||
+    (Number.isInteger(member.birthYear) &&
+      (member.birthYear as number) >= 1900 &&
+      (member.birthYear as number) <= new Date().getFullYear());
+
+  return genderIsValid && birthYearIsValid;
+}
+
 function hasBasicActivityLogFields(activity: unknown) {
   if (!isPlainObject(activity)) {
     return false;
@@ -85,6 +104,14 @@ export function validateBackupData(data: unknown): BackupValidationResult {
   if (data.members.some((member) => !hasBasicMemberFields(member))) {
     warnings.push(
       "일부 길드원 데이터에 기본 필드(id, nickname, status, joinedAt)가 없습니다.",
+    );
+  }
+
+  if (
+    data.members.some((member) => !hasValidOptionalMemberDemographics(member))
+  ) {
+    warnings.push(
+      "일부 길드원의 성별 또는 출생연도 형식이 올바르지 않아 서버 가져오기에서 거부될 수 있습니다.",
     );
   }
 

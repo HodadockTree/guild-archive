@@ -1,4 +1,5 @@
 export type GuildMemberStatus = "active" | "left";
+export type GuildMemberGender = "female" | "male" | "other";
 
 export interface GuildMember {
   id: string;
@@ -7,6 +8,26 @@ export interface GuildMember {
   joinedAt: string;
   leftAt: string | null;
   memo?: string;
+  gender?: GuildMemberGender;
+  birthYear?: number;
+}
+
+export type MonthlyHighlightCategory =
+  | "game_update"
+  | "game_event"
+  | "guild_news"
+  | "other";
+
+export interface MonthlyHighlight {
+  id: string;
+  month: string;
+  category: MonthlyHighlightCategory;
+  title: string;
+  dateText?: string;
+  description?: string;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ActivityType = "airship" | "siege" | "guildQuest" | "event" | "other";

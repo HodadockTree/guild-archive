@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS members (
   joinedAt TEXT,
   leftAt TEXT,
   memo TEXT,
+  gender TEXT,
+  birthYear INTEGER,
   createdAt TEXT,
   updatedAt TEXT
 );
@@ -51,8 +53,22 @@ CREATE TABLE IF NOT EXISTS import_logs (
   conquestTypeCount INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS monthly_highlights (
+  id TEXT PRIMARY KEY,
+  month TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  dateText TEXT,
+  description TEXT,
+  imageUrl TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
 -- /archive, /viewer, /api/archive/months* 는 activities.date 기준으로 월별 정렬/집계하므로
 -- 날짜 기준 조회와 참여자/점령전 조인 조회에 index를 둡니다.
 CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date);
 CREATE INDEX IF NOT EXISTS idx_activity_participants_memberId ON activity_participants(memberId);
 CREATE INDEX IF NOT EXISTS idx_activity_conquest_types_activityId ON activity_conquest_types(activityId);
+CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month ON monthly_highlights(month);
+CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month_createdAt ON monthly_highlights(month, createdAt);

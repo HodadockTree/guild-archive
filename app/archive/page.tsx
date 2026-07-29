@@ -11,6 +11,8 @@ import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
   representativeEventTitle: string | null;
+  highlightCount: number;
+  representativeHighlightTitle: string | null;
 };
 
 type ArchiveState =
@@ -201,6 +203,14 @@ export default function ArchivePage() {
                           </li>
                         ))}
                       </ul>
+                    ) : null}
+                    {summary.highlightCount > 0 ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        {summary.highlightCount === 1 &&
+                        summary.representativeHighlightTitle
+                          ? summary.representativeHighlightTitle
+                          : `주요 기록 ${summary.highlightCount}건`}
+                      </span>
                     ) : null}
                   </div>
                 </div>

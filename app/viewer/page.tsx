@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { ActivityLog } from "@/src/types";
+import type { ActivityLog, MonthlyHighlight } from "@/src/types";
 import {
   conquestTypes,
   getMonthlyActivityLabel,
@@ -18,6 +18,7 @@ import { ActivityImage } from "@/src/components/ActivityImage";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { getActivityImageSource } from "@/src/lib/activityImage";
 import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
+import { MonthlyHighlightsSection } from "@/src/components/MonthlyHighlightsSection";
 
 type MonthSummary = {
   month: string;
@@ -32,7 +33,12 @@ type ReportState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "success"; report: MonthlyReport; hasData: boolean };
+  | {
+      status: "success";
+      report: MonthlyReport;
+      hasData: boolean;
+      highlights: MonthlyHighlight[];
+    };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -245,6 +251,10 @@ export default function ViewerPage() {
             status: "success",
             report: data.report as MonthlyReport,
             hasData: Boolean(data.hasData),
+            highlights:
+              "highlights" in data && Array.isArray(data.highlights)
+                ? (data.highlights as MonthlyHighlight[])
+                : [],
           });
         }
       } catch (error) {
@@ -269,6 +279,8 @@ export default function ViewerPage() {
 
   const monthlyReport =
     reportState.status === "success" ? reportState.report : null;
+  const monthlyHighlights =
+    reportState.status === "success" ? reportState.highlights : [];
   const hasReportData =
     reportState.status === "success" ? reportState.hasData : false;
   const mostParticipatedActivity = monthlyReport
@@ -419,20 +431,26 @@ export default function ViewerPage() {
             </dl>
           </section>
 
+          <MonthlyHighlightsSection highlights={monthlyHighlights} />
+
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <h2 className="text-lg font-semibold text-slate-900">이번 달 참여 분석</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm text-slate-500">총 참여 횟수</dt>
-                <dd className="mt-1 text-xl font-bold text-slate-900">
-                  {monthlyReport.totalParticipationCount}회
-                </dd>
-              </div>
-              <div className="rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-sm text-slate-500">활동당 평균 참여</dt>
-                <dd className="mt-1 text-xl font-bold text-slate-900">
-                  {averageParticipationLabel}명
-                </dd>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <div className="grid grid-cols-2 divide-x divide-sky-200 rounded-md bg-sky-50">
+                <div className="px-4 py-4">
+                  <dt className="text-sm text-slate-500">참여 합계</dt>
+                  <dd className="mt-1 text-xl font-bold text-slate-900">
+                    {monthlyReport.totalParticipationCount}회
+                  </dd>
+                </div>
+                <div className="px-4 py-4">
+                  <dt className="text-sm text-slate-500">활동당 평균</dt>
+                  <dd className="mt-1 text-xl font-bold text-slate-900">
+                    {monthlyReport.totalActivities === 0
+                      ? "0명"
+                      : `${averageParticipationLabel}명`}
+                  </dd>
+                </div>
               </div>
               <div className="rounded-md bg-sky-50 px-4 py-4">
                 <dt className="text-sm text-slate-500">길드원 참여율</dt>

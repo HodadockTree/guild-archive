@@ -17,6 +17,7 @@ import type {
   ConquestType,
   GuildArchiveBackup,
   GuildMember,
+  GuildMemberGender,
   GuildMemberStatus,
 } from "@/src/types";
 import {
@@ -46,6 +47,7 @@ import {
   AdminSectionNav,
   type AdminSection,
 } from "@/src/components/admin/AdminSectionNav";
+import { MonthlyHighlightsAdmin } from "@/src/components/admin/MonthlyHighlightsAdmin";
 import {
   getActivityImageSource,
   validateActivityImageUrl,
@@ -68,6 +70,11 @@ import {
   type ImageDataMigrationItem,
   type ImageDataMigrationMode,
 } from "@/src/lib/imageDataMigration";
+import {
+  getMemberDemographicsLabel,
+  guildMemberGenderLabels,
+  parseBirthYearInput,
+} from "@/src/lib/memberDemographics";
 
 type VisibleActivityType = "airship" | "siege" | "other";
 type ActivityFilter = "all" | VisibleActivityType;
@@ -438,6 +445,10 @@ async function resizeImageFile(file: File) {
 
 export default function Home() {
   const [nickname, setNickname] = useState("");
+  const [newMemberGender, setNewMemberGender] = useState<
+    GuildMemberGender | ""
+  >("");
+  const [newMemberBirthYearInput, setNewMemberBirthYearInput] = useState("");
   const [activityDate, setActivityDate] = useState(today);
   const [activityType, setActivityType] = useState<VisibleActivityType>("airship");
   const [activityAirshipType, setActivityAirshipType] =
@@ -476,6 +487,10 @@ export default function Home() {
   const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
   const [memberEditLeftAt, setMemberEditLeftAt] = useState("");
   const [memberEditMemo, setMemberEditMemo] = useState("");
+  const [memberEditGender, setMemberEditGender] = useState<
+    GuildMemberGender | ""
+  >("");
+  const [memberEditBirthYearInput, setMemberEditBirthYearInput] = useState("");
   const [memberFeedbackMessage, setMemberFeedbackMessage] = useState("");
   const [restoreLeftMembersResult, setRestoreLeftMembersResult] =
     useState<RestoreLeftMembersResult | null>(null);
@@ -527,6 +542,15 @@ export default function Home() {
   const isEditingActivity = editingActivityId !== null;
   const editingActivity = activities.find(
     (activity) => activity.id === editingActivityId,
+  );
+  const currentYear = Number(today().slice(0, 4));
+  const newMemberBirthYearResult = parseBirthYearInput(
+    newMemberBirthYearInput,
+    currentYear,
+  );
+  const memberEditBirthYearResult = parseBirthYearInput(
+    memberEditBirthYearInput,
+    currentYear,
   );
   const activityImageUrlValidation = validateActivityImageUrl(activityImageUrl);
   const activityImagePreviewSource = getActivityImageSource({
@@ -811,6 +835,8 @@ export default function Home() {
     setMemberEditJoinedAt("");
     setMemberEditLeftAt("");
     setMemberEditMemo("");
+    setMemberEditGender("");
+    setMemberEditBirthYearInput("");
   };
 
   const handleAddMember = (event: FormEvent<HTMLFormElement>) => {
@@ -829,8 +855,19 @@ export default function Home() {
       return;
     }
 
-    addMember({ nickname: trimmedNickname });
+    if (!newMemberBirthYearResult.valid) {
+      setMemberFeedbackMessage(newMemberBirthYearResult.error);
+      return;
+    }
+
+    addMember({
+      nickname: trimmedNickname,
+      gender: newMemberGender || undefined,
+      birthYear: newMemberBirthYearResult.birthYear,
+    });
     setNickname("");
+    setNewMemberGender("");
+    setNewMemberBirthYearInput("");
     setMemberFeedbackMessage("");
     notifyMembersChanged();
   };
@@ -1262,6 +1299,10 @@ export default function Home() {
     setMemberEditJoinedAt(member.joinedAt);
     setMemberEditLeftAt(member.leftAt ?? "");
     setMemberEditMemo(member.memo ?? "");
+    setMemberEditGender(member.gender ?? "");
+    setMemberEditBirthYearInput(
+      member.birthYear ? String(member.birthYear) : "",
+    );
     requestAnimationFrame(() => {
       memberFormRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -1290,12 +1331,19 @@ export default function Home() {
       return;
     }
 
+    if (!memberEditBirthYearResult.valid) {
+      setMemberFeedbackMessage(memberEditBirthYearResult.error);
+      return;
+    }
+
     updateMember(editingMemberId, {
       nickname: trimmedNickname,
       status: memberEditStatus,
       joinedAt: memberEditJoinedAt,
       leftAt: memberEditStatus === "left" ? memberEditLeftAt || null : null,
       memo: memberEditMemo.trim() || undefined,
+      gender: memberEditGender || undefined,
+      birthYear: memberEditBirthYearResult.birthYear,
     });
 
     resetMemberForm();
@@ -1817,41 +1865,6 @@ export default function Home() {
 
         {isDataToolsOpen ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <p className="sr-only">
-              길드원 관리
-            </p>
-
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-              <div>
-                <h3 className="text-base font-semibold text-neutral-900">
-                  새 길드원 등록
-                </h3>
-                <p className="text-sm text-neutral-500">
-                  닉네임을 입력해 새 길드원을 등록합니다.
-                </p>
-              </div>
-              <form className="flex gap-2" onSubmit={handleAddMember}>
-                <input
-                  className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                  type="text"
-                  placeholder="닉네임 입력"
-                  value={nickname}
-                  onChange={(event) => setNickname(event.target.value)}
-                />
-                <button
-                  className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
-                  type="submit"
-                >
-                  등록
-                </button>
-              </form>
-              {memberFeedbackMessage ? (
-                <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-                  {memberFeedbackMessage}
-                </p>
-              ) : null}
-            </div>
-
             <div className="space-y-3 rounded-md border border-amber-200 bg-white p-4">
               <h3 className="text-base font-semibold text-neutral-900">
                 메모 일괄 삭제
@@ -2139,6 +2152,8 @@ export default function Home() {
         ) : null}
       </section>
 
+      <MonthlyHighlightsAdmin />
+
       <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">
@@ -2154,6 +2169,87 @@ export default function Home() {
             {memberFeedbackMessage}
           </p>
         ) : null}
+
+        <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+          <div>
+            <h3 className="text-base font-semibold text-neutral-900">
+              새 길드원 등록
+            </h3>
+            <p className="text-sm text-neutral-500">
+              닉네임과 선택 정보를 입력해 새 길드원을 등록합니다.
+            </p>
+          </div>
+          <form className="space-y-3" onSubmit={handleAddMember}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>닉네임</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  type="text"
+                  placeholder="닉네임 입력"
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>성별 (선택)</span>
+                <select
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  value={newMemberGender}
+                  onChange={(event) =>
+                    setNewMemberGender(
+                      event.target.value as GuildMemberGender | "",
+                    )
+                  }
+                >
+                  <option value="">미입력</option>
+                  {Object.entries(guildMemberGenderLabels).map(
+                    ([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>출생연도 (선택)</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="예: 98 또는 1998"
+                  type="text"
+                  value={newMemberBirthYearInput}
+                  onChange={(event) =>
+                    setNewMemberBirthYearInput(event.target.value)
+                  }
+                />
+              </label>
+            </div>
+            {newMemberBirthYearInput ? (
+              <p
+                className={`text-sm ${
+                  newMemberBirthYearResult.error
+                    ? "text-red-600"
+                    : "text-emerald-700"
+                }`}
+              >
+                {newMemberBirthYearResult.error ??
+                  `${getMemberDemographicsLabel(
+                    newMemberBirthYearResult.birthYear,
+                    currentYear,
+                  )}으로 저장됩니다.`}
+              </p>
+            ) : null}
+            <button
+              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95 sm:w-fit"
+              type="submit"
+            >
+              등록
+            </button>
+          </form>
+        </div>
 
         <div>
           <button
@@ -2209,6 +2305,21 @@ export default function Home() {
                         {member.joinedAt ? (
                           <p className="whitespace-nowrap text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
+                          </p>
+                        ) : null}
+                        {member.gender || member.birthYear ? (
+                          <p className="whitespace-nowrap text-xs text-neutral-500">
+                            {[
+                              member.gender
+                                ? guildMemberGenderLabels[member.gender]
+                                : null,
+                              getMemberDemographicsLabel(
+                                member.birthYear,
+                                currentYear,
+                              ),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </p>
                         ) : null}
                         <p className="truncate text-xs text-neutral-500">
@@ -2304,6 +2415,21 @@ export default function Home() {
                             &#53448;&#53748;&#51068; {member.leftAt}
                           </p>
                         ) : null}
+                        {member.gender || member.birthYear ? (
+                          <p className="text-xs text-neutral-500">
+                            {[
+                              member.gender
+                                ? guildMemberGenderLabels[member.gender]
+                                : null,
+                              getMemberDemographicsLabel(
+                                member.birthYear,
+                                currentYear,
+                              ),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        ) : null}
                         <p className="mt-1 text-xs text-neutral-500">
                           {getMemberActivityStatsSummary(activities, member.id)}
                         </p>
@@ -2357,6 +2483,60 @@ export default function Home() {
             {memberFeedbackMessage ? (
               <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
                 {memberFeedbackMessage}
+              </p>
+            ) : null}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>성별 (선택)</span>
+                <select
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  value={memberEditGender}
+                  onChange={(event) =>
+                    setMemberEditGender(
+                      event.target.value as GuildMemberGender | "",
+                    )
+                  }
+                >
+                  <option value="">미입력</option>
+                  {Object.entries(guildMemberGenderLabels).map(
+                    ([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>출생연도 (선택)</span>
+                <input
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="예: 98 또는 1998"
+                  type="text"
+                  value={memberEditBirthYearInput}
+                  onChange={(event) =>
+                    setMemberEditBirthYearInput(event.target.value)
+                  }
+                />
+              </label>
+            </div>
+            {memberEditBirthYearInput ? (
+              <p
+                className={`text-sm ${
+                  memberEditBirthYearResult.error
+                    ? "text-red-600"
+                    : "text-emerald-700"
+                }`}
+              >
+                {memberEditBirthYearResult.error ??
+                  `${getMemberDemographicsLabel(
+                    memberEditBirthYearResult.birthYear,
+                    currentYear,
+                  )}으로 저장됩니다.`}
               </p>
             ) : null}
 

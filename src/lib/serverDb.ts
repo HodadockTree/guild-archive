@@ -1,6 +1,12 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
-import type { ActivityLog, GuildArchiveBackup, GuildMember } from "@/src/types";
+import type {
+  ActivityLog,
+  GuildArchiveBackup,
+  GuildMember,
+  MonthlyHighlight,
+  MonthlyHighlightCategory,
+} from "@/src/types";
 import {
   getMonthlyArchiveParticipants,
   getMonthlyArchiveSummaries,
@@ -11,6 +17,11 @@ import type {
   ImageDataMigrationItem,
   ImageDataMigrationMode,
 } from "@/src/lib/imageDataMigration";
+import type { MonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
+import {
+  sortMonthlyHighlights,
+  toPublicMonthlyHighlight,
+} from "@/src/lib/monthlyHighlights";
 
 const D1_BINDING_MISSING_ERROR_MESSAGE =
   "Cloudflare D1 바인딩(DB)을 찾을 수 없습니다. wrangler.jsonc의 d1_databases 설정과 " +
@@ -23,6 +34,8 @@ type MemberRow = {
   joinedAt: string;
   leftAt: string | null;
   memo: string | null;
+  gender: GuildMember["gender"] | null;
+  birthYear: number | null;
 };
 
 type ActivityRow = {
@@ -49,6 +62,18 @@ type ConquestTypeRow = {
 type ActivityImageMigrationRow = {
   id: string;
   imageDataUrl: string | null;
+};
+
+type MonthlyHighlightRow = {
+  id: string;
+  month: string;
+  category: MonthlyHighlightCategory;
+  title: string;
+  dateText: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -84,7 +109,15 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof member.id !== "string" ||
       typeof member.nickname !== "string" ||
       typeof member.status !== "string" ||
-      typeof member.joinedAt !== "string",
+      typeof member.joinedAt !== "string" ||
+      (member.gender !== undefined &&
+        member.gender !== "female" &&
+        member.gender !== "male" &&
+        member.gender !== "other") ||
+      (member.birthYear !== undefined &&
+        (!Number.isInteger(member.birthYear) ||
+          (member.birthYear as number) < 1900 ||
+          (member.birthYear as number) > new Date().getFullYear())),
   );
 
   if (hasInvalidMember) {
@@ -143,8 +176,8 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO members (
-          id, nickname, status, joinedAt, leftAt, memo, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, nickname, status, joinedAt, leftAt, memo, gender, birthYear, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         member.id,
@@ -153,6 +186,8 @@ export async function importBackupJson(data: unknown) {
         member.joinedAt || null,
         member.leftAt ?? null,
         member.memo ?? null,
+        member.gender ?? null,
+        member.birthYear ?? null,
         importedAt,
         importedAt,
       ),
@@ -251,13 +286,17 @@ export async function importBackupJson(data: unknown) {
 export async function getServerMembers(): Promise<GuildMember[]> {
   const db = await getDb();
   const { results } = await db
-    .prepare("SELECT id, nickname, status, joinedAt, leftAt, memo FROM members")
+    .prepare(
+      "SELECT id, nickname, status, joinedAt, leftAt, memo, gender, birthYear FROM members",
+    )
     .all<MemberRow>();
 
   return results.map((member) => ({
     ...member,
     leftAt: member.leftAt ?? null,
     memo: member.memo ?? undefined,
+    gender: member.gender ?? undefined,
+    birthYear: member.birthYear ?? undefined,
   }));
 }
 
@@ -382,33 +421,181 @@ export async function migrateActivityImageData(
   };
 }
 
+function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
+  return {
+    id: row.id,
+    month: row.month,
+    category: row.category,
+    title: row.title,
+    dateText: row.dateText ?? undefined,
+    description: row.description ?? undefined,
+    imageUrl: row.imageUrl ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export async function getServerMonthlyHighlights(month?: string) {
+  const db = await getDb();
+  const statement = month
+    ? db
+        .prepare(
+          `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+           FROM monthly_highlights
+           WHERE month = ?`,
+        )
+        .bind(month)
+    : db.prepare(
+        `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+         FROM monthly_highlights`,
+      );
+  const { results } = await statement.all<MonthlyHighlightRow>();
+  return sortMonthlyHighlights(results.map(toMonthlyHighlight));
+}
+
+export async function createServerMonthlyHighlight(
+  input: MonthlyHighlightInput,
+) {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  const highlight: MonthlyHighlight = {
+    id: crypto.randomUUID(),
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await db
+    .prepare(
+      `INSERT INTO monthly_highlights (
+        id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      highlight.id,
+      highlight.month,
+      highlight.category,
+      highlight.title,
+      highlight.dateText ?? null,
+      highlight.description ?? null,
+      highlight.imageUrl ?? null,
+      highlight.createdAt,
+      highlight.updatedAt,
+    )
+    .run();
+
+  return highlight;
+}
+
+export async function updateServerMonthlyHighlight(
+  id: string,
+  input: MonthlyHighlightInput,
+) {
+  const db = await getDb();
+  const updatedAt = new Date().toISOString();
+  const result = await db
+    .prepare(
+      `UPDATE monthly_highlights
+       SET month = ?, category = ?, title = ?, dateText = ?, description = ?,
+           imageUrl = ?, updatedAt = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      input.month,
+      input.category,
+      input.title,
+      input.dateText ?? null,
+      input.description ?? null,
+      input.imageUrl ?? null,
+      updatedAt,
+      id,
+    )
+    .run();
+
+  if ((result.meta.changes ?? 0) === 0) {
+    return null;
+  }
+
+  return {
+    id,
+    ...input,
+    updatedAt,
+  };
+}
+
+export async function deleteServerMonthlyHighlight(id: string) {
+  const db = await getDb();
+  const result = await db
+    .prepare("DELETE FROM monthly_highlights WHERE id = ?")
+    .bind(id)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
 export async function getServerArchiveMonths() {
-  const [activities, members] = await Promise.all([
+  const [activities, members, highlights] = await Promise.all([
     getServerActivities(),
     getServerMembers(),
+    getServerMonthlyHighlights(),
   ]);
-
-  return getMonthlyArchiveSummaries(activities).map((summary) => ({
-    ...summary,
-    participantMembers: getMonthlyArchiveParticipants(
-      activities,
-      members,
+  const summariesByMonth = new Map(
+    getMonthlyArchiveSummaries(activities).map((summary) => [
       summary.month,
-    ),
-    representativeEventTitle: summary.representativeEvents[0]?.title ?? null,
-  }));
+      summary,
+    ]),
+  );
+  const highlightsByMonth = new Map<string, MonthlyHighlight[]>();
+
+  highlights.forEach((highlight) => {
+    highlightsByMonth.set(highlight.month, [
+      ...(highlightsByMonth.get(highlight.month) ?? []),
+      highlight,
+    ]);
+
+    if (!summariesByMonth.has(highlight.month)) {
+      summariesByMonth.set(highlight.month, {
+        month: highlight.month,
+        activityCount: 0,
+        eventCount: 0,
+        participantMemberCount: 0,
+        totalParticipationCount: 0,
+        representativeEvents: [],
+      });
+    }
+  });
+
+  return Array.from(summariesByMonth.values())
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .map((summary) => {
+      const monthHighlights = highlightsByMonth.get(summary.month) ?? [];
+
+      return {
+        ...summary,
+        participantMembers: getMonthlyArchiveParticipants(
+          activities,
+          members,
+          summary.month,
+        ),
+        representativeEventTitle:
+          summary.representativeEvents[0]?.title ?? null,
+        highlightCount: monthHighlights.length,
+        representativeHighlightTitle: monthHighlights[0]?.title ?? null,
+      };
+    });
 }
 
 export async function getServerMonthlyReport(month: string) {
-  const [activities, members] = await Promise.all([
+  const [activities, members, highlights] = await Promise.all([
     getServerActivities(),
     getServerMembers(),
+    getServerMonthlyHighlights(month),
   ]);
   const report = getMonthlyReport(activities, members, month);
 
   return {
     month,
-    hasData: report.totalActivities > 0,
+    hasData: report.totalActivities > 0 || highlights.length > 0,
     report,
+    highlights: highlights.map(toPublicMonthlyHighlight),
   };
 }

@@ -9,7 +9,8 @@ export async function GET() {
       ok: true,
       months: await getServerArchiveMonths(),
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to load archive months", error);
     return Response.json(
       {
         ok: false,

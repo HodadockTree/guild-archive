@@ -1,4 +1,4 @@
-import type { GuildMember } from "@/src/types";
+import type { GuildMember, GuildMemberGender } from "@/src/types";
 import { readStorageList, writeStorageList } from "@/src/lib/storage";
 
 const MEMBERS_STORAGE_KEY = "guild-archive:members";
@@ -7,10 +7,21 @@ type NewGuildMember = {
   nickname: string;
   joinedAt?: string;
   memo?: string;
+  gender?: GuildMemberGender;
+  birthYear?: number;
 };
 
 type GuildMemberUpdate = Partial<
-  Pick<GuildMember, "nickname" | "joinedAt" | "leftAt" | "memo" | "status">
+  Pick<
+    GuildMember,
+    | "nickname"
+    | "joinedAt"
+    | "leftAt"
+    | "memo"
+    | "status"
+    | "gender"
+    | "birthYear"
+  >
 >;
 
 function createId() {
@@ -34,6 +45,8 @@ export function addMember(member: NewGuildMember) {
     joinedAt: member.joinedAt ?? today(),
     leftAt: null,
     memo: member.memo,
+    gender: member.gender,
+    birthYear: member.birthYear,
   };
 
   writeStorageList(MEMBERS_STORAGE_KEY, [...members, newMember]);

@@ -1,9 +1,10 @@
 "use client";
 
-export type AdminSection = "activity" | "members" | "data";
+export type AdminSection = "activity" | "highlights" | "members" | "data";
 
 const sections: Array<{ id: AdminSection; label: string }> = [
   { id: "activity", label: "활동 기록" },
+  { id: "highlights", label: "월별 주요 기록" },
   { id: "members", label: "길드원 관리" },
   { id: "data", label: "데이터 관리" },
 ];
