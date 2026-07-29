@@ -31,6 +31,7 @@ export interface ActivityLog {
   title?: string;
   participantIds: string[];
   memo?: string;
+  imageUrl?: string;
   imageDataUrl?: string;
 }
 

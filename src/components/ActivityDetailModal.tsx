@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/src/components/ui/Badge";
 import { Surface } from "@/src/components/ui/Surface";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
+import { ActivityImage } from "@/src/components/ActivityImage";
+import { getActivityImageSource } from "@/src/lib/activityImage";
 import { formatFullDate } from "@/src/lib/displayFormat";
 import type {
   ActivityParticipant,
@@ -150,11 +152,14 @@ function ActivityDetailDialog({
             />
           ) : (
             <>
-              {displayedActivity.imageDataUrl ? (
+              {getActivityImageSource(displayedActivity) ? (
                 <section>
                   <h3 className="text-sm font-semibold text-slate-900">기록 사진</h3>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={`${displayedActivity.title} 기록 사진`} className="mt-3 max-h-[60vh] w-full rounded-md border border-sky-100 object-contain" src={displayedActivity.imageDataUrl} />
+                  <ActivityImage
+                    alt={`${displayedActivity.title} 기록 사진`}
+                    className="mt-3 max-h-[60vh] w-full rounded-md border border-sky-100 object-contain"
+                    src={getActivityImageSource(displayedActivity)}
+                  />
                 </section>
               ) : null}
 

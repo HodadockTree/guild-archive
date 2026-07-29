@@ -11,6 +11,8 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
+import { ActivityImage } from "@/src/components/ActivityImage";
+import { getActivityImageSource } from "@/src/lib/activityImage";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
@@ -339,21 +341,20 @@ function ActivityCard({
     <li>
       <button
       className={`ui-focus-ring flex cursor-pointer rounded-[var(--radius-card)] border border-[var(--border)] bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-[var(--surface-muted)] ${
-        activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-3"
+        getActivityImageSource(activity) ? "flex-col overflow-hidden" : "flex-col px-4 py-3"
       } w-full text-left`}
         onClick={() => onSelect(activity)}
         type="button"
       >
-      {activity.imageDataUrl ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
+      {getActivityImageSource(activity) ? (
+        <ActivityImage
           alt={`${activity.title} 활동 사진`}
           className="max-h-56 w-full border-b border-sky-100 object-contain"
-          src={activity.imageDataUrl}
+          src={getActivityImageSource(activity)}
         />
       ) : null}
 
-      <div className={activity.imageDataUrl ? "flex flex-1 flex-col px-4 py-3" : "flex flex-1 flex-col"}>
+      <div className={getActivityImageSource(activity) ? "flex flex-1 flex-col px-4 py-3" : "flex flex-1 flex-col"}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="text-xs text-slate-500">

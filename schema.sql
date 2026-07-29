@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS activities (
   title TEXT,
   memo TEXT,
   airshipType TEXT,
+  imageUrl TEXT,
   imageDataUrl TEXT,
   createdAt TEXT,
   updatedAt TEXT

@@ -197,12 +197,24 @@ npm run build
 npm run cf:build
 ```
 
+## 활동 이미지 URL
+
+Cloudflare R2 업로드를 도입하기 전 단계로, 관리 화면에서 외부 HTTPS 이미지 URL을
+활동 기록에 저장할 수 있습니다.
+
+- `imageUrl`이 있으면 기존 `imageDataUrl`보다 우선 표시합니다.
+- URL은 `https://` 주소만 허용하며 공개 화면에는 주소 문자열을 출력하지 않습니다.
+- 기존 파일 선택·붙여넣기 이미지는 `imageDataUrl`로 계속 호환됩니다.
+- 이미지 로딩에 실패하면 공개 화면에서 깨진 이미지 영역을 숨깁니다.
+- 기존 D1에는 배포 전에 `npm run db:image-url:remote`를 한 번 실행해야 합니다.
+- 향후 R2 도입 시 업로드 결과의 공개 URL 또는 객체 키를 `imageUrl`에 연결할 예정입니다.
+
 ## 주의사항
 
 - v2.0 기준 로그인, 세션/쿠키 인증, 권한 관리는 없습니다. `POST /api/import/json`만 단일 관리자 토큰으로 보호됩니다.
 - 관리 화면의 LocalStorage 데이터와 D1 서버 DB는 자동 동기화되지 않습니다.
 - 서버 DB로 반영하려면 `/admin`에서 JSON 백업 파일을 관리자 토큰과 함께 import해야 합니다.
-- `imageDataUrl` 컬럼은 D1 스키마에 남아 있지만, 현재 import 시 항상 `null`로 저장합니다. 이미지 저장/R2 연동은 아직 구현되지 않았습니다.
+- `imageUrl`은 D1에 저장하지만 `imageDataUrl`은 기존 정책대로 import 시 항상 `null`로 저장합니다. 이미지 직접 업로드와 R2 연동은 아직 구현되지 않았습니다.
 - 공개 조회 화면(`/`, `/archive`, `/viewer`)은 D1 데이터를 기준으로 표시됩니다.
 - 공개 화면에는 개인별 참여 랭킹이나 미참여자 목록을 노출하지 않습니다.
 - Next.js 관련 코드를 수정할 때는 `node_modules/next/dist/docs/`의 현재 버전 문서를 먼저 확인합니다(`AGENTS.md` 참고).

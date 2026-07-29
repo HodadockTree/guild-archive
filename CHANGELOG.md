@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## Unreleased
+
+### Added
+
+- 관리 화면의 활동 입력·수정 폼에 HTTPS 이미지 URL 입력과 미리보기를 추가했습니다.
+- D1 `activities.imageUrl` 컬럼과 기존 DB용 비파괴 마이그레이션을 추가했습니다.
+
+### Changed
+
+- 공개 활동 이미지는 `imageUrl`, `imageDataUrl` 순서로 선택하며 로딩 실패 시 숨깁니다.
+- 기존 파일 선택·붙여넣기와 `imageDataUrl` 데이터 호환은 유지합니다.
+
 ## v2.0 - 공개 대시보드와 월간 리포트 고도화
 
 ### 목표

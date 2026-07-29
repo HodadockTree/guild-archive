@@ -20,6 +20,7 @@ export type DashboardActivitySummary = {
   participantNames: string[];
   participants: ActivityParticipant[];
   memo?: string;
+  imageUrl?: string;
   imageDataUrl?: string;
 };
 
@@ -103,6 +104,7 @@ function toActivitySummary(
         membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
     })),
     memo: activity.memo?.trim() || undefined,
+    imageUrl: activity.imageUrl,
     imageDataUrl: activity.imageDataUrl,
   };
 }

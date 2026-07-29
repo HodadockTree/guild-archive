@@ -40,11 +40,16 @@ import {
 } from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { ActivityImage } from "@/src/components/ActivityImage";
 import { Pagination } from "@/src/components/ui/Pagination";
 import {
   AdminSectionNav,
   type AdminSection,
 } from "@/src/components/admin/AdminSectionNav";
+import {
+  getActivityImageSource,
+  validateActivityImageUrl,
+} from "@/src/lib/activityImage";
 import {
   conquestTypes,
   getKnownConquestTypes,
@@ -424,6 +429,7 @@ export default function Home() {
   const [hasManuallyEditedActivityTitle, setHasManuallyEditedActivityTitle] =
     useState(false);
   const [activityMemo, setActivityMemo] = useState("");
+  const [activityImageUrl, setActivityImageUrl] = useState("");
   const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
   const [activityImageError, setActivityImageError] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
@@ -498,6 +504,13 @@ export default function Home() {
   const editingActivity = activities.find(
     (activity) => activity.id === editingActivityId,
   );
+  const activityImageUrlValidation = validateActivityImageUrl(activityImageUrl);
+  const activityImagePreviewSource = getActivityImageSource({
+    imageUrl: activityImageUrlValidation.valid
+      ? activityImageUrlValidation.value
+      : undefined,
+    imageDataUrl: activityImageDataUrl,
+  });
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
   const menuMember = memberMenuPosition
@@ -756,6 +769,7 @@ export default function Home() {
     setIsSiegeTitleAutoSuggested(false);
     setHasManuallyEditedActivityTitle(false);
     setActivityMemo("");
+    setActivityImageUrl("");
     setActivityImageDataUrl("");
     setActivityImageError("");
     setSelectedMemberIds([]);
@@ -1258,6 +1272,13 @@ export default function Home() {
   const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const imageUrlResult = validateActivityImageUrl(activityImageUrl);
+
+    if (!imageUrlResult.valid) {
+      setActivityImageError(imageUrlResult.error);
+      return;
+    }
+
     const activityData = {
       date: activityDate,
       type: activityType,
@@ -1269,6 +1290,7 @@ export default function Home() {
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
+      imageUrl: imageUrlResult.value,
       imageDataUrl: activityImageDataUrl || undefined,
     };
 
@@ -1313,6 +1335,7 @@ export default function Home() {
     setIsSiegeTitleAutoSuggested(false);
     setHasManuallyEditedActivityTitle(true);
     setActivityMemo(activity.memo ?? "");
+    setActivityImageUrl(activity.imageUrl ?? "");
     setActivityImageDataUrl(activity.imageDataUrl ?? "");
     setActivityImageError("");
     setSelectedMemberIds(activity.participantIds);
@@ -1579,12 +1602,11 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {activity.imageDataUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                    {getActivityImageSource(activity) ? (
+                      <ActivityImage
                         alt="이벤트 첨부 이미지"
                         className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
-                        src={activity.imageDataUrl}
+                        src={getActivityImageSource(activity)}
                       />
                     ) : null}
                   </li>
@@ -2489,6 +2511,24 @@ export default function Home() {
 
           <div className="space-y-2">
             <label className="block space-y-1 text-sm font-medium text-neutral-700">
+              <span>이미지 URL</span>
+              <input
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                inputMode="url"
+                placeholder="https://example.com/image.jpg"
+                type="text"
+                value={activityImageUrl}
+                onChange={(event) => {
+                  setActivityImageUrl(event.target.value);
+                  setActivityImageError("");
+                }}
+              />
+            </label>
+            <p className="text-xs text-neutral-500">
+              R2 전환 전까지 외부 HTTPS 이미지 주소를 사용할 수 있습니다. URL 이미지가
+              첨부 이미지보다 우선 표시됩니다.
+            </p>
+            <label className="block space-y-1 text-sm font-medium text-neutral-700">
               <span>참고 스크린샷</span>
               <input
                 ref={imageInputRef}
@@ -2509,21 +2549,22 @@ export default function Home() {
             {activityImageError ? (
               <p className="text-sm text-red-600">{activityImageError}</p>
             ) : null}
-            {activityImageDataUrl ? (
+            {activityImagePreviewSource ? (
               <div className="space-y-2 rounded-md border border-neutral-200 p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="첨부 스크린샷 미리보기"
+                <ActivityImage
+                  alt="활동 이미지 미리보기"
                   className="max-h-64 rounded-md border border-neutral-200 object-contain"
-                  src={activityImageDataUrl}
+                  src={activityImagePreviewSource}
                 />
-                <button
-                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
-                  type="button"
-                  onClick={handleRemoveActivityImage}
-                >
-                  첨부 이미지 제거
-                </button>
+                {activityImageDataUrl ? (
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
+                    type="button"
+                    onClick={handleRemoveActivityImage}
+                  >
+                    첨부 이미지 제거
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -2654,11 +2695,11 @@ export default function Home() {
               return (
                 <li
                   className={`flex flex-col rounded-md border border-neutral-200 bg-white shadow-sm ${
-                    activity.imageDataUrl ? "overflow-hidden" : "px-4 py-3"
+                    getActivityImageSource(activity) ? "overflow-hidden" : "px-4 py-3"
                   }`}
                   key={activity.id}
                 >
-                  <div className={activity.imageDataUrl ? "px-4 pt-3" : ""}>
+                  <div className={getActivityImageSource(activity) ? "px-4 pt-3" : ""}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="text-xs text-neutral-500">
@@ -2673,7 +2714,7 @@ export default function Home() {
                           {getAirshipTypeLabel(activity.airshipType)}
                         </span>
                       ) : null}
-                      {activity.imageDataUrl ? (
+                      {getActivityImageSource(activity) ? (
                         <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                           이미지
                         </span>
@@ -2684,7 +2725,7 @@ export default function Home() {
                     </span>
                   </div>
                   </div>
-                  <div className={`mt-3 flex flex-1 flex-col gap-2 ${activity.imageDataUrl ? "px-4" : ""}`}>
+                  <div className={`mt-3 flex flex-1 flex-col gap-2 ${getActivityImageSource(activity) ? "px-4" : ""}`}>
                     <h3 className="text-base font-semibold leading-6 text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
@@ -2699,16 +2740,15 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {activity.imageDataUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                    {getActivityImageSource(activity) ? (
+                      <ActivityImage
                         alt="첨부 스크린샷"
                         className="mt-2 max-h-48 w-full border-y border-neutral-200 object-contain"
-                        src={activity.imageDataUrl}
+                        src={getActivityImageSource(activity)}
                       />
                     ) : null}
                   </div>
-                  <div className={`mt-4 flex flex-wrap gap-2 ${activity.imageDataUrl ? "px-4 pb-3" : ""}`}>
+                  <div className={`mt-4 flex flex-wrap gap-2 ${getActivityImageSource(activity) ? "px-4 pb-3" : ""}`}>
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"
@@ -2992,12 +3032,11 @@ export default function Home() {
                           {activity.memo}
                         </p>
                       ) : null}
-                      {activity.imageDataUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
+                      {getActivityImageSource(activity) ? (
+                        <ActivityImage
                           alt="첨부 스크린샷"
                           className="mt-3 max-h-40 w-full rounded-md border border-neutral-200 object-contain"
-                          src={activity.imageDataUrl}
+                          src={getActivityImageSource(activity)}
                         />
                       ) : null}
                     </li>

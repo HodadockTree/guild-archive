@@ -14,7 +14,9 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
+import { ActivityImage } from "@/src/components/ActivityImage";
 import { AppHeader } from "@/src/components/ui/AppHeader";
+import { getActivityImageSource } from "@/src/lib/activityImage";
 import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
 
 type MonthSummary = {
@@ -60,6 +62,7 @@ function toActivityDetail(activity: ActivityLog & { participantNames?: string[] 
       nickname: activity.participantNames?.[index] ?? `알 수 없는 길드원 ${memberId.slice(0, 6)}`,
     })),
     memo: activity.memo?.trim() || undefined,
+    imageUrl: activity.imageUrl,
     imageDataUrl: activity.imageDataUrl,
   };
 }
@@ -90,8 +93,7 @@ function ViewerImage({
   src: string;
 }) {
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    <ActivityImage
       alt={alt}
       className={
         className ??
@@ -534,10 +536,10 @@ export default function ViewerPage() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {activity.imageDataUrl ? (
+                    {getActivityImageSource(activity) ? (
                       <ViewerImage
                         alt="이벤트 첨부 이미지"
-                        src={activity.imageDataUrl}
+                        src={getActivityImageSource(activity) ?? ""}
                       />
                     ) : null}
                     </button>
@@ -560,7 +562,7 @@ export default function ViewerPage() {
                 {recentActivities.map((activity) => (
                   <li
                     className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
-                      activity.imageDataUrl ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
+                      getActivityImageSource(activity) ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
                     }`}
                     key={activity.id}
                   >
@@ -569,16 +571,16 @@ export default function ViewerPage() {
                       onClick={() => setSelectedActivity(toActivityDetail(activity))}
                       type="button"
                     >
-                    {activity.imageDataUrl ? (
+                    {getActivityImageSource(activity) ? (
                       <ViewerImage
                         alt="활동 첨부 이미지"
                         className="max-h-56 w-full border-b border-sky-100 object-contain"
-                        src={activity.imageDataUrl}
+                        src={getActivityImageSource(activity) ?? ""}
                       />
                     ) : null}
                     <div
                       className={
-                        activity.imageDataUrl
+                        getActivityImageSource(activity)
                           ? "flex flex-1 flex-col px-4 py-4"
                           : "flex flex-1 flex-col"
                       }

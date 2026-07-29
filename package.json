@@ -12,7 +12,9 @@
     "cf:deploy": "opennextjs-cloudflare deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:migrate:local": "wrangler d1 execute guild-archive-db --local --file=./schema.sql",
-    "db:migrate:remote": "wrangler d1 execute guild-archive-db --remote --file=./schema.sql"
+    "db:migrate:remote": "wrangler d1 execute guild-archive-db --remote --file=./schema.sql",
+    "db:image-url:local": "wrangler d1 execute guild-archive-db --local --file=./migrations/0001_add_activity_image_url.sql",
+    "db:image-url:remote": "wrangler d1 execute guild-archive-db --remote --file=./migrations/0001_add_activity_image_url.sql"
   },
   "dependencies": {
     "next": "16.2.9",

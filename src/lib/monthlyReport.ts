@@ -38,6 +38,7 @@ export type MonthlyEventSummary = {
   title: string;
   participantCount: number;
   memo?: string;
+  imageUrl?: string;
   imageDataUrl?: string;
 };
 
@@ -235,6 +236,7 @@ export function getMonthlyReport(
       title: activity.title?.trim() || "이벤트",
       participantCount: activity.participantIds.length,
       memo: activity.memo?.trim() || undefined,
+      imageUrl: activity.imageUrl,
       imageDataUrl: activity.imageDataUrl,
     }));
   const activityDetails = monthlyActivities.map((activity) => ({

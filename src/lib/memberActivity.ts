@@ -14,6 +14,7 @@ export type MemberActivityRecord = {
   participantCount: number;
   participants: ActivityParticipant[];
   memo?: string;
+  imageUrl?: string;
   imageDataUrl?: string;
 };
 
@@ -42,6 +43,7 @@ export function toMemberActivityRecord(
       nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
     })),
     memo: activity.memo?.trim() || undefined,
+    imageUrl: activity.imageUrl,
     imageDataUrl: activity.imageDataUrl,
   };
 }

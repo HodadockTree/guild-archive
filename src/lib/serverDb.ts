@@ -6,6 +6,7 @@ import {
   getMonthlyArchiveSummaries,
 } from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
+import { validateActivityImageUrl } from "@/src/lib/activityImage";
 
 const D1_BINDING_MISSING_ERROR_MESSAGE =
   "Cloudflare D1 바인딩(DB)을 찾을 수 없습니다. wrangler.jsonc의 d1_databases 설정과 " +
@@ -27,6 +28,7 @@ type ActivityRow = {
   title: string | null;
   memo: string | null;
   airshipType: string | null;
+  imageUrl: string | null;
   imageDataUrl: string | null;
 };
 
@@ -86,11 +88,23 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof activity.id !== "string" ||
       typeof activity.type !== "string" ||
       typeof activity.date !== "string" ||
+      (activity.imageUrl !== undefined && typeof activity.imageUrl !== "string") ||
       !Array.isArray(activity.participantIds),
   );
 
   if (hasInvalidActivity) {
     throw new Error("일부 활동 기록 데이터에 필수 필드가 없습니다.");
+  }
+
+  const invalidImageUrlActivity = data.activityLogs.find(
+    (activity) =>
+      isPlainObject(activity) &&
+      typeof activity.imageUrl === "string" &&
+      !validateActivityImageUrl(activity.imageUrl).valid,
+  );
+
+  if (invalidImageUrlActivity) {
+    throw new Error("활동 이미지 URL은 비어 있거나 https:// 주소여야 합니다.");
   }
 
   return {
@@ -139,8 +153,8 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO activities (
-          id, type, date, title, memo, airshipType, imageDataUrl, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, type, date, title, memo, airshipType, imageUrl, imageDataUrl, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         activity.id,
@@ -149,6 +163,7 @@ export async function importBackupJson(data: unknown) {
         activity.title ?? null,
         activity.memo ?? null,
         activity.airshipType ?? null,
+        activity.imageUrl?.trim() || null,
         // imageDataUrl은 D1에 저장하지 않고 항상 스킵합니다 (v1.8 SQLite와 동일한 정책).
         null,
         importedAt,
@@ -219,6 +234,7 @@ export async function importBackupJson(data: unknown) {
     activityCount: backup.activityLogs.length,
     participantCount,
     conquestTypeCount,
+    imageUrl: "stored",
     imageDataUrl: "skipped",
   };
 }
@@ -242,7 +258,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     await Promise.all([
       db
         .prepare(
-          `SELECT id, type, date, title, memo, airshipType, imageDataUrl
+          `SELECT id, type, date, title, memo, airshipType, imageUrl, imageDataUrl
            FROM activities
            ORDER BY date ASC, id ASC`,
         )
@@ -277,6 +293,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     title: activity.title ?? undefined,
     memo: activity.memo ?? undefined,
     airshipType: activity.airshipType as ActivityLog["airshipType"],
+    imageUrl: activity.imageUrl ?? undefined,
     imageDataUrl: activity.imageDataUrl ?? undefined,
     participantIds: participantsByActivityId.get(activity.id) ?? [],
     conquestTypes: conquestTypesByActivityId.get(activity.id) as
