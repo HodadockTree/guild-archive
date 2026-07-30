@@ -192,6 +192,14 @@ export default function ArchivePage() {
                     <h2 className="text-lg font-bold text-slate-900">
                       {getMonthDisplayLabel(summary.month)}
                     </h2>
+                    {summary.highlightCount > 0 ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        {summary.highlightCount === 1 &&
+                        summary.representativeHighlightTitle
+                          ? summary.representativeHighlightTitle
+                          : `주요 기록 ${summary.highlightCount}건`}
+                      </span>
+                    ) : null}
                     {summary.representativeEvents.length > 0 ? (
                       <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
                         {summary.representativeEvents.map((event) => (
@@ -203,14 +211,6 @@ export default function ArchivePage() {
                           </li>
                         ))}
                       </ul>
-                    ) : null}
-                    {summary.highlightCount > 0 ? (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                        {summary.highlightCount === 1 &&
-                        summary.representativeHighlightTitle
-                          ? summary.representativeHighlightTitle
-                          : `주요 기록 ${summary.highlightCount}건`}
-                      </span>
                     ) : null}
                   </div>
                 </div>

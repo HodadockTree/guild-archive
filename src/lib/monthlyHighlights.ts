@@ -109,11 +109,24 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
 }
 
 export function sortMonthlyHighlights(highlights: MonthlyHighlight[]) {
+  const categoryPriority: Record<MonthlyHighlightCategory, number> = {
+    game_event: 0,
+    game_update: 0,
+    guild_news: 1,
+    other: 2,
+  };
+
   return [...highlights].sort((first, second) => {
+    const categoryOrder =
+      categoryPriority[first.category] - categoryPriority[second.category];
     const firstDate = first.dateText?.trim() || "9999";
     const secondDate = second.dateText?.trim() || "9999";
     const dateOrder = firstDate.localeCompare(secondDate, "ko");
 
-    return dateOrder || first.createdAt.localeCompare(second.createdAt);
+    return (
+      categoryOrder ||
+      dateOrder ||
+      first.createdAt.localeCompare(second.createdAt)
+    );
   });
 }
