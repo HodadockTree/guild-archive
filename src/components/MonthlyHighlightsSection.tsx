@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { MonthlyHighlight } from "@/src/types";
 import { ActivityImage } from "@/src/components/ActivityImage";
 import { monthlyHighlightCategoryLabels } from "@/src/lib/monthlyHighlights";
@@ -19,9 +20,14 @@ export function MonthlyHighlightsSection({
 }: {
   highlights: PublicMonthlyHighlight[];
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (highlights.length === 0) {
     return null;
   }
+
+  const hiddenCount = Math.max(0, highlights.length - 2);
+  const visibleHighlights = isExpanded ? highlights : highlights.slice(0, 2);
 
   return (
     <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
@@ -34,7 +40,7 @@ export function MonthlyHighlightsSection({
         </p>
       </div>
       <ul className="mt-4 grid gap-3 md:grid-cols-2">
-        {highlights.map((highlight) => (
+        {visibleHighlights.map((highlight) => (
           <li
             className="overflow-hidden rounded-md border border-sky-100 bg-sky-50/40"
             key={highlight.id}
@@ -69,6 +75,16 @@ export function MonthlyHighlightsSection({
           </li>
         ))}
       </ul>
+      {hiddenCount > 0 ? (
+        <button
+          aria-expanded={isExpanded}
+          className="ui-focus-ring mx-auto mt-4 block min-h-11 rounded-md px-4 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-sky-50"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          type="button"
+        >
+          {isExpanded ? "주요 기록 접기" : `주요 기록 ${hiddenCount}건 더보기`}
+        </button>
+      ) : null}
     </section>
   );
 }

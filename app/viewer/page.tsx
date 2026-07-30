@@ -431,7 +431,10 @@ export default function ViewerPage() {
             </dl>
           </section>
 
-          <MonthlyHighlightsSection highlights={monthlyHighlights} />
+          <MonthlyHighlightsSection
+            highlights={monthlyHighlights}
+            key={reportMonth}
+          />
 
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <h2 className="text-lg font-semibold text-slate-900">이번 달 참여 분석</h2>
@@ -575,9 +578,7 @@ export default function ViewerPage() {
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recentActivities.map((activity) => (
                   <li
-                    className={`flex rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
-                      getActivityImageSource(activity) ? "flex-col overflow-hidden" : "flex-col px-4 py-4"
-                    }`}
+                    className="flex flex-col overflow-hidden rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40"
                     key={activity.id}
                   >
                     <button
@@ -585,20 +586,20 @@ export default function ViewerPage() {
                       onClick={() => setSelectedActivity(toActivityDetail(activity))}
                       type="button"
                     >
-                    {getActivityImageSource(activity) ? (
-                      <ViewerImage
-                        alt="활동 첨부 이미지"
-                        className="max-h-56 w-full border-b border-sky-100 object-contain"
-                        src={getActivityImageSource(activity) ?? ""}
-                      />
-                    ) : null}
-                    <div
-                      className={
-                        getActivityImageSource(activity)
-                          ? "flex flex-1 flex-col px-4 py-4"
-                          : "flex flex-1 flex-col"
-                      }
-                    >
+                    <div className="aspect-video w-full overflow-hidden border-b border-sky-100 bg-sky-50">
+                      {getActivityImageSource(activity) ? (
+                        <ViewerImage
+                          alt="활동 첨부 이미지"
+                          className="h-full w-full object-cover"
+                          src={getActivityImageSource(activity) ?? ""}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-4 text-center text-sm font-medium text-sky-700/70">
+                          첨부 이미지 없음
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="text-xs text-slate-500">
@@ -609,7 +610,7 @@ export default function ViewerPage() {
                           {activity.participantIds.length}명
                         </span>
                       </div>
-                      <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+                      <h3 className="mt-3 min-h-12 line-clamp-2 text-base font-semibold leading-6 text-slate-900">
                         {getActivityTitle(activity)}
                       </h3>
                       {activity.memo?.trim() ? (
