@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { MonthlyHighlight } from "@/src/types";
 import { ActivityImage } from "@/src/components/ActivityImage";
-import { monthlyHighlightCategoryLabels } from "@/src/lib/monthlyHighlights";
+import {
+  monthlyHighlightCategoryBadgeClasses,
+  monthlyHighlightCategoryLabels,
+} from "@/src/lib/monthlyHighlights";
 
 type PublicMonthlyHighlight = Pick<
   MonthlyHighlight,
@@ -54,7 +57,9 @@ export function MonthlyHighlightsSection({
             ) : null}
             <div className="p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-800">
+                <span
+                  className={`rounded-full px-2 py-1 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
+                >
                   {monthlyHighlightCategoryLabels[highlight.category]}
                 </span>
                 {highlight.dateText ? (

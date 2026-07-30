@@ -8,6 +8,7 @@ import { AppHeader } from "@/src/components/ui/AppHeader";
 import { MonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
+import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
 import type { MonthlyHighlightCategory } from "@/src/types";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
@@ -205,7 +206,7 @@ export default function ArchivePage() {
                       >
                         {summary.representativeHighlights?.map((highlight) => (
                           <li
-                            className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                            className={`rounded-full px-2 py-0.5 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
                             key={highlight.id}
                           >
                             {highlight.title}

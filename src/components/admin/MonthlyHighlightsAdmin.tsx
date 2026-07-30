@@ -7,6 +7,7 @@ import type {
 } from "@/src/types";
 import { ActivityImage } from "@/src/components/ActivityImage";
 import {
+  monthlyHighlightCategoryBadgeClasses,
   monthlyHighlightCategories,
   monthlyHighlightCategoryLabels,
   validateMonthlyHighlightInput,
@@ -379,7 +380,9 @@ export function MonthlyHighlightsAdmin() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="rounded-full bg-sky-100 px-2 py-1 text-xs text-sky-800">
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
+                  >
                     {monthlyHighlightCategoryLabels[highlight.category]}
                   </span>
                   <h3 className="mt-2 font-semibold text-neutral-950">

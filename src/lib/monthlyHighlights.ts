@@ -14,6 +14,16 @@ export const monthlyHighlightCategoryLabels: Record<
   other: "기타",
 };
 
+export const monthlyHighlightCategoryBadgeClasses: Record<
+  MonthlyHighlightCategory,
+  string
+> = {
+  game_update: "bg-violet-100 font-semibold text-violet-800",
+  game_event: "bg-amber-100 font-semibold text-amber-800",
+  guild_news: "bg-emerald-100 font-medium text-emerald-800",
+  other: "bg-slate-100 font-medium text-slate-600",
+};
+
 export const monthlyHighlightCategories = Object.keys(
   monthlyHighlightCategoryLabels,
 ) as MonthlyHighlightCategory[];
