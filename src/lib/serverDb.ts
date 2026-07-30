@@ -580,6 +580,11 @@ export async function getServerArchiveMonths() {
           summary.representativeEvents[0]?.title ?? null,
         highlightCount: monthHighlights.length,
         representativeHighlightTitle: monthHighlights[0]?.title ?? null,
+        representativeHighlights: monthHighlights.map((highlight) => ({
+          id: highlight.id,
+          category: highlight.category,
+          title: highlight.title,
+        })),
       };
     });
 }
