@@ -99,6 +99,7 @@ type ServerImportState =
       activityCount: number;
       participantCount: number;
       conquestTypeCount: number;
+      preservedImageDataUrlCount: number;
     }
   | { status: "error"; message: string };
 type ImageMigrationSummary = {
@@ -1140,6 +1141,7 @@ export default function Home() {
         activityCount?: number;
         participantCount?: number;
         conquestTypeCount?: number;
+        preservedImageDataUrlCount?: number;
       };
 
       if (!response.ok || !result.ok) {
@@ -1152,6 +1154,7 @@ export default function Home() {
         activityCount: result.activityCount ?? 0,
         participantCount: result.participantCount ?? 0,
         conquestTypeCount: result.conquestTypeCount ?? 0,
+        preservedImageDataUrlCount: result.preservedImageDataUrlCount ?? 0,
       });
     } catch (error) {
       setServerImportState({
@@ -2008,8 +2011,9 @@ export default function Home() {
                   ) : null}
                   <p className="text-sm text-neutral-600">
                     이 백업을 복원하면 현재 데이터가 백업 파일 내용으로
-                    교체됩니다. 복원 전 현재 데이터를 다시 백업해두는 것을
-                    권장합니다.
+                    교체됩니다. 동일한 활동 ID에 서버 첨부 이미지가 이미 있으면
+                    이미지는 보존됩니다. 복원 전 현재 데이터를 다시 백업해두는
+                    것을 권장합니다.
                   </p>
                   <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                     <span>서버 반영 토큰 (서버 DB로 가져오기에만 필요)</span>
@@ -2118,7 +2122,8 @@ export default function Home() {
                       서버 DB 가져오기가 완료되었습니다. 길드원{" "}
                       {serverImportState.memberCount}명, 활동 기록{" "}
                       {serverImportState.activityCount}개, 참여 연결{" "}
-                      {serverImportState.participantCount}개를 저장했습니다.
+                      {serverImportState.participantCount}개를 저장하고 기존 첨부 이미지{" "}
+                      {serverImportState.preservedImageDataUrlCount}개를 보존했습니다.
                     </p>
                   ) : null}
                   {serverImportState.status === "error" ? (

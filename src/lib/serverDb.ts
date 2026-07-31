@@ -164,6 +164,25 @@ export async function importBackupJson(data: unknown) {
   const backup = validateBackupData(data);
   const db = await getDb();
   const importedAt = new Date().toISOString();
+  const { results: storedActivityImages } = await db
+    .prepare(
+      `SELECT id, imageDataUrl
+       FROM activities
+       WHERE imageDataUrl IS NOT NULL
+         AND TRIM(imageDataUrl) != ''`,
+    )
+    .all<ActivityImageMigrationRow>();
+  const storedImageDataUrlByActivityId = new Map(
+    storedActivityImages.map((activity) => [
+      activity.id,
+      activity.imageDataUrl,
+    ]),
+  );
+  const preservedImageDataUrlCount = backup.activityLogs.reduce(
+    (count, activity) =>
+      count + (storedImageDataUrlByActivityId.has(activity.id) ? 1 : 0),
+    0,
+  );
 
   const deleteStatements = [
     db.prepare("DELETE FROM activity_conquest_types"),
@@ -208,8 +227,9 @@ export async function importBackupJson(data: unknown) {
         activity.memo ?? null,
         activity.airshipType ?? null,
         activity.imageUrl?.trim() || null,
-        // imageDataUrl은 D1에 저장하지 않고 항상 스킵합니다 (v1.8 SQLite와 동일한 정책).
-        null,
+        // 백업의 큰 data URL을 새로 가져오지는 않되, 동일 활동에 이미 저장된
+        // 서버 이미지는 전체 교체 과정에서도 잃지 않도록 보존합니다.
+        storedImageDataUrlByActivityId.get(activity.id) ?? null,
         importedAt,
         importedAt,
       ),
@@ -279,7 +299,8 @@ export async function importBackupJson(data: unknown) {
     participantCount,
     conquestTypeCount,
     imageUrl: "stored",
-    imageDataUrl: "skipped",
+    imageDataUrl: "preserved",
+    preservedImageDataUrlCount,
   };
 }
 
