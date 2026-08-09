@@ -2,7 +2,6 @@
 
 import {
   ChangeEvent,
-  ClipboardEvent,
   FormEvent,
   MouseEvent as ReactMouseEvent,
   useEffect,
@@ -41,18 +40,12 @@ import {
 } from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import { Pagination } from "@/src/components/ui/Pagination";
 import {
   AdminSectionNav,
   type AdminSection,
 } from "@/src/components/admin/AdminSectionNav";
 import { MonthlyHighlightsAdmin } from "@/src/components/admin/MonthlyHighlightsAdmin";
-import {
-  getActivityImageSource,
-  isTemporaryDiscordImageUrl,
-  validateActivityImageUrl,
-} from "@/src/lib/activityImage";
 import {
   conquestTypes,
   getKnownConquestTypes,
@@ -65,12 +58,6 @@ import {
   getMonthlyReport,
   getMonthlyShareText,
 } from "@/src/lib/monthlyReport";
-import {
-  createImageDataMigrationBatches,
-  MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
-  type ImageDataMigrationItem,
-  type ImageDataMigrationMode,
-} from "@/src/lib/imageDataMigration";
 import {
   getMemberDemographicsLabel,
   guildMemberGenderLabels,
@@ -100,24 +87,7 @@ type ServerImportState =
       activityCount: number;
       participantCount: number;
       conquestTypeCount: number;
-      preservedImageDataUrlCount: number;
     }
-  | { status: "error"; message: string };
-type ImageMigrationSummary = {
-  sourceCount: number;
-  validCount: number;
-  eligibleCount: number;
-  missingCount: number;
-  alreadyStoredCount: number;
-  oversizedCount: number;
-  invalidCount: number;
-  updatedCount: number;
-};
-type ImageMigrationState =
-  | { status: "idle" }
-  | { status: "loading"; mode: ImageDataMigrationMode }
-  | { status: "preview"; summary: ImageMigrationSummary }
-  | { status: "success"; summary: ImageMigrationSummary }
   | { status: "error"; message: string };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
@@ -126,10 +96,6 @@ const MEMBERS_STORAGE_KEY = "guild-archive:members";
 const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
 const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
-const MAX_IMAGE_WIDTH = 800;
-const IMAGE_JPEG_QUALITY = 0.68;
-const MAX_IMAGE_DATA_URL_LENGTH = 180_000;
-const MIN_IMAGE_JPEG_QUALITY = 0.36;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -362,30 +328,6 @@ function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
   return activities.some((activity) => activity.participantIds.includes(memberId));
 }
 
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
-    image.src = src;
-  });
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("이미지를 읽지 못했습니다."));
-      }
-    };
-    reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
-    reader.readAsDataURL(file);
-  });
-}
-
 function readFileAsText(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -399,50 +341,6 @@ function readFileAsText(file: File) {
     reader.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
     reader.readAsText(file);
   });
-}
-
-async function resizeImageFile(file: File) {
-  const dataUrl = await readFileAsDataUrl(file);
-  const image = await loadImage(dataUrl);
-  const scale = Math.min(1, MAX_IMAGE_WIDTH / image.width);
-  const width = Math.round(image.width * scale);
-  const height = Math.round(image.height * scale);
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    throw new Error("이미지를 처리하지 못했습니다.");
-  }
-
-  let targetWidth = width;
-  let targetHeight = height;
-
-  while (true) {
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, targetWidth, targetHeight);
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-    for (
-      let quality = IMAGE_JPEG_QUALITY;
-      quality >= MIN_IMAGE_JPEG_QUALITY;
-      quality -= 0.08
-    ) {
-      const result = canvas.toDataURL("image/jpeg", quality);
-
-      if (result.length <= MAX_IMAGE_DATA_URL_LENGTH) {
-        return result;
-      }
-    }
-
-    if (targetWidth <= 320) {
-      throw new Error("이미지 용량을 저장 가능한 크기로 줄이지 못했습니다.");
-    }
-
-    targetWidth = Math.max(320, Math.round(targetWidth * 0.8));
-    targetHeight = Math.max(1, Math.round(targetHeight * 0.8));
-  }
 }
 
 export default function Home() {
@@ -464,9 +362,6 @@ export default function Home() {
   const [hasManuallyEditedActivityTitle, setHasManuallyEditedActivityTitle] =
     useState(false);
   const [activityMemo, setActivityMemo] = useState("");
-  const [activityImageUrl, setActivityImageUrl] = useState("");
-  const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
-  const [activityImageError, setActivityImageError] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [participantSearch, setParticipantSearch] = useState("");
   const [isParticipantActiveOpen, setIsParticipantActiveOpen] = useState(true);
@@ -509,8 +404,6 @@ export default function Home() {
   const [serverImportState, setServerImportState] = useState<ServerImportState>({
     status: "idle",
   });
-  const [imageMigrationState, setImageMigrationState] =
-    useState<ImageMigrationState>({ status: "idle" });
   const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
@@ -528,7 +421,6 @@ export default function Home() {
   const [leaveDate, setLeaveDate] = useState(today());
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
@@ -554,14 +446,6 @@ export default function Home() {
     memberEditBirthYearInput,
     currentYear,
   );
-  const activityImageUrlValidation = validateActivityImageUrl(activityImageUrl);
-  const activityImagePreviewSource = getActivityImageSource({
-    imageUrl: activityImageUrlValidation.valid
-      ? activityImageUrlValidation.value
-      : undefined,
-    imageDataUrl: activityImageDataUrl,
-  });
-  const hasTemporaryDiscordImageUrl = isTemporaryDiscordImageUrl(activityImageUrl);
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
   const menuMember = memberMenuPosition
@@ -805,12 +689,6 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [historyMemberId]);
 
-  const clearImageInput = () => {
-    if (imageInputRef.current) {
-      imageInputRef.current.value = "";
-    }
-  };
-
   const resetActivityForm = () => {
     setActivityDate(today());
     setActivityType("airship");
@@ -820,15 +698,11 @@ export default function Home() {
     setIsSiegeTitleAutoSuggested(false);
     setHasManuallyEditedActivityTitle(false);
     setActivityMemo("");
-    setActivityImageUrl("");
-    setActivityImageDataUrl("");
-    setActivityImageError("");
     setSelectedMemberIds([]);
     setParticipantSearch("");
     setIsParticipantActiveOpen(true);
     setIsParticipantLeftOpen(false);
     setEditingActivityId(null);
-    clearImageInput();
   };
 
   const resetMemberForm = () => {
@@ -1022,7 +896,6 @@ export default function Home() {
 
     setRestoreResultMessage("");
     setServerImportState({ status: "idle" });
-    setImageMigrationState({ status: "idle" });
 
     try {
       const fileText = await readFileAsText(file);
@@ -1067,7 +940,6 @@ export default function Home() {
 
   const handleCancelBackupImport = () => {
     setBackupImportState({ status: "idle" });
-    setImageMigrationState({ status: "idle" });
   };
 
   const handleRestoreBackup = () => {
@@ -1143,7 +1015,6 @@ export default function Home() {
         activityCount?: number;
         participantCount?: number;
         conquestTypeCount?: number;
-        preservedImageDataUrlCount?: number;
       };
 
       if (!response.ok || !result.ok) {
@@ -1156,7 +1027,6 @@ export default function Home() {
         activityCount: result.activityCount ?? 0,
         participantCount: result.participantCount ?? 0,
         conquestTypeCount: result.conquestTypeCount ?? 0,
-        preservedImageDataUrlCount: result.preservedImageDataUrlCount ?? 0,
       });
     } catch (error) {
       setServerImportState({
@@ -1165,133 +1035,6 @@ export default function Home() {
           error instanceof Error
             ? error.message
             : "서버 DB 가져오기 중 문제가 발생했습니다.",
-      });
-    }
-  };
-
-  const handleMigrateBackupImages = async (mode: ImageDataMigrationMode) => {
-    if (backupImportState.status !== "valid") {
-      return;
-    }
-
-    const trimmedServerImportToken = serverImportToken.trim();
-
-    if (!trimmedServerImportToken) {
-      setImageMigrationState({
-        status: "error",
-        message: "과거 이미지 보충을 위해 서버 반영 토큰을 입력해 주세요.",
-      });
-      return;
-    }
-
-    const sourceImages = backupImportState.backup.activityLogs.flatMap(
-      (activity) =>
-        typeof activity.imageDataUrl === "string" &&
-        activity.imageDataUrl.trim()
-          ? [{ id: activity.id, imageDataUrl: activity.imageDataUrl.trim() }]
-          : [],
-    );
-    const oversizedCount = sourceImages.filter(
-      (image) =>
-        image.imageDataUrl.length > MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
-    ).length;
-    const validImages = sourceImages.filter(
-      (image) =>
-        image.imageDataUrl.length <= MAX_MIGRATION_IMAGE_DATA_URL_LENGTH &&
-        /^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(image.imageDataUrl),
-    );
-    const invalidCount = sourceImages.length - oversizedCount - validImages.length;
-
-    if (sourceImages.length === 0) {
-      setImageMigrationState({
-        status: "error",
-        message: "선택한 백업에는 보충할 imageDataUrl이 없습니다.",
-      });
-      return;
-    }
-
-    if (validImages.length === 0) {
-      setImageMigrationState({
-        status: "error",
-        message:
-          "안전하게 보충할 수 있는 이미지가 없습니다. 크기 또는 데이터 형식을 확인해 주세요.",
-      });
-      return;
-    }
-
-    if (
-      mode === "apply" &&
-      !window.confirm(
-        "사전 점검에서 확인한 활동에 과거 이미지를 보충할까요?\n기존 imageUrl과 이미 저장된 imageDataUrl은 변경하지 않습니다.",
-      )
-    ) {
-      return;
-    }
-
-    setImageMigrationState({ status: "loading", mode });
-
-    try {
-      const batches = createImageDataMigrationBatches(
-        validImages as ImageDataMigrationItem[],
-      );
-      let eligibleCount = 0;
-      let missingCount = 0;
-      let alreadyStoredCount = 0;
-      let updatedCount = 0;
-
-      for (const images of batches) {
-        const response = await fetch("/api/import/images", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${trimmedServerImportToken}`,
-          },
-          body: JSON.stringify({ mode, images }),
-        });
-        const result = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          eligibleCount?: number;
-          updatedCount?: number;
-          missingIds?: string[];
-          alreadyStoredIds?: string[];
-        };
-
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "과거 이미지 보충 요청에 실패했습니다.",
-          );
-        }
-
-        eligibleCount += result.eligibleCount ?? 0;
-        updatedCount += result.updatedCount ?? 0;
-        missingCount += result.missingIds?.length ?? 0;
-        alreadyStoredCount += result.alreadyStoredIds?.length ?? 0;
-      }
-
-      const summary: ImageMigrationSummary = {
-        sourceCount: sourceImages.length,
-        validCount: validImages.length,
-        eligibleCount,
-        missingCount,
-        alreadyStoredCount,
-        oversizedCount,
-        invalidCount,
-        updatedCount,
-      };
-
-      setImageMigrationState(
-        mode === "preview"
-          ? { status: "preview", summary }
-          : { status: "success", summary },
-      );
-    } catch (error) {
-      setImageMigrationState({
-        status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "과거 이미지 보충 중 오류가 발생했습니다.",
       });
     }
   };
@@ -1415,75 +1158,8 @@ export default function Home() {
     );
   };
 
-  const handleActivityImageChange = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setActivityImageError("이미지 파일만 첨부할 수 있습니다.");
-      clearImageInput();
-      return;
-    }
-
-    try {
-      setActivityImageError("");
-      const resizedImage = await resizeImageFile(file);
-      setActivityImageDataUrl(resizedImage);
-    } catch {
-      setActivityImageError("이미지를 압축하는 중 문제가 발생했습니다.");
-      clearImageInput();
-    }
-  };
-
-  const handleActivityImagePaste = async (
-    event: ClipboardEvent<HTMLFormElement>,
-  ) => {
-    const imageItem = Array.from(event.clipboardData.items).find((item) =>
-      item.type.startsWith("image/"),
-    );
-
-    if (!imageItem) {
-      return;
-    }
-
-    const file = imageItem.getAsFile();
-
-    if (!file) {
-      return;
-    }
-
-    event.preventDefault();
-
-    try {
-      setActivityImageError("");
-      const resizedImage = await resizeImageFile(file);
-      setActivityImageDataUrl(resizedImage);
-      clearImageInput();
-    } catch {
-      setActivityImageError("붙여넣은 이미지를 압축하는 중 문제가 발생했습니다.");
-    }
-  };
-
-  const handleRemoveActivityImage = () => {
-    setActivityImageDataUrl("");
-    setActivityImageError("");
-    clearImageInput();
-  };
-
   const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const imageUrlResult = validateActivityImageUrl(activityImageUrl);
-
-    if (!imageUrlResult.valid) {
-      setActivityImageError(imageUrlResult.error);
-      return;
-    }
 
     const activityData = {
       date: activityDate,
@@ -1496,8 +1172,6 @@ export default function Home() {
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
-      imageUrl: imageUrlResult.value,
-      imageDataUrl: activityImageDataUrl || undefined,
     };
 
     const wasEditingActivity = Boolean(editingActivityId);
@@ -1508,15 +1182,9 @@ export default function Home() {
       } else {
         addActivityLog(activityData);
       }
-    } catch (error) {
-      const isStorageQuotaError =
-        error instanceof DOMException &&
-        (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
-
+    } catch {
       setActivityFeedbackMessage(
-        isStorageQuotaError
-          ? "브라우저 저장 공간이 가득 차 활동을 저장하지 못했습니다. 기존 기록의 큰 이미지를 삭제한 뒤 다시 시도해 주세요."
-          : "활동 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        "활동 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
       return;
     }
@@ -1541,9 +1209,6 @@ export default function Home() {
     setIsSiegeTitleAutoSuggested(false);
     setHasManuallyEditedActivityTitle(true);
     setActivityMemo(activity.memo ?? "");
-    setActivityImageUrl(activity.imageUrl ?? "");
-    setActivityImageDataUrl(activity.imageDataUrl ?? "");
-    setActivityImageError("");
     setSelectedMemberIds(activity.participantIds);
     setParticipantSearch("");
     setIsParticipantActiveOpen(true);
@@ -1553,7 +1218,6 @@ export default function Home() {
           member.status === "left" && activity.participantIds.includes(member.id),
       ),
     );
-    clearImageInput();
     requestAnimationFrame(() => {
       activityFormRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -1808,13 +1472,6 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ActivityImage
-                        alt="이벤트 첨부 이미지"
-                        className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
-                        src={getActivityImageSource(activity)}
-                      />
-                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -2013,9 +1670,8 @@ export default function Home() {
                   ) : null}
                   <p className="text-sm text-neutral-600">
                     이 백업을 복원하면 현재 데이터가 백업 파일 내용으로
-                    교체됩니다. 동일한 활동 ID에 서버 첨부 이미지가 이미 있으면
-                    이미지는 보존됩니다. 복원 전 현재 데이터를 다시 백업해두는
-                    것을 권장합니다.
+                    교체됩니다. 복원 전 현재 데이터를 다시 백업해두는 것을
+                    권장합니다.
                   </p>
                   <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
                     <span>서버 반영 토큰 (서버 DB로 가져오기에만 필요)</span>
@@ -2032,67 +1688,6 @@ export default function Home() {
                     입력한 토큰은 저장되지 않고 이 화면에서만 사용되며, 서버 DB로
                     가져오기를 요청할 때만 서버로 전송됩니다.
                   </p>
-                  <div className="space-y-3 rounded-md border border-sky-200 bg-sky-50 p-3">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">
-                        과거 첨부 이미지 안전 보충
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">
-                        백업의 비어 있지 않은 imageDataUrl만 같은 활동 ID에
-                        보충합니다. 기존 imageUrl, 이미 저장된 이미지와 다른 활동
-                        데이터는 변경하지 않습니다.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        type="button"
-                        disabled={imageMigrationState.status === "loading"}
-                        onClick={() => handleMigrateBackupImages("preview")}
-                      >
-                        {imageMigrationState.status === "loading" &&
-                        imageMigrationState.mode === "preview"
-                          ? "사전 점검 중"
-                          : "과거 이미지 사전 점검"}
-                      </button>
-                      <button
-                        className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                        type="button"
-                        disabled={
-                          imageMigrationState.status !== "preview" ||
-                          imageMigrationState.summary.eligibleCount === 0
-                        }
-                        onClick={() => handleMigrateBackupImages("apply")}
-                      >
-                        누락 이미지 보충 실행
-                      </button>
-                    </div>
-                    {imageMigrationState.status === "preview" ||
-                    imageMigrationState.status === "success" ? (
-                      <div className="grid gap-1 rounded-md bg-white px-3 py-2 text-xs text-neutral-700 sm:grid-cols-2">
-                        <p>백업 이미지: {imageMigrationState.summary.sourceCount}개</p>
-                        <p>형식·크기 통과: {imageMigrationState.summary.validCount}개</p>
-                        <p>보충 대상: {imageMigrationState.summary.eligibleCount}개</p>
-                        <p>서버에 없는 활동: {imageMigrationState.summary.missingCount}개</p>
-                        <p>
-                          이미 저장됨:{" "}
-                          {imageMigrationState.summary.alreadyStoredCount}개
-                        </p>
-                        <p>크기 초과: {imageMigrationState.summary.oversizedCount}개</p>
-                        <p>잘못된 형식: {imageMigrationState.summary.invalidCount}개</p>
-                        {imageMigrationState.status === "success" ? (
-                          <p className="font-semibold text-emerald-700">
-                            실제 보충: {imageMigrationState.summary.updatedCount}개
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {imageMigrationState.status === "error" ? (
-                      <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                        {imageMigrationState.message}
-                      </p>
-                    ) : null}
-                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
@@ -2124,8 +1719,7 @@ export default function Home() {
                       서버 DB 가져오기가 완료되었습니다. 길드원{" "}
                       {serverImportState.memberCount}명, 활동 기록{" "}
                       {serverImportState.activityCount}개, 참여 연결{" "}
-                      {serverImportState.participantCount}개를 저장하고 기존 첨부 이미지{" "}
-                      {serverImportState.preservedImageDataUrlCount}개를 보존했습니다.
+                      {serverImportState.participantCount}개를 저장했습니다.
                     </p>
                   ) : null}
                   {serverImportState.status === "error" ? (
@@ -2639,7 +2233,6 @@ export default function Home() {
         ) : null}
         <form
           className="space-y-5 rounded-md border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
-          onPaste={handleActivityImagePaste}
           onSubmit={handleSubmitActivity}
         >
           {isEditingActivity ? (
@@ -2910,72 +2503,6 @@ export default function Home() {
             />
           </label>
 
-          <div className="space-y-2">
-            <label className="block space-y-1 text-sm font-medium text-neutral-700">
-              <span>이미지 URL</span>
-              <input
-                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
-                inputMode="url"
-                placeholder="https://example.com/image.jpg"
-                type="text"
-                value={activityImageUrl}
-                onChange={(event) => {
-                  setActivityImageUrl(event.target.value);
-                  setActivityImageError("");
-                }}
-              />
-            </label>
-            <p className="text-xs text-neutral-500">
-              외부 HTTPS 이미지 주소를 사용할 수 있습니다. 첨부 이미지가 있으면 만료될
-              수 있는 외부 URL보다 우선 표시됩니다.
-            </p>
-            {hasTemporaryDiscordImageUrl ? (
-              <p className="text-sm text-amber-700">
-                Discord 첨부 주소는 일정 시간이 지나면 만료됩니다. 이미지 파일을 아래에
-                첨부하거나 붙여넣어 영구 사본을 함께 저장해 주세요.
-              </p>
-            ) : null}
-            <label className="block space-y-1 text-sm font-medium text-neutral-700">
-              <span>참고 스크린샷</span>
-              <input
-                ref={imageInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
-                type="file"
-                accept="image/*"
-                onChange={handleActivityImageChange}
-              />
-            </label>
-            <p className="text-xs text-neutral-500">
-              선택한 이미지는 최대 너비 {MAX_IMAGE_WIDTH}px 이하의 JPEG로 압축해
-              저장합니다.
-            </p>
-            <p className="text-xs text-neutral-500">
-              디스코드 이미지 복사 후 이 활동 기록 폼 안에서 Ctrl+V로 첨부할 수
-              있습니다.
-            </p>
-            {activityImageError ? (
-              <p className="text-sm text-red-600">{activityImageError}</p>
-            ) : null}
-            {activityImagePreviewSource ? (
-              <div className="space-y-2 rounded-md border border-neutral-200 p-3">
-                <ActivityImage
-                  alt="활동 이미지 미리보기"
-                  className="max-h-64 rounded-md border border-neutral-200 object-contain"
-                  src={activityImagePreviewSource}
-                />
-                {activityImageDataUrl ? (
-                  <button
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
-                    type="button"
-                    onClick={handleRemoveActivityImage}
-                  >
-                    첨부 이미지 제거
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
           <button
             className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
             type="submit"
@@ -3101,12 +2628,10 @@ export default function Home() {
 
               return (
                 <li
-                  className={`flex flex-col rounded-md border border-neutral-200 bg-white shadow-sm ${
-                    getActivityImageSource(activity) ? "overflow-hidden" : "px-4 py-3"
-                  }`}
+                  className="flex flex-col rounded-md border border-neutral-200 bg-white px-4 py-3 shadow-sm"
                   key={activity.id}
                 >
-                  <div className={getActivityImageSource(activity) ? "px-4 pt-3" : ""}>
+                  <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="text-xs text-neutral-500">
@@ -3121,18 +2646,13 @@ export default function Home() {
                           {getAirshipTypeLabel(activity.airshipType)}
                         </span>
                       ) : null}
-                      {getActivityImageSource(activity) ? (
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                          이미지
-                        </span>
-                      ) : null}
                     </div>
                     <span className={`shrink-0 rounded-sm border px-2 py-0.5 text-xs font-medium text-slate-700 ${maxFilteredParticipantCount > 0 && activity.participantIds.length === maxFilteredParticipantCount ? "border-sky-300 bg-sky-200" : "border-sky-100 bg-sky-50"}`}>
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>
                   </div>
-                  <div className={`mt-3 flex flex-1 flex-col gap-2 ${getActivityImageSource(activity) ? "px-4" : ""}`}>
+                  <div className="mt-3 flex flex-1 flex-col gap-2">
                     <h3 className="text-base font-semibold leading-6 text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
@@ -3147,15 +2667,8 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ActivityImage
-                        alt="첨부 스크린샷"
-                        className="mt-2 max-h-48 w-full border-y border-neutral-200 object-contain"
-                        src={getActivityImageSource(activity)}
-                      />
-                    ) : null}
                   </div>
-                  <div className={`mt-4 flex flex-wrap gap-2 ${getActivityImageSource(activity) ? "px-4 pb-3" : ""}`}>
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"
@@ -3438,13 +2951,6 @@ export default function Home() {
                         <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-neutral-500">
                           {activity.memo}
                         </p>
-                      ) : null}
-                      {getActivityImageSource(activity) ? (
-                        <ActivityImage
-                          alt="첨부 스크린샷"
-                          className="mt-3 max-h-40 w-full rounded-md border border-neutral-200 object-contain"
-                          src={getActivityImageSource(activity)}
-                        />
                       ) : null}
                     </li>
                   ))}

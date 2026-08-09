@@ -61,6 +61,14 @@ function hasBasicActivityLogFields(activity: unknown) {
   );
 }
 
+function withoutLegacyActivityImages(activity: ActivityLog): ActivityLog {
+  const textActivity = { ...activity };
+  delete textActivity.imageUrl;
+  delete textActivity.imageDataUrl;
+
+  return textActivity;
+}
+
 export function createBackup(
   members: GuildMember[],
   activityLogs: ActivityLog[],
@@ -71,7 +79,7 @@ export function createBackup(
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     members,
-    activityLogs,
+    activityLogs: activityLogs.map(withoutLegacyActivityImages),
   };
 }
 
@@ -138,5 +146,8 @@ export function validateBackupData(data: unknown): BackupValidationResult {
 
 export function restoreBackup(backup: GuildArchiveBackup) {
   writeStorageList(MEMBERS_STORAGE_KEY, backup.members);
-  writeStorageList(ACTIVITIES_STORAGE_KEY, backup.activityLogs);
+  writeStorageList(
+    ACTIVITIES_STORAGE_KEY,
+    backup.activityLogs.map(withoutLegacyActivityImages),
+  );
 }

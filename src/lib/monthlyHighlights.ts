@@ -2,7 +2,6 @@ import type {
   MonthlyHighlight,
   MonthlyHighlightCategory,
 } from "@/src/types";
-import { validateActivityImageUrl } from "@/src/lib/activityImage";
 
 export const monthlyHighlightCategoryLabels: Record<
   MonthlyHighlightCategory,
@@ -32,9 +31,7 @@ export type MonthlyHighlightInput = Pick<
   MonthlyHighlight,
   "month" | "category" | "title"
 > &
-  Partial<
-    Pick<MonthlyHighlight, "dateText" | "description" | "imageUrl">
-  >;
+  Partial<Pick<MonthlyHighlight, "dateText" | "description">>;
 
 export type PublicMonthlyHighlight = Pick<
   MonthlyHighlight,
@@ -44,7 +41,6 @@ export type PublicMonthlyHighlight = Pick<
   | "title"
   | "dateText"
   | "description"
-  | "imageUrl"
 >;
 
 export function toPublicMonthlyHighlight(
@@ -57,7 +53,6 @@ export function toPublicMonthlyHighlight(
     title: highlight.title,
     dateText: highlight.dateText,
     description: highlight.description,
-    imageUrl: highlight.imageUrl,
   };
 }
 
@@ -75,8 +70,6 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
     typeof record.dateText === "string" ? record.dateText.trim() : "";
   const description =
     typeof record.description === "string" ? record.description.trim() : "";
-  const imageUrl =
-    typeof record.imageUrl === "string" ? record.imageUrl.trim() : "";
 
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
     throw new Error("대상 월을 YYYY-MM 형식으로 입력해 주세요.");
@@ -102,19 +95,12 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
     throw new Error("설명은 500자 이하로 입력해 주세요.");
   }
 
-  const imageUrlResult = validateActivityImageUrl(imageUrl);
-
-  if (!imageUrlResult.valid) {
-    throw new Error(imageUrlResult.error);
-  }
-
   return {
     month,
     category: category as MonthlyHighlightCategory,
     title,
     dateText: dateText || undefined,
     description: description || undefined,
-    imageUrl: imageUrlResult.value,
   };
 }
 

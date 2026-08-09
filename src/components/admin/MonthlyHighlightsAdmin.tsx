@@ -5,7 +5,6 @@ import type {
   MonthlyHighlight,
   MonthlyHighlightCategory,
 } from "@/src/types";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import {
   monthlyHighlightCategoryBadgeClasses,
   monthlyHighlightCategories,
@@ -26,7 +25,6 @@ export function MonthlyHighlightsAdmin() {
   const [title, setTitle] = useState("");
   const [dateText, setDateText] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [highlights, setHighlights] = useState<MonthlyHighlight[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,7 +40,6 @@ export function MonthlyHighlightsAdmin() {
     setTitle("");
     setDateText("");
     setDescription("");
-    setImageUrl("");
     setEditingId(null);
   };
 
@@ -113,7 +110,6 @@ export function MonthlyHighlightsAdmin() {
         title,
         dateText,
         description,
-        imageUrl,
       });
     } catch (error) {
       setStatus({
@@ -172,7 +168,6 @@ export function MonthlyHighlightsAdmin() {
     setTitle(highlight.title);
     setDateText(highlight.dateText ?? "");
     setDescription(highlight.description ?? "");
-    setImageUrl(highlight.imageUrl ?? "");
     setEditingId(highlight.id);
     setStatus({ type: "idle" });
   };
@@ -229,8 +224,8 @@ export function MonthlyHighlightsAdmin() {
         className="space-y-4 rounded-md border border-neutral-200 bg-white p-4"
         onSubmit={handleSubmit}
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-sm font-medium text-neutral-700">
+        <div>
+          <label className="block space-y-1 text-sm font-medium text-neutral-700">
             <span>대상 월</span>
             <input
               className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2"
@@ -285,16 +280,6 @@ export function MonthlyHighlightsAdmin() {
               onChange={(event) => setDateText(event.target.value)}
             />
           </label>
-          <label className="space-y-1 text-sm font-medium text-neutral-700">
-            <span>HTTPS 이미지 URL</span>
-            <input
-              className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2"
-              inputMode="url"
-              placeholder="https://example.com/image.jpg"
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-            />
-          </label>
         </div>
 
         <label className="block space-y-1 text-sm font-medium text-neutral-700">
@@ -306,14 +291,6 @@ export function MonthlyHighlightsAdmin() {
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
-
-        {imageUrl.trim().startsWith("https://") ? (
-          <ActivityImage
-            alt="주요 기록 이미지 미리보기"
-            className="max-h-48 rounded-md border border-neutral-200 object-contain"
-            src={imageUrl.trim()}
-          />
-        ) : null}
 
         <label className="block space-y-1 text-sm font-medium text-neutral-700">
           <span>관리자 토큰</span>
@@ -400,13 +377,6 @@ export function MonthlyHighlightsAdmin() {
                   ) : null}
                 </div>
               </div>
-              {highlight.imageUrl ? (
-                <ActivityImage
-                  alt={`${highlight.title} 이미지`}
-                  className="mt-3 max-h-44 w-full rounded-md border border-neutral-200 object-contain"
-                  src={highlight.imageUrl}
-                />
-              ) : null}
               <div className="mt-4 flex gap-2">
                 <button
                   className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold"

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { MonthlyHighlight } from "@/src/types";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import {
   monthlyHighlightCategoryBadgeClasses,
   monthlyHighlightCategoryLabels,
@@ -15,7 +14,6 @@ type PublicMonthlyHighlight = Pick<
   | "title"
   | "dateText"
   | "description"
-  | "imageUrl"
 >;
 
 export function MonthlyHighlightsSection({
@@ -45,17 +43,10 @@ export function MonthlyHighlightsSection({
       <ul className="mt-4 grid gap-3 md:grid-cols-2">
         {visibleHighlights.map((highlight) => (
           <li
-            className="overflow-hidden rounded-md border border-sky-100 bg-sky-50/40"
+            className="rounded-md border border-sky-100 bg-sky-50/40 p-4"
             key={highlight.id}
           >
-            {highlight.imageUrl ? (
-              <ActivityImage
-                alt={`${highlight.title} 이미지`}
-                className="max-h-56 w-full border-b border-sky-100 object-contain"
-                src={highlight.imageUrl}
-              />
-            ) : null}
-            <div className="p-4">
+            <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full px-2 py-1 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}

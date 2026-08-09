@@ -14,9 +14,7 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { getActivityImageSource } from "@/src/lib/activityImage";
 import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
 import { MonthlyHighlightsSection } from "@/src/components/MonthlyHighlightsSection";
 
@@ -68,8 +66,6 @@ function toActivityDetail(activity: ActivityLog & { participantNames?: string[] 
       nickname: activity.participantNames?.[index] ?? `알 수 없는 길드원 ${memberId.slice(0, 6)}`,
     })),
     memo: activity.memo?.trim() || undefined,
-    imageUrl: activity.imageUrl,
-    imageDataUrl: activity.imageDataUrl,
   };
 }
 
@@ -87,27 +83,6 @@ function getServerMonthSnapshot() {
 
 function getMonthSnapshot() {
   return new URLSearchParams(window.location.search).get("month") ?? "";
-}
-
-function ViewerImage({
-  alt,
-  className,
-  src,
-}: {
-  alt: string;
-  className?: string;
-  src: string;
-}) {
-  return (
-    <ActivityImage
-      alt={alt}
-      className={
-        className ??
-        "mt-3 max-h-72 w-full rounded-md border border-sky-100 object-contain"
-      }
-      src={src}
-    />
-  );
 }
 
 function ReportMonthSelect({
@@ -553,12 +528,6 @@ export default function ViewerPage() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ViewerImage
-                        alt="이벤트 첨부 이미지"
-                        src={getActivityImageSource(activity) ?? ""}
-                      />
-                    ) : null}
                     </button>
                   </li>
                 ))}
@@ -586,19 +555,6 @@ export default function ViewerPage() {
                       onClick={() => setSelectedActivity(toActivityDetail(activity))}
                       type="button"
                     >
-                    <div className="aspect-video w-full overflow-hidden border-b border-sky-100 bg-sky-50">
-                      {getActivityImageSource(activity) ? (
-                        <ViewerImage
-                          alt="활동 첨부 이미지"
-                          className="h-full w-full object-cover"
-                          src={getActivityImageSource(activity) ?? ""}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center px-4 text-center text-sm font-medium text-sky-700/70">
-                          첨부 이미지 없음
-                        </div>
-                      )}
-                    </div>
                     <div className="flex flex-1 flex-col px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">

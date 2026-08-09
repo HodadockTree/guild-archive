@@ -25,6 +25,7 @@ export interface MonthlyHighlight {
   title: string;
   dateText?: string;
   description?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -52,7 +53,9 @@ export interface ActivityLog {
   title?: string;
   participantIds: string[];
   memo?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageUrl?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageDataUrl?: string;
 }
 

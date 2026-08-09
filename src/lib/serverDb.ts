@@ -12,11 +12,6 @@ import {
   getMonthlyArchiveSummaries,
 } from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
-import { validateActivityImageUrl } from "@/src/lib/activityImage";
-import type {
-  ImageDataMigrationItem,
-  ImageDataMigrationMode,
-} from "@/src/lib/imageDataMigration";
 import type { MonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
 import {
   sortMonthlyHighlights,
@@ -45,8 +40,6 @@ type ActivityRow = {
   title: string | null;
   memo: string | null;
   airshipType: string | null;
-  imageUrl: string | null;
-  imageDataUrl: string | null;
 };
 
 type ParticipantRow = {
@@ -59,11 +52,6 @@ type ConquestTypeRow = {
   conquestType: string;
 };
 
-type ActivityImageMigrationRow = {
-  id: string;
-  imageDataUrl: string | null;
-};
-
 type MonthlyHighlightRow = {
   id: string;
   month: string;
@@ -71,7 +59,6 @@ type MonthlyHighlightRow = {
   title: string;
   dateText: string | null;
   description: string | null;
-  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -130,23 +117,11 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof activity.id !== "string" ||
       typeof activity.type !== "string" ||
       typeof activity.date !== "string" ||
-      (activity.imageUrl !== undefined && typeof activity.imageUrl !== "string") ||
       !Array.isArray(activity.participantIds),
   );
 
   if (hasInvalidActivity) {
     throw new Error("일부 활동 기록 데이터에 필수 필드가 없습니다.");
-  }
-
-  const invalidImageUrlActivity = data.activityLogs.find(
-    (activity) =>
-      isPlainObject(activity) &&
-      typeof activity.imageUrl === "string" &&
-      !validateActivityImageUrl(activity.imageUrl).valid,
-  );
-
-  if (invalidImageUrlActivity) {
-    throw new Error("활동 이미지 URL은 비어 있거나 https:// 주소여야 합니다.");
   }
 
   return {
@@ -164,26 +139,6 @@ export async function importBackupJson(data: unknown) {
   const backup = validateBackupData(data);
   const db = await getDb();
   const importedAt = new Date().toISOString();
-  const { results: storedActivityImages } = await db
-    .prepare(
-      `SELECT id, imageDataUrl
-       FROM activities
-       WHERE imageDataUrl IS NOT NULL
-         AND TRIM(imageDataUrl) != ''`,
-    )
-    .all<ActivityImageMigrationRow>();
-  const storedImageDataUrlByActivityId = new Map(
-    storedActivityImages.map((activity) => [
-      activity.id,
-      activity.imageDataUrl,
-    ]),
-  );
-  const preservedImageDataUrlCount = backup.activityLogs.reduce(
-    (count, activity) =>
-      count + (storedImageDataUrlByActivityId.has(activity.id) ? 1 : 0),
-    0,
-  );
-
   const deleteStatements = [
     db.prepare("DELETE FROM activity_conquest_types"),
     db.prepare("DELETE FROM activity_participants"),
@@ -216,8 +171,8 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO activities (
-          id, type, date, title, memo, airshipType, imageUrl, imageDataUrl, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, type, date, title, memo, airshipType, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         activity.id,
@@ -226,10 +181,6 @@ export async function importBackupJson(data: unknown) {
         activity.title ?? null,
         activity.memo ?? null,
         activity.airshipType ?? null,
-        activity.imageUrl?.trim() || null,
-        // 백업의 큰 data URL을 새로 가져오지는 않되, 동일 활동에 이미 저장된
-        // 서버 이미지는 전체 교체 과정에서도 잃지 않도록 보존합니다.
-        storedImageDataUrlByActivityId.get(activity.id) ?? null,
         importedAt,
         importedAt,
       ),
@@ -298,9 +249,6 @@ export async function importBackupJson(data: unknown) {
     activityCount: backup.activityLogs.length,
     participantCount,
     conquestTypeCount,
-    imageUrl: "stored",
-    imageDataUrl: "preserved",
-    preservedImageDataUrlCount,
   };
 }
 
@@ -327,7 +275,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     await Promise.all([
       db
         .prepare(
-          `SELECT id, type, date, title, memo, airshipType, imageUrl, imageDataUrl
+          `SELECT id, type, date, title, memo, airshipType
            FROM activities
            ORDER BY date ASC, id ASC`,
         )
@@ -362,84 +310,11 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     title: activity.title ?? undefined,
     memo: activity.memo ?? undefined,
     airshipType: activity.airshipType as ActivityLog["airshipType"],
-    imageUrl: activity.imageUrl ?? undefined,
-    imageDataUrl: activity.imageDataUrl ?? undefined,
     participantIds: participantsByActivityId.get(activity.id) ?? [],
     conquestTypes: conquestTypesByActivityId.get(activity.id) as
       | ActivityLog["conquestTypes"]
       | undefined,
   }));
-}
-
-export async function migrateActivityImageData(
-  mode: ImageDataMigrationMode,
-  images: ImageDataMigrationItem[],
-) {
-  const db = await getDb();
-  const placeholders = images.map(() => "?").join(", ");
-  const { results } = await db
-    .prepare(
-      `SELECT id, imageDataUrl
-       FROM activities
-       WHERE id IN (${placeholders})`,
-    )
-    .bind(...images.map((image) => image.id))
-    .all<ActivityImageMigrationRow>();
-  const rowsById = new Map(results.map((row) => [row.id, row]));
-  const missingIds: string[] = [];
-  const alreadyStoredIds: string[] = [];
-  const eligibleImages: ImageDataMigrationItem[] = [];
-
-  images.forEach((image) => {
-    const row = rowsById.get(image.id);
-
-    if (!row) {
-      missingIds.push(image.id);
-    } else if (row.imageDataUrl?.trim()) {
-      alreadyStoredIds.push(image.id);
-    } else {
-      eligibleImages.push(image);
-    }
-  });
-
-  if (mode === "preview" || eligibleImages.length === 0) {
-    return {
-      ok: true,
-      mode,
-      requestedCount: images.length,
-      eligibleCount: eligibleImages.length,
-      updatedCount: 0,
-      missingIds,
-      alreadyStoredIds,
-    };
-  }
-
-  const updateResults = await db.batch(
-    eligibleImages.map((image) =>
-      db
-        .prepare(
-          `UPDATE activities
-           SET imageDataUrl = ?
-           WHERE id = ?
-             AND (imageDataUrl IS NULL OR TRIM(imageDataUrl) = '')`,
-        )
-        .bind(image.imageDataUrl, image.id),
-    ),
-  );
-  const updatedCount = updateResults.reduce(
-    (sum, result) => sum + (result.meta.changes ?? 0),
-    0,
-  );
-
-  return {
-    ok: true,
-    mode,
-    requestedCount: images.length,
-    eligibleCount: eligibleImages.length,
-    updatedCount,
-    missingIds,
-    alreadyStoredIds,
-  };
 }
 
 function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
@@ -450,7 +325,6 @@ function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
     title: row.title,
     dateText: row.dateText ?? undefined,
     description: row.description ?? undefined,
-    imageUrl: row.imageUrl ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -461,13 +335,13 @@ export async function getServerMonthlyHighlights(month?: string) {
   const statement = month
     ? db
         .prepare(
-          `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+          `SELECT id, month, category, title, dateText, description, createdAt, updatedAt
            FROM monthly_highlights
            WHERE month = ?`,
         )
         .bind(month)
     : db.prepare(
-        `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+        `SELECT id, month, category, title, dateText, description, createdAt, updatedAt
          FROM monthly_highlights`,
       );
   const { results } = await statement.all<MonthlyHighlightRow>();
@@ -489,8 +363,8 @@ export async function createServerMonthlyHighlight(
   await db
     .prepare(
       `INSERT INTO monthly_highlights (
-        id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, month, category, title, dateText, description, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       highlight.id,
@@ -499,7 +373,6 @@ export async function createServerMonthlyHighlight(
       highlight.title,
       highlight.dateText ?? null,
       highlight.description ?? null,
-      highlight.imageUrl ?? null,
       highlight.createdAt,
       highlight.updatedAt,
     )
@@ -518,7 +391,7 @@ export async function updateServerMonthlyHighlight(
     .prepare(
       `UPDATE monthly_highlights
        SET month = ?, category = ?, title = ?, dateText = ?, description = ?,
-           imageUrl = ?, updatedAt = ?
+           updatedAt = ?
        WHERE id = ?`,
     )
     .bind(
@@ -527,7 +400,6 @@ export async function updateServerMonthlyHighlight(
       input.title,
       input.dateText ?? null,
       input.description ?? null,
-      input.imageUrl ?? null,
       updatedAt,
       id,
     )
