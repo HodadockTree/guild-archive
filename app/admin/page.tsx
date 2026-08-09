@@ -50,6 +50,7 @@ import {
 import { MonthlyHighlightsAdmin } from "@/src/components/admin/MonthlyHighlightsAdmin";
 import {
   getActivityImageSource,
+  isTemporaryDiscordImageUrl,
   validateActivityImageUrl,
 } from "@/src/lib/activityImage";
 import {
@@ -560,6 +561,7 @@ export default function Home() {
       : undefined,
     imageDataUrl: activityImageDataUrl,
   });
+  const hasTemporaryDiscordImageUrl = isTemporaryDiscordImageUrl(activityImageUrl);
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
   const menuMember = memberMenuPosition
@@ -2924,9 +2926,15 @@ export default function Home() {
               />
             </label>
             <p className="text-xs text-neutral-500">
-              R2 전환 전까지 외부 HTTPS 이미지 주소를 사용할 수 있습니다. URL 이미지가
-              첨부 이미지보다 우선 표시됩니다.
+              외부 HTTPS 이미지 주소를 사용할 수 있습니다. 첨부 이미지가 있으면 만료될
+              수 있는 외부 URL보다 우선 표시됩니다.
             </p>
+            {hasTemporaryDiscordImageUrl ? (
+              <p className="text-sm text-amber-700">
+                Discord 첨부 주소는 일정 시간이 지나면 만료됩니다. 이미지 파일을 아래에
+                첨부하거나 붙여넣어 영구 사본을 함께 저장해 주세요.
+              </p>
+            ) : null}
             <label className="block space-y-1 text-sm font-medium text-neutral-700">
               <span>참고 스크린샷</span>
               <input

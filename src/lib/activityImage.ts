@@ -3,6 +3,17 @@ import type { ActivityLog } from "@/src/types";
 type ActivityImageFields = Pick<ActivityLog, "imageUrl" | "imageDataUrl">;
 
 export function getActivityImageSource(activity: ActivityImageFields) {
+  const imageDataUrl =
+    typeof activity.imageDataUrl === "string"
+      ? activity.imageDataUrl.trim() || undefined
+      : undefined;
+
+  // A stored image is durable, while external URLs (notably signed Discord
+  // attachment URLs) can expire. Prefer the stored copy when both exist.
+  if (imageDataUrl) {
+    return imageDataUrl;
+  }
+
   const imageUrl =
     typeof activity.imageUrl === "string"
       ? validateActivityImageUrl(activity.imageUrl)
@@ -12,9 +23,25 @@ export function getActivityImageSource(activity: ActivityImageFields) {
     return imageUrl.value;
   }
 
-  return typeof activity.imageDataUrl === "string"
-    ? activity.imageDataUrl.trim() || undefined
-    : undefined;
+  return undefined;
+}
+
+export function isTemporaryDiscordImageUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    const isDiscordAttachmentHost =
+      url.hostname === "cdn.discordapp.com" ||
+      url.hostname === "media.discordapp.net";
+
+    return (
+      isDiscordAttachmentHost &&
+      url.pathname.startsWith("/attachments/") &&
+      url.searchParams.has("ex") &&
+      url.searchParams.has("hm")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function validateActivityImageUrl(value: string) {
