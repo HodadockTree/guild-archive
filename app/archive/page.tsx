@@ -24,15 +24,22 @@ type ArchiveState =
   | { status: "error"; message: string }
   | { status: "success"; months: ServerMonthlyArchiveSummary[] };
 
-function getMonthlyRecordTitles(summary: ServerMonthlyArchiveSummary) {
-  return Array.from(
-    new Set([
-      ...(summary.representativeHighlights ?? []).map(
-        (highlight) => highlight.title,
-      ),
-      ...summary.representativeEvents.map((event) => event.title),
-    ]),
-  );
+function getMonthlyRecords(summary: ServerMonthlyArchiveSummary) {
+  const records = new Map<string, { emphasized: boolean; title: string }>();
+
+  (summary.representativeHighlights ?? []).forEach((highlight) => {
+    records.set(highlight.title, {
+      emphasized: highlight.category === "game_event",
+      title: highlight.title,
+    });
+  });
+  summary.representativeEvents.forEach((event) => {
+    if (!records.has(event.title)) {
+      records.set(event.title, { emphasized: false, title: event.title });
+    }
+  });
+
+  return Array.from(records.values());
 }
 
 export default function ArchivePage() {
@@ -138,7 +145,7 @@ export default function ArchivePage() {
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
         <section className="grid gap-3">
           {monthlySummaries.map((summary) => {
-            const recordTitles = getMonthlyRecordTitles(summary);
+            const records = getMonthlyRecords(summary);
 
             return (
               <Link
@@ -152,9 +159,21 @@ export default function ArchivePage() {
                 <h2 className="shrink-0 text-base font-bold text-slate-900 sm:text-lg">
                   {getMonthDisplayLabel(summary.month)}
                 </h2>
-                {recordTitles.length > 0 ? (
+                {records.length > 0 ? (
                   <p className="min-w-0 text-sm leading-5 text-slate-600 sm:text-base">
-                    {recordTitles.join(" · ")}
+                    {records.map((record, index) => (
+                      <span
+                        className={
+                          record.emphasized
+                            ? "font-semibold text-slate-800"
+                            : undefined
+                        }
+                        key={record.title}
+                      >
+                        {index > 0 ? " · " : null}
+                        {record.title}
+                      </span>
+                    ))}
                   </p>
                 ) : null}
               </div>

@@ -254,14 +254,6 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
         )}
       </div>
 
-      {maxValue > 0 ? (
-        <p className="mt-2 text-sm text-slate-600">
-          <span className="font-semibold text-slate-800">가장 활발했던 달</span>{" "}
-          {getShortMonthLabel(peakTrend.month)} · {config.shortLabel}{" "}
-          {peakTrend[metric]}
-          {config.unit}
-        </p>
-      ) : null}
     </section>
   );
 }
