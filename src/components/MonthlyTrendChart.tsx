@@ -1,15 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { formatMonth } from "@/src/lib/displayFormat";
+import type { MonthlyHighlightCategory } from "@/src/types";
+import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
 
 export type MonthlyTrend = {
   month: string;
   activityCount: number;
   participantMemberCount: number;
+  representativeHighlights?: Array<{
+    id: string;
+    category: MonthlyHighlightCategory;
+    title: string;
+  }>;
 };
-
-type TrendInteraction = "none" | "report" | "members";
 
 function getShortMonthLabel(month: string) {
   const [, monthNumber] = month.split("-");
@@ -19,8 +24,7 @@ function getShortMonthLabel(month: string) {
 export function MonthlyTrendChart({
   description,
   emptyMessage,
-  interaction = "none",
-  onSelectMembers,
+  onSelectMonth,
   title,
   trends,
   unit,
@@ -28,13 +32,13 @@ export function MonthlyTrendChart({
 }: {
   description: string;
   emptyMessage: string;
-  interaction?: TrendInteraction;
-  onSelectMembers?: (month: string, trigger: HTMLButtonElement) => void;
+  onSelectMonth?: (month: string) => void;
   title: string;
   trends: MonthlyTrend[];
   unit: string;
   valueKey: "activityCount" | "participantMemberCount";
 }) {
+  const [openHighlightMonth, setOpenHighlightMonth] = useState<string | null>(null);
   const maxValue = Math.max(...trends.map((trend) => trend[valueKey]), 0);
 
   return (
@@ -49,9 +53,10 @@ export function MonthlyTrendChart({
       ) : (
         <div className="mt-6 overflow-x-auto pb-1">
           <div className={`flex h-64 items-end gap-3 border-b border-sky-100 pb-3 sm:min-w-0 ${trends.length > 4 ? "min-w-[32rem]" : "min-w-0"}`}>
-            {trends.map((trend) => {
+            {trends.map((trend, index) => {
               const value = trend[valueKey];
               const height = Math.max(8, Math.round((value / maxValue) * 100));
+              const highlights = trend.representativeHighlights ?? [];
               const content = (
                 <>
                   <span
@@ -77,40 +82,66 @@ export function MonthlyTrendChart({
                 </>
               );
 
-              if (interaction === "report") {
-                return (
-                  <Link
-                    aria-label={`${formatMonth(trend.month)} 활동 ${value}회, 월간 리포트 보기`}
-                    className="ui-focus-ring group relative flex min-w-12 flex-1 cursor-pointer flex-col items-center gap-2 rounded-sm"
-                    href={`/viewer?month=${trend.month}`}
-                    key={trend.month}
-                  >
-                    {content}
-                  </Link>
-                );
-              }
-
-              if (interaction === "members") {
-                return (
+              return (
+                <div className="relative flex min-w-12 flex-1" key={trend.month}>
                   <button
-                    aria-label={`${formatMonth(trend.month)} 함께한 길드원 ${value}명 보기`}
-                    className="ui-focus-ring group relative flex min-w-12 flex-1 cursor-pointer flex-col items-center gap-2 rounded-sm"
-                    key={trend.month}
-                    onClick={(event) => onSelectMembers?.(trend.month, event.currentTarget)}
+                    aria-label={`${formatMonth(trend.month)} ${valueKey === "activityCount" ? "활동" : "함께한 길드원"} ${value}${unit}, 월별 요약으로 이동`}
+                    className="ui-focus-ring group relative flex w-full cursor-pointer flex-col items-center gap-2 rounded-sm"
+                    onClick={() => onSelectMonth?.(trend.month)}
                     type="button"
                   >
                     {content}
                   </button>
-                );
-              }
-
-              return (
-                <div
-                  aria-label={`${formatMonth(trend.month)} ${value}${unit}`}
-                  className="flex min-w-12 flex-1 flex-col items-center gap-2"
-                  key={trend.month}
-                >
-                  {content}
+                  {highlights.length > 0 ? (
+                    <div
+                      className="group/highlight absolute left-1/2 z-20 -translate-x-1/2"
+                      style={{ bottom: `calc(2.25rem + ${height * 0.11}rem)` }}
+                    >
+                      <button
+                        aria-expanded={openHighlightMonth === trend.month}
+                        aria-label={`${formatMonth(trend.month)} 주요 기록 ${highlights.length}건 확인`}
+                        className="ui-focus-ring block size-4 rounded-full border-2 border-white bg-amber-400 shadow-sm transition hover:scale-110 focus-visible:scale-110"
+                        onClick={() =>
+                          setOpenHighlightMonth((month) =>
+                            month === trend.month ? null : trend.month,
+                          )
+                        }
+                        type="button"
+                      />
+                      <div
+                        className={`absolute top-6 z-30 w-52 rounded-md bg-slate-900 p-3 text-left text-white shadow-lg transition-opacity group-hover/highlight:visible group-hover/highlight:opacity-100 group-focus-within/highlight:visible group-focus-within/highlight:opacity-100 ${
+                          index === 0
+                            ? "left-0"
+                            : index === trends.length - 1
+                              ? "right-0"
+                              : "left-1/2 -translate-x-1/2"
+                        } ${
+                          openHighlightMonth === trend.month
+                            ? "visible opacity-100"
+                            : "invisible opacity-0"
+                        }`}
+                        role="tooltip"
+                      >
+                        <p className="text-xs font-semibold">{formatMonth(trend.month)} 주요 기록</p>
+                        <ul className="mt-2 grid gap-1.5">
+                          {highlights.slice(0, 2).map((highlight) => (
+                            <li className="flex items-start gap-1.5 text-xs" key={highlight.id}>
+                              <span
+                                aria-hidden="true"
+                                className={`mt-1 size-2 shrink-0 rounded-full ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
+                              />
+                              <span>{highlight.title}</span>
+                            </li>
+                          ))}
+                          {highlights.length > 2 ? (
+                            <li className="text-xs text-slate-300">
+                              외 {highlights.length - 2}건
+                            </li>
+                          ) : null}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

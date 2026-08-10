@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
@@ -28,7 +28,6 @@ type ArchiveState =
   | { status: "success"; months: ServerMonthlyArchiveSummary[] };
 
 export default function ArchivePage() {
-  const router = useRouter();
   const [archiveState, setArchiveState] = useState<ArchiveState>({
     status: "loading",
   });
@@ -39,6 +38,25 @@ export default function ArchivePage() {
     id: string;
     nickname: string;
   } | null>(null);
+  const [highlightedMonth, setHighlightedMonth] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const moveToMonthCard = (month: string) => {
+    const card = document.getElementById(`archive-month-${month}`);
+
+    if (!card) return;
+
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    setHighlightedMonth(month);
+    card.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "center",
+    });
+    card.focus({ preventScroll: true });
+    highlightTimerRef.current = setTimeout(() => setHighlightedMonth(null), 1800);
+  };
 
   const openParticipantModal = (month: string, trigger: HTMLElement) => {
     participantTriggerRef.current = trigger;
@@ -101,6 +119,7 @@ export default function ArchivePage() {
 
     return () => {
       isActive = false;
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     };
   }, []);
 
@@ -144,19 +163,18 @@ export default function ArchivePage() {
       {archiveState.status === "success" ? (
         <section className="grid gap-4 lg:grid-cols-2">
           <MonthlyTrendChart
-            description="월별로 기록된 길드 활동 수를 보여줍니다. 막대를 선택하면 해당 월 리포트로 이동합니다."
+            description="월별로 기록된 길드 활동 수를 보여줍니다. 막대를 선택하면 해당 월 요약으로 이동합니다."
             emptyMessage="그래프로 표시할 활동 기록이 아직 없습니다."
-            interaction="report"
+            onSelectMonth={moveToMonthCard}
             title="월별 활동 수"
             trends={monthlyTrends}
             unit="회"
             valueKey="activityCount"
           />
           <MonthlyTrendChart
-            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다. 막대를 선택하면 함께한 길드원을 확인할 수 있습니다."
+            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다. 막대를 선택하면 해당 월 요약으로 이동합니다."
             emptyMessage="그래프로 표시할 참여 기록이 아직 없습니다."
-            interaction="members"
-            onSelectMembers={openParticipantModal}
+            onSelectMonth={moveToMonthCard}
             title="월별 함께한 길드원"
             trends={monthlyTrends}
             unit="명"
@@ -180,17 +198,14 @@ export default function ArchivePage() {
         <section className="grid gap-3">
           {monthlySummaries.map((summary) => (
             <article
-              aria-label={`${getMonthDisplayLabel(summary.month)} 리포트 보기`}
-              className="ui-focus-ring group block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
+              aria-label={`${getMonthDisplayLabel(summary.month)} 월별 요약`}
+              className={`ui-focus-ring scroll-m-6 rounded-[var(--radius-card)] border bg-white px-4 py-3 shadow-sm transition duration-500 ${
+                highlightedMonth === summary.month
+                  ? "border-sky-500 bg-sky-50 ring-4 ring-sky-200"
+                  : "border-[var(--border)] hover:border-sky-300"
+              }`}
+              id={`archive-month-${summary.month}`}
               key={summary.month}
-              onClick={() => router.push(`/viewer?month=${summary.month}`)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  router.push(`/viewer?month=${summary.month}`);
-                }
-              }}
-              role="link"
               tabIndex={0}
             >
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -227,6 +242,13 @@ export default function ArchivePage() {
                       </ul>
                     ) : null}
                   </div>
+                  <Link
+                    aria-label={`${getMonthDisplayLabel(summary.month)} 월간 리포트 보기`}
+                    className="ui-focus-ring mt-2 inline-flex min-h-11 items-center rounded-md px-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-sky-100"
+                    href={`/viewer?month=${summary.month}`}
+                  >
+                    월간 리포트 보기 <span aria-hidden="true">→</span>
+                  </Link>
                 </div>
 
                 <dl className="grid grid-cols-3 gap-2 text-sm sm:w-[25rem]">
