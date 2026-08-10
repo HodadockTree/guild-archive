@@ -56,9 +56,6 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
   );
   const config = flowMetricConfig[metric];
   const maxValue = Math.max(...visibleTrends.map((trend) => trend[metric]), 0);
-  const peakTrend = visibleTrends.reduce((peak, trend) =>
-    trend[metric] > peak[metric] ? trend : peak,
-  );
   const chartWidth = 720;
   const chartHeight = 180;
   const plotLeft = 28;
@@ -180,15 +177,12 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
               </svg>
 
               {visibleTrends.map((trend, index) => {
-                const isPeak = trend.month === peakTrend.month;
                 const isActive = trend.month === activeMonth;
 
                 return (
                   <span
                     aria-hidden="true"
-                    className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform ${
-                      isPeak ? "size-2 bg-amber-400" : "size-1.5 bg-sky-400"
-                    } ${isActive ? "scale-150" : ""}`}
+                    className={`pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-400 transition-transform ${isActive ? "scale-150" : ""}`}
                     key={trend.month}
                     style={{
                       left: `${(getX(index) / chartWidth) * 100}%`,

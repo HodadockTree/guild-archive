@@ -6,6 +6,7 @@ import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { GuildFlowChart } from "@/src/components/MonthlyTrendChart";
+import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
 import type { MonthlyHighlightCategory } from "@/src/types";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
@@ -23,24 +24,6 @@ type ArchiveState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "success"; months: ServerMonthlyArchiveSummary[] };
-
-function getMonthlyRecords(summary: ServerMonthlyArchiveSummary) {
-  const records = new Map<string, { emphasized: boolean; title: string }>();
-
-  (summary.representativeHighlights ?? []).forEach((highlight) => {
-    records.set(highlight.title, {
-      emphasized: highlight.category === "game_event",
-      title: highlight.title,
-    });
-  });
-  summary.representativeEvents.forEach((event) => {
-    if (!records.has(event.title)) {
-      records.set(event.title, { emphasized: false, title: event.title });
-    }
-  });
-
-  return Array.from(records.values());
-}
 
 export default function ArchivePage() {
   const [archiveState, setArchiveState] = useState<ArchiveState>({
@@ -144,10 +127,7 @@ export default function ArchivePage() {
 
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
         <section className="grid gap-3">
-          {monthlySummaries.map((summary) => {
-            const records = getMonthlyRecords(summary);
-
-            return (
+          {monthlySummaries.map((summary) => (
               <Link
               aria-label={`${getMonthDisplayLabel(summary.month)} 월간 리포트 보기`}
               className="ui-focus-ring block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-2.5 shadow-sm transition hover:border-sky-300 hover:bg-sky-50/40 focus-visible:border-sky-300 focus-visible:bg-sky-50/40 sm:px-4 sm:py-3"
@@ -159,22 +139,29 @@ export default function ArchivePage() {
                 <h2 className="shrink-0 text-base font-bold text-slate-900 sm:text-lg">
                   {getMonthDisplayLabel(summary.month)}
                 </h2>
-                {records.length > 0 ? (
-                  <p className="min-w-0 text-sm leading-5 text-slate-600 sm:text-base">
-                    {records.map((record, index) => (
-                      <span
-                        className={
-                          record.emphasized
-                            ? "font-semibold text-slate-800"
-                            : undefined
-                        }
-                        key={record.title}
+                {(summary.representativeHighlights?.length ?? 0) > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="주요 기록">
+                    {summary.representativeHighlights?.map((highlight) => (
+                      <li
+                        className={`rounded-full px-2 py-0.5 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
+                        key={highlight.id}
                       >
-                        {index > 0 ? " · " : null}
-                        {record.title}
-                      </span>
+                        {highlight.title}
+                      </li>
                     ))}
-                  </p>
+                  </ul>
+                ) : null}
+                {summary.representativeEvents.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
+                    {summary.representativeEvents.map((event) => (
+                      <li
+                        className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-slate-700"
+                        key={event.id}
+                      >
+                        {event.title}
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
               </div>
               <p className="mt-1 text-sm leading-5 text-slate-500">
@@ -183,8 +170,7 @@ export default function ArchivePage() {
                 {summary.totalParticipationCount}회
               </p>
               </Link>
-            );
-          })}
+          ))}
         </section>
       ) : null}
     </main>
