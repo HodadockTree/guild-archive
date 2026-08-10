@@ -19,6 +19,7 @@ export type MonthlyActivitySummary = {
 
 export type MonthlyActivityDetail = ActivityLog & {
   participantNames: string[];
+  participantKnownMemberIds: string[];
 };
 
 export type MonthlyTopParticipant = {
@@ -239,6 +240,9 @@ export function getMonthlyReport(
     ...activity,
     participantNames: activity.participantIds.map(
       (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+    ),
+    participantKnownMemberIds: activity.participantIds.filter((memberId) =>
+      membersById.has(memberId),
     ),
   }));
 

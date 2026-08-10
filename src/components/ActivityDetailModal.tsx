@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/src/components/ui/Badge";
 import { Surface } from "@/src/components/ui/Surface";
@@ -91,6 +92,9 @@ function ActivityDetailDialog({
     ? displayedActivity.label
     : null;
   const isMemberView = Boolean(selectedMember);
+  const activityMonth = /^\d{4}-\d{2}/.test(displayedActivity.date)
+    ? displayedActivity.date.slice(0, 7)
+    : null;
 
   return (
     <div
@@ -125,6 +129,14 @@ function ActivityDetailDialog({
               <>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm whitespace-nowrap text-[var(--text-secondary)]">{formatDateRange(displayedActivity.date, displayedActivity.endDate)}</span>
+                  {activityMonth ? (
+                    <Link
+                      className="ui-focus-ring rounded-md px-2 py-1 text-xs font-semibold text-[var(--brand-strong)] transition hover:bg-sky-50"
+                      href={`/viewer?month=${activityMonth}`}
+                    >
+                      이 달 기록 보기
+                    </Link>
+                  ) : null}
                   {detailLabel ? <Badge className="py-0.5">{detailLabel}</Badge> : null}
                 </div>
                 <h2 className="mt-2 text-xl font-bold leading-7 text-slate-900" id="activity-detail-title">
@@ -158,19 +170,34 @@ function ActivityDetailDialog({
                 {displayedActivity.participants.length > 0 ? (
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {displayedActivity.participants.map((participant) => (
-                      <li key={participant.id}>
-                        <button
-                          aria-label={`${participant.nickname} 활동 기록 보기`}
-                          className="ui-focus-ring min-h-11 max-w-full cursor-pointer rounded-md bg-sky-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-sky-100"
-                          onClick={(event) => {
-                            participantTriggerRef.current = event.currentTarget;
-                            setMemberContext(participant);
-                            setSelectedMember(participant);
-                          }}
-                          type="button"
-                        >
-                          {participant.nickname}
-                        </button>
+                      <li className="flex overflow-hidden rounded-md bg-sky-50" key={participant.id}>
+                        {participant.isKnownMember === false ? (
+                          <span className="inline-flex min-h-11 max-w-full items-center px-3 py-2 text-sm font-medium text-slate-500">
+                            {participant.nickname}
+                          </span>
+                        ) : (
+                          <Link
+                            aria-label={`${participant.nickname} 개인 기록 보기`}
+                            className="ui-focus-ring inline-flex min-h-11 max-w-full items-center px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-sky-100 focus-visible:bg-sky-100"
+                            href={`/members/${encodeURIComponent(participant.id)}`}
+                          >
+                            {participant.nickname}
+                          </Link>
+                        )}
+                        {participant.isKnownMember === false ? null : (
+                          <button
+                            aria-label={`${participant.nickname} 빠른 활동 기록 보기`}
+                            className="ui-focus-ring min-h-11 shrink-0 border-l border-sky-100 px-2 py-2 text-xs font-semibold text-[var(--brand-strong)] transition hover:bg-sky-100"
+                            onClick={(event) => {
+                              participantTriggerRef.current = event.currentTarget;
+                              setMemberContext(participant);
+                              setSelectedMember(participant);
+                            }}
+                            type="button"
+                          >
+                            빠른 보기
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>

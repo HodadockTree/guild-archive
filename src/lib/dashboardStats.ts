@@ -98,11 +98,15 @@ function toActivitySummary(
           membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
       )
       .sort((a, b) => a.localeCompare(b, "ko")),
-    participants: activity.participantIds.map((memberId) => ({
-      id: memberId,
-      nickname:
-        membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    })),
+    participants: activity.participantIds.map((memberId) => {
+      const member = membersById.get(memberId);
+
+      return {
+        id: memberId,
+        nickname: member?.nickname ?? getUnknownMemberName(memberId),
+        isKnownMember: Boolean(member),
+      };
+    }),
     memo: activity.memo?.trim() || undefined,
   };
 }

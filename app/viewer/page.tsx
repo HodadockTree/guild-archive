@@ -58,7 +58,12 @@ function getActivityTitle(activity: ActivityLog) {
   return activity.title?.trim() || getMonthlyActivityLabel(activity);
 }
 
-function toActivityDetail(activity: ActivityLog & { participantNames?: string[] }) {
+function toActivityDetail(
+  activity: ActivityLog & {
+    participantNames?: string[];
+    participantKnownMemberIds?: string[];
+  },
+) {
   return {
     id: activity.id,
     date: activity.date,
@@ -69,6 +74,7 @@ function toActivityDetail(activity: ActivityLog & { participantNames?: string[] 
     participants: activity.participantIds.map((memberId, index) => ({
       id: memberId,
       nickname: activity.participantNames?.[index] ?? `알 수 없는 길드원 ${memberId.slice(0, 6)}`,
+      isKnownMember: activity.participantKnownMemberIds?.includes(memberId) ?? true,
     })),
     memo: activity.memo?.trim() || undefined,
   };

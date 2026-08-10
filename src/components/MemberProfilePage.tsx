@@ -28,6 +28,15 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
     ...profile.monthlyParticipation.map((item) => item.count),
   );
 
+  const focusActivityMonth = (month: string) => {
+    const activity = document.querySelector<HTMLButtonElement>(
+      `[data-activity-month="${month}"]`,
+    );
+
+    activity?.scrollIntoView({ behavior: "smooth", block: "center" });
+    activity?.focus({ preventScroll: true });
+  };
+
   return (
     <main className="app-shell">
       <AppHeader
@@ -91,12 +100,19 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
             {profile.monthlyParticipation.length ? (
               <ul className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                 {profile.monthlyParticipation.map((item) => (
-                  <li className="grid grid-cols-[5.5rem_1fr_2.5rem] items-center gap-3" key={item.month}>
-                    <span className="text-sm text-slate-600">{formatMonth(item.month)}</span>
-                    <span className="h-2 overflow-hidden rounded-full bg-sky-50">
-                      <span className="block h-full rounded-full bg-[var(--brand)]" style={{ width: `${(item.count / maxMonthlyCount) * 100}%` }} />
-                    </span>
-                    <span className="text-right text-sm font-semibold text-slate-800">{item.count}회</span>
+                  <li key={item.month}>
+                    <button
+                      aria-label={`${formatMonth(item.month)} 개인 활동 기록으로 이동`}
+                      className="ui-focus-ring grid min-h-11 w-full grid-cols-[5.5rem_1fr_2.5rem] items-center gap-3 rounded-md px-1 text-left transition hover:bg-sky-50 focus-visible:bg-sky-50"
+                      onClick={() => focusActivityMonth(item.month)}
+                      type="button"
+                    >
+                      <span className="text-sm text-slate-600">{formatMonth(item.month)}</span>
+                      <span className="h-2 overflow-hidden rounded-full bg-sky-50">
+                        <span className="block h-full rounded-full bg-[var(--brand)]" style={{ width: `${(item.count / maxMonthlyCount) * 100}%` }} />
+                      </span>
+                      <span className="text-right text-sm font-semibold text-slate-800">{item.count}회</span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -112,7 +128,7 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
             <ul className="mt-3 space-y-2">
               {profile.activities.map((activity) => (
                 <li key={activity.id}>
-                  <button className="ui-focus-ring flex w-full flex-col gap-2 rounded-md border border-sky-100 bg-white px-4 py-4 text-left transition hover:border-sky-300 hover:bg-sky-50 sm:flex-row sm:items-center sm:justify-between" onClick={() => setSelectedActivity(activity)} type="button">
+                  <button className="ui-focus-ring flex min-h-11 w-full flex-col gap-2 rounded-md border border-sky-100 bg-white px-4 py-4 text-left transition hover:border-sky-300 hover:bg-sky-50 sm:flex-row sm:items-center sm:justify-between" data-activity-month={activity.date.slice(0, 7)} onClick={() => setSelectedActivity(activity)} type="button">
                     <span className="min-w-0">
                       <span className="block text-xs text-slate-500">{formatDateRange(activity.date, activity.endDate)} · {activity.label}</span>
                       <span className="mt-1 block font-semibold text-slate-900">{activity.title}</span>

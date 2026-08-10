@@ -719,6 +719,12 @@ export default function DashboardPage() {
               }}
               title={`${selectedMonthMember.nickname}님의 활동 기록`}
             >
+              <Link
+                className="ui-focus-ring mb-4 inline-flex min-h-11 items-center rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-sky-300 hover:bg-sky-50"
+                href={`/members/${encodeURIComponent(selectedMonthMember.id)}`}
+              >
+                개인 기록 보기
+              </Link>
               <MemberActivityPanel
                 initialData={selectedMemberInitialData}
                 memberId={selectedMonthMember.id}

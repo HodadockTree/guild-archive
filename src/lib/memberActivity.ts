@@ -4,6 +4,7 @@ import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 export type ActivityParticipant = {
   id: string;
   nickname: string;
+  isKnownMember?: boolean;
 };
 
 export type MemberActivityRecord = {
@@ -38,10 +39,15 @@ export function toMemberActivityRecord(
     label: getMonthlyActivityLabel(activity),
     title: activity.title?.trim() || getMonthlyActivityLabel(activity),
     participantCount: activity.participantIds.length,
-    participants: activity.participantIds.map((memberId) => ({
-      id: memberId,
-      nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    })),
+    participants: activity.participantIds.map((memberId) => {
+      const member = membersById.get(memberId);
+
+      return {
+        id: memberId,
+        nickname: member?.nickname ?? getUnknownMemberName(memberId),
+        isKnownMember: Boolean(member),
+      };
+    }),
     memo: activity.memo?.trim() || undefined,
   };
 }
