@@ -9,6 +9,7 @@ export type ActivityParticipant = {
 export type MemberActivityRecord = {
   id: string;
   date: string;
+  endDate?: string;
   label: string;
   title: string;
   participantCount: number;
@@ -33,6 +34,7 @@ export function toMemberActivityRecord(
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     title: activity.title?.trim() || getMonthlyActivityLabel(activity),
     participantCount: activity.participantIds.length,

@@ -50,6 +50,7 @@ export interface ActivityLog {
   airshipType?: AirshipType;
   conquestTypes?: ConquestType[];
   date: string;
+  endDate?: string;
   title?: string;
   participantIds: string[];
   memo?: string;

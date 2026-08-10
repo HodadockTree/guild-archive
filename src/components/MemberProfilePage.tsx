@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ActivityDetailModal, type ActivityDetail } from "@/src/components/ActivityDetailModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { Surface } from "@/src/components/ui/Surface";
-import { formatFullDate, formatMonth } from "@/src/lib/displayFormat";
+import { formatDateRange, formatFullDate, formatMonth } from "@/src/lib/displayFormat";
 import {
   memberProfileActivityTypeLabels,
   type MemberProfileData,
@@ -114,7 +114,7 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
                 <li key={activity.id}>
                   <button className="ui-focus-ring flex w-full flex-col gap-2 rounded-md border border-sky-100 bg-white px-4 py-4 text-left transition hover:border-sky-300 hover:bg-sky-50 sm:flex-row sm:items-center sm:justify-between" onClick={() => setSelectedActivity(activity)} type="button">
                     <span className="min-w-0">
-                      <span className="block text-xs text-slate-500">{formatFullDate(activity.date)} · {activity.label}</span>
+                      <span className="block text-xs text-slate-500">{formatDateRange(activity.date, activity.endDate)} · {activity.label}</span>
                       <span className="mt-1 block font-semibold text-slate-900">{activity.title}</span>
                     </span>
                     <span className="shrink-0 text-xs text-slate-500">함께한 길드원 {activity.participantCount}명</span>

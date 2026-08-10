@@ -57,6 +57,7 @@ function hasBasicActivityLogFields(activity: unknown) {
     typeof activity.id === "string" &&
     typeof activity.type === "string" &&
     typeof activity.date === "string" &&
+    (activity.endDate === undefined || typeof activity.endDate === "string") &&
     Array.isArray(activity.participantIds)
   );
 }

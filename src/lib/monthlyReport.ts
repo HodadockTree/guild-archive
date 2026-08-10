@@ -5,10 +5,12 @@ import {
   getKnownConquestTypes,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
+import { formatDateRange } from "@/src/lib/displayFormat";
 
 export type MonthlyActivitySummary = {
   id: string;
   date: string;
+  endDate?: string;
   displayDate: string;
   label: string;
   participantCount: number;
@@ -33,6 +35,7 @@ export type MonthlyConquestSummary = {
 export type MonthlyEventSummary = {
   id: string;
   date: string;
+  endDate?: string;
   displayDate: string;
   shareDate: string;
   title: string;
@@ -82,10 +85,6 @@ export function getMostParticipatedActivity<T extends ActivityLog>(
 
 function getDisplayDate(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
-}
-
-function getShareDisplayDate(date: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", ".") : date;
 }
 
 function getMonthNumberLabel(month: string) {
@@ -229,8 +228,9 @@ export function getMonthlyReport(
     .map((activity) => ({
       id: activity.id,
       date: activity.date,
-      displayDate: getDisplayDate(activity.date),
-      shareDate: getShareDisplayDate(activity.date),
+      endDate: activity.endDate,
+      displayDate: formatDateRange(activity.date, activity.endDate),
+      shareDate: formatDateRange(activity.date, activity.endDate),
       title: activity.title?.trim() || "이벤트",
       participantCount: activity.participantIds.length,
       memo: activity.memo?.trim() || undefined,
@@ -259,7 +259,10 @@ export function getMonthlyReport(
     activitySummaries: monthlyActivities.map((activity) => ({
       id: activity.id,
       date: activity.date,
-      displayDate: getDisplayDate(activity.date),
+      endDate: activity.endDate,
+      displayDate: activity.endDate
+        ? formatDateRange(activity.date, activity.endDate)
+        : getDisplayDate(activity.date),
       label: getMonthlyActivityLabel(activity),
       participantCount: activity.participantIds.length,
       isMostParticipated:

@@ -16,6 +16,7 @@ import { AppHeader } from "@/src/components/ui/AppHeader";
 import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import {
+  formatDateRange,
   formatFullDate,
   formatMonth,
   formatMonthDay,
@@ -259,7 +260,7 @@ function ActivitySummaryList({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs text-slate-500">
-                  {formatFullDate(activity.date)}
+                  {formatDateRange(activity.date, activity.endDate)}
                 </p>
                 <h3 className="mt-1 font-semibold leading-6 text-slate-900">
                   {activity.title}
@@ -338,7 +339,9 @@ function ActivityCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="text-xs text-slate-500">
-              {getDisplayDate(activity.date)}
+              {activity.endDate
+                ? formatDateRange(activity.date, activity.endDate)
+                : getDisplayDate(activity.date)}
             </span>
           </div>
           <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -593,7 +596,12 @@ export default function DashboardPage() {
                       >
                         <span className="min-w-0">
                           <span className="block text-xs text-slate-400">
-                            {getDisplayDate(currentMonthMostParticipated.date)}
+                            {currentMonthMostParticipated.endDate
+                              ? formatDateRange(
+                                  currentMonthMostParticipated.date,
+                                  currentMonthMostParticipated.endDate,
+                                )
+                              : getDisplayDate(currentMonthMostParticipated.date)}
                           </span>
                           <span className="mt-0.5 block break-words font-bold leading-5 text-slate-900">
                             {currentMonthMostParticipated.title}

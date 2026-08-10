@@ -52,6 +52,7 @@ import {
   getSiegeActivityLabel,
 } from "@/src/lib/activityLabels";
 import { matchesMemberKeyword } from "@/src/lib/koreanSearch";
+import { formatDateRange } from "@/src/lib/displayFormat";
 import {
   getAvailableActivityMonths,
   getDefaultReportMonth,
@@ -350,6 +351,7 @@ export default function Home() {
   >("");
   const [newMemberBirthYearInput, setNewMemberBirthYearInput] = useState("");
   const [activityDate, setActivityDate] = useState(today);
+  const [activityEndDate, setActivityEndDate] = useState("");
   const [activityType, setActivityType] = useState<VisibleActivityType>("airship");
   const [activityAirshipType, setActivityAirshipType] =
     useState<AirshipType>("ocean");
@@ -691,6 +693,7 @@ export default function Home() {
 
   const resetActivityForm = () => {
     setActivityDate(today());
+    setActivityEndDate("");
     setActivityType("airship");
     setActivityAirshipType("ocean");
     setActivityConquestTypes([]);
@@ -1161,8 +1164,23 @@ export default function Home() {
   const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (
+      activityType === "other" &&
+      activityEndDate &&
+      activityEndDate < activityDate
+    ) {
+      setActivityFeedbackMessage("종료일은 시작일과 같거나 이후여야 합니다.");
+      return;
+    }
+
     const activityData = {
       date: activityDate,
+      endDate:
+        activityType === "other" &&
+        activityEndDate &&
+        activityEndDate !== activityDate
+          ? activityEndDate
+          : undefined,
       type: activityType,
       airshipType: activityType === "airship" ? activityAirshipType : undefined,
       conquestTypes:
@@ -1202,6 +1220,7 @@ export default function Home() {
     setActiveAdminSection("activity");
     setEditingActivityId(activity.id);
     setActivityDate(activity.date);
+    setActivityEndDate(activity.endDate ?? "");
     setActivityType(getVisibleActivityType(activity.type));
     setActivityAirshipType(getKnownAirshipType(activity.airshipType) ?? "ocean");
     setActivityConquestTypes(getKnownConquestTypes(activity.conquestTypes));
@@ -2242,7 +2261,7 @@ export default function Home() {
           ) : null}
           <div className="grid gap-4 rounded-md border border-neutral-200 bg-white p-4 md:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>활동 날짜</span>
+              <span>시작일</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                 type="date"
@@ -2251,6 +2270,19 @@ export default function Home() {
                 required
               />
             </label>
+
+            {activityType === "other" ? (
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>종료일 <span className="font-normal text-neutral-500">(선택)</span></span>
+                <input
+                  className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
+                  min={activityDate}
+                  type="date"
+                  value={activityEndDate}
+                  onChange={(event) => setActivityEndDate(event.target.value)}
+                />
+              </label>
+            ) : null}
 
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>활동 종류</span>
@@ -2277,6 +2309,10 @@ export default function Home() {
 
                   if (nextType !== "siege") {
                     setActivityConquestTypes([]);
+                  }
+
+                  if (nextType !== "other") {
+                    setActivityEndDate("");
                   }
                 }}
               >
@@ -2635,7 +2671,7 @@ export default function Home() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="text-xs text-neutral-500">
-                        {activity.date}
+                        {formatDateRange(activity.date, activity.endDate)}
                       </span>
                       <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                         {getActivityTypeLabel(activity)}
@@ -2928,7 +2964,7 @@ export default function Home() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="text-xs text-neutral-500">
-                            {activity.date}
+                            {formatDateRange(activity.date, activity.endDate)}
                           </span>
                           <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                             {getActivityTypeLabel(activity)}

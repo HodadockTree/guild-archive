@@ -15,7 +15,11 @@ import {
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
+import {
+  formatDateRange,
+  formatMonth,
+  formatMonthDay,
+} from "@/src/lib/displayFormat";
 import { MonthlyHighlightsSection } from "@/src/components/MonthlyHighlightsSection";
 
 type MonthSummary = {
@@ -58,6 +62,7 @@ function toActivityDetail(activity: ActivityLog & { participantNames?: string[] 
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     title: getActivityTitle(activity),
     participantCount: activity.participantIds.length,
@@ -513,7 +518,9 @@ export default function ViewerPage() {
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs text-slate-500">
-                          {getDisplayDate(activity.date)}
+                          {activity.endDate
+                            ? formatDateRange(activity.date, activity.endDate)
+                            : getDisplayDate(activity.date)}
                         </p>
                         <h3 className="truncate font-semibold text-slate-900">
                           {activity.title}
@@ -559,7 +566,9 @@ export default function ViewerPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="text-xs text-slate-500">
-                            {getDisplayDate(activity.date)}
+                            {activity.endDate
+                              ? formatDateRange(activity.date, activity.endDate)
+                              : getDisplayDate(activity.date)}
                           </span>
                         </div>
                         <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">

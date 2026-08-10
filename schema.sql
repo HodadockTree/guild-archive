@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS activities (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,
   date TEXT NOT NULL,
+  endDate TEXT,
   title TEXT,
   memo TEXT,
   airshipType TEXT,

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/src/components/ui/Badge";
 import { Surface } from "@/src/components/ui/Surface";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
-import { formatFullDate } from "@/src/lib/displayFormat";
+import { formatDateRange } from "@/src/lib/displayFormat";
 import type {
   ActivityParticipant,
   MemberActivityRecord,
@@ -124,7 +124,7 @@ function ActivityDetailDialog({
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-[var(--text-secondary)]">{formatFullDate(displayedActivity.date)}</span>
+                  <span className="text-sm whitespace-nowrap text-[var(--text-secondary)]">{formatDateRange(displayedActivity.date, displayedActivity.endDate)}</span>
                   {detailLabel ? <Badge className="py-0.5">{detailLabel}</Badge> : null}
                 </div>
                 <h2 className="mt-2 text-xl font-bold leading-7 text-slate-900" id="activity-detail-title">

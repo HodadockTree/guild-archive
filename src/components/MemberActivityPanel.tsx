@@ -5,7 +5,7 @@ import type {
   MemberActivityDetailData,
   MemberActivityRecord,
 } from "@/src/lib/memberActivity";
-import { formatFullDate } from "@/src/lib/displayFormat";
+import { formatDateRange, formatFullDate } from "@/src/lib/displayFormat";
 
 type DetailState =
   | { status: "loading" }
@@ -162,7 +162,7 @@ export function MemberActivityPanel({
               const content = (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs text-slate-500">{formatFullDate(activity.date)} · {activity.label}</p>
+                    <p className="text-xs text-slate-500">{formatDateRange(activity.date, activity.endDate)} · {activity.label}</p>
                     <p className="mt-1 font-semibold leading-5 text-slate-900">{activity.title}</p>
                   </div>
                   <span className="shrink-0 text-xs font-medium text-slate-500">참여 {activity.participantCount}명</span>

@@ -37,6 +37,7 @@ type ActivityRow = {
   id: string;
   type: string;
   date: string;
+  endDate: string | null;
   title: string | null;
   memo: string | null;
   airshipType: string | null;
@@ -117,6 +118,7 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof activity.id !== "string" ||
       typeof activity.type !== "string" ||
       typeof activity.date !== "string" ||
+      (activity.endDate !== undefined && typeof activity.endDate !== "string") ||
       !Array.isArray(activity.participantIds),
   );
 
@@ -171,13 +173,14 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO activities (
-          id, type, date, title, memo, airshipType, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, type, date, endDate, title, memo, airshipType, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         activity.id,
         activity.type,
         activity.date,
+        activity.endDate && activity.endDate !== activity.date ? activity.endDate : null,
         activity.title ?? null,
         activity.memo ?? null,
         activity.airshipType ?? null,
@@ -275,7 +278,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     await Promise.all([
       db
         .prepare(
-          `SELECT id, type, date, title, memo, airshipType
+          `SELECT id, type, date, endDate, title, memo, airshipType
            FROM activities
            ORDER BY date ASC, id ASC`,
         )
@@ -307,6 +310,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     id: activity.id,
     type: activity.type as ActivityLog["type"],
     date: activity.date,
+    endDate: activity.endDate ?? undefined,
     title: activity.title ?? undefined,
     memo: activity.memo ?? undefined,
     airshipType: activity.airshipType as ActivityLog["airshipType"],

@@ -12,6 +12,7 @@ export type DashboardMonthlyTrend = {
 export type DashboardActivitySummary = {
   id: string;
   date: string;
+  endDate?: string;
   label: string;
   statsType: "airship" | "siege" | "other";
   participantIds: string[];
@@ -85,6 +86,7 @@ function toActivitySummary(
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     statsType: getActivityStatsType(activity.type),
     title: getActivityTitle(activity),
