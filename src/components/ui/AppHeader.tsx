@@ -1,6 +1,6 @@
 import { ButtonLink } from "@/src/components/ui/ButtonLink";
 
-type AppPath = "/" | "/archive" | "/viewer" | "/admin";
+type AppPath = "/" | "/archive" | "/viewer" | "/admin" | "/members";
 
 const navigation: Array<{ href: AppPath; label: string }> = [
   { href: "/", label: "홈" },

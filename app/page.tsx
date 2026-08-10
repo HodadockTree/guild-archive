@@ -124,12 +124,10 @@ function MemberList({
   emptyMessage,
   members,
   showLeftAt = true,
-  onSelectMember,
 }: {
   emptyMessage: string;
   members: DashboardMemberSummary[];
   showLeftAt?: boolean;
-  onSelectMember?: (member: DashboardMemberSummary, trigger: HTMLButtonElement) => void;
 }) {
   if (members.length === 0) {
     return (
@@ -155,11 +153,9 @@ function MemberList({
             {members.map((member) => (
               <tr key={member.id}>
                 <td className="px-4 py-3 font-semibold text-slate-900">
-                  {onSelectMember ? (
-                    <button aria-label={`${member.nickname} 활동 기록 보기`} className="ui-focus-ring min-h-11 cursor-pointer rounded-md px-2 py-1 text-left transition hover:bg-sky-100" onClick={(event) => onSelectMember(member, event.currentTarget)} type="button">
-                      {member.nickname}
-                    </button>
-                  ) : member.nickname}
+                  <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-md px-2 py-1 transition hover:bg-sky-100" href={`/members/${encodeURIComponent(member.id)}`}>
+                    {member.nickname}
+                  </Link>
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {member.joinedAt ? formatFullDate(member.joinedAt) : "-"}
@@ -184,13 +180,9 @@ function MemberList({
           className="rounded-md border border-sky-100 bg-sky-50 px-4 py-3"
           key={member.id}
         >
-          {onSelectMember ? (
-            <button aria-label={`${member.nickname} 활동 기록 보기`} className="ui-focus-ring min-h-11 cursor-pointer rounded-md px-2 py-1 text-left font-semibold text-slate-900 transition hover:bg-sky-100" onClick={(event) => onSelectMember(member, event.currentTarget)} type="button">
-              {member.nickname}
-            </button>
-          ) : (
-            <p className="font-semibold text-slate-900">{member.nickname}</p>
-          )}
+          <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-md px-2 py-1 font-semibold text-slate-900 transition hover:bg-sky-100" href={`/members/${encodeURIComponent(member.id)}`}>
+            {member.nickname}
+          </Link>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} ·{" "}
             {showLeftAt ? `탈퇴일 ${member.leftAt ? formatFullDate(member.leftAt) : "-"} · ` : ""}
@@ -665,11 +657,6 @@ export default function DashboardPage() {
                 emptyMessage="현재 활동중인 길드원이 없습니다."
                 members={dashboard.activeMembers}
                 showLeftAt={false}
-                onSelectMember={(member) => {
-                  setSelectedMonthMemberId(member.id);
-                  setMemberReturnModal("activeMembers");
-                  setSelectedSummaryModal("memberMonthActivities");
-                }}
               />
             </DashboardSummaryModal>
           ) : null}
@@ -758,11 +745,6 @@ export default function DashboardPage() {
               <MemberList
                 emptyMessage="아직 함께한 길드원 기록이 없습니다."
                 members={dashboard.allMembers}
-                onSelectMember={(member) => {
-                  setSelectedMonthMemberId(member.id);
-                  setMemberReturnModal("allMembers");
-                  setSelectedSummaryModal("memberMonthActivities");
-                }}
               />
             </DashboardSummaryModal>
           ) : null}
