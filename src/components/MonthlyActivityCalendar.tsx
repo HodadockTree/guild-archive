@@ -130,8 +130,12 @@ export function MonthlyActivityCalendar({
                           );
                         })}
                         {hiddenActivityCount > 0 ? (
-                          <li className="px-1 text-[10px] font-semibold text-[var(--color-text-muted)] sm:text-[11px]">
-                            +{hiddenActivityCount}
+                          <li
+                            className="px-1 text-[10px] font-semibold text-[var(--color-text-muted)] sm:text-[11px]"
+                            title={`${day}일 일정 ${hiddenActivityCount}개 더 있음`}
+                          >
+                            <span aria-hidden>+{hiddenActivityCount}</span>
+                            <span className="sr-only">{day}일에 일정 {hiddenActivityCount}개 더 있음</span>
                           </li>
                         ) : null}
                       </ul>
