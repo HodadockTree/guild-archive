@@ -490,11 +490,6 @@ export default function ViewerPage() {
             </dl>
           </Surface>
 
-          <MonthlyHighlightsSection
-            highlights={monthlyHighlights}
-            key={reportMonth}
-          />
-
           <Surface variant="section">
             <h2 className="ui-section-title">이번 달 참여 분석</h2>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-3">
@@ -572,6 +567,11 @@ export default function ViewerPage() {
             </Surface>
 
           </section>
+
+          <MonthlyHighlightsSection
+            highlights={monthlyHighlights}
+            key={reportMonth}
+          />
 
           <MonthlyActivityCalendar
             activities={monthlyReport.activities}
