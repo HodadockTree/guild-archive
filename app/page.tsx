@@ -15,6 +15,7 @@ import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import { AirshipParticipationChart } from "@/src/components/AirshipParticipationChart";
+import { Surface } from "@/src/components/ui/Surface";
 import {
   formatDateRange,
   formatFullDate,
@@ -71,10 +72,12 @@ function getGuildAgeDays(today: Date) {
 }
 
 function SummaryCard({
+  className = "",
   label,
   value,
   onClick,
 }: {
+  className?: string;
   label: string;
   value: string;
   onClick?: () => void;
@@ -83,11 +86,11 @@ function SummaryCard({
 
   return (
     <div
-      className={`flex min-h-28 flex-col justify-center rounded-md border border-sky-100 bg-white px-4 py-4 shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40 ${
+      className={`flex min-h-24 flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-4 ${
         isClickable
-          ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+          ? "ui-focus-ring cursor-pointer transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
           : ""
-      }`}
+      } ${className}`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
@@ -100,8 +103,8 @@ function SummaryCard({
       role={isClickable ? "button" : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
-      <dt className="text-sm font-medium text-slate-500">{label}</dt>
-      <dd className="mt-2 text-3xl font-bold text-slate-900">{value}</dd>
+      <dt className="ui-supporting-text font-medium">{label}</dt>
+      <dd className="ui-metric-hero mt-1 whitespace-nowrap">{value}</dd>
     </div>
   );
 }
@@ -290,11 +293,13 @@ function ActivitySummaryList({
 }
 
 function CumulativeSummaryCard({
+  className = "",
   description,
   label,
   onClick,
   value,
 }: {
+  className?: string;
   description?: string;
   label: string;
   onClick?: () => void;
@@ -304,11 +309,11 @@ function CumulativeSummaryCard({
 
   return (
     <div
-      className={`rounded-md bg-sky-50 px-4 py-4 transition ${
+      className={`min-w-0 rounded-[var(--radius-card)] px-3 py-3 ${
         isClickable
-          ? "cursor-pointer hover:bg-sky-100/70 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+          ? "ui-focus-ring cursor-pointer transition hover:bg-[var(--color-bg-interactive)]"
           : ""
-      }`}
+      } ${className}`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
@@ -321,10 +326,10 @@ function CumulativeSummaryCard({
       role={isClickable ? "button" : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
-      <dt className="text-sm font-medium text-slate-500">{label}</dt>
-      <dd className={`mt-1 font-bold text-slate-900 ${label === "길드 시작일" ? "text-xl sm:text-2xl" : "text-2xl"}`}>{value}</dd>
+      <dt className="ui-caption">{label}</dt>
+      <dd className={`mt-1 text-[var(--color-text-primary)] ${label === "길드 시작일" ? "text-lg font-semibold leading-7" : "ui-metric-section"}`}>{value}</dd>
       {description ? (
-        <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+        <p className="ui-caption mt-1">{description}</p>
       ) : null}
     </div>
   );
@@ -352,41 +357,41 @@ function ActivityCard({
   return (
     <li className={className}>
       <button
-      className="ui-focus-ring flex w-full cursor-pointer flex-col rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
+      className="ui-focus-ring flex w-full cursor-pointer flex-col rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 text-left transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
         onClick={() => onSelect(activity)}
         type="button"
       >
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="text-xs text-slate-500">
+            <span className="ui-caption">
               {activity.endDate
                 ? formatDateRange(activity.date, activity.endDate)
                 : getDisplayDate(activity.date)}
             </span>
             {isSiege && siegeRound ? (
               <>
-                <span aria-hidden="true" className="text-xs text-slate-300">·</span>
-                <strong className="text-xs text-slate-700">{siegeRound}</strong>
+                <span aria-hidden="true" className="text-xs text-[var(--color-border-default)]">·</span>
+                <strong className="ui-caption text-[var(--color-text-secondary)]">{siegeRound}</strong>
               </>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-            {activity.participantCount}명
+          <span className="ui-caption shrink-0 whitespace-nowrap text-[var(--color-text-secondary)]">
+            참여 {activity.participantCount}명
           </span>
         </div>
 
         {isSiege ? (
-          <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+          <h3 className="ui-card-title mt-2">
             {siegeTypes || "점령전 종류 미기록"}
           </h3>
         ) : showTitle ? (
-          <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+          <h3 className="ui-card-title mt-2">
             {activity.title}
           </h3>
         ) : null}
         {activity.memo ? (
-          <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+          <p className="ui-body-text mt-2 line-clamp-4 whitespace-pre-wrap">
             {activity.memo}
           </p>
         ) : null}
@@ -564,7 +569,7 @@ export default function DashboardPage() {
       {dashboard ? (
         <>
           <section>
-            <dl className="grid gap-3 sm:grid-cols-3">
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <SummaryCard
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
@@ -576,6 +581,7 @@ export default function DashboardPage() {
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <SummaryCard
+                className="col-span-2 sm:col-span-1"
                 label="이번 달 참여 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
                 onClick={() => {
@@ -586,14 +592,11 @@ export default function DashboardPage() {
             </dl>
           </section>
 
-          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                냥춘 누적 기록
-              </h2>
-            </div>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Surface variant="section">
+            <h2 className="ui-section-title">냥춘 누적 기록</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-1 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-1 sm:grid-cols-3">
               <CumulativeSummaryCard
+                className="col-span-2 sm:col-span-1"
                 description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
                 label="길드 시작일"
                 value="2026년 1월 22일"
@@ -609,40 +612,40 @@ export default function DashboardPage() {
                 value={`${dashboard.totalMemberCount}명`}
               />
             </dl>
-          </section>
+          </Surface>
 
-          <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 요약</h2>
-              <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs font-medium text-slate-600">비공정</dt>
-                  <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
+          <Surface className="min-w-0" variant="section">
+              <h2 className="ui-section-title">이번 달 활동 요약</h2>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-4">
+                <div className="flex min-h-14 flex-col justify-center">
+                  <dt className="ui-caption">비공정</dt>
+                  <dd className="ui-metric-inline mt-1">{currentMonthTypeCounts?.airship ?? 0}회</dd>
                 </div>
-                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs font-medium text-slate-600">점령전</dt>
-                  <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.siege ?? 0}회</dd>
+                <div className="flex min-h-14 flex-col justify-center">
+                  <dt className="ui-caption">점령전</dt>
+                  <dd className="ui-metric-inline mt-1">{currentMonthTypeCounts?.siege ?? 0}회</dd>
                 </div>
-                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs font-medium text-slate-600">참여 합계</dt>
-                  <dd className="font-bold text-slate-900">
+                <div className="flex min-h-14 flex-col justify-center">
+                  <dt className="ui-caption">참여 합계</dt>
+                  <dd className="ui-metric-section mt-1 whitespace-nowrap">
                     {currentMonthTotalParticipation}회
                   </dd>
                 </div>
-                <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
-                  <dt className="text-xs font-medium text-slate-600">활동당 평균</dt>
-                  <dd className="font-bold text-slate-900">
+                <div className="flex min-h-14 flex-col justify-center">
+                  <dt className="ui-caption">활동당 평균</dt>
+                  <dd className="ui-metric-section mt-1 whitespace-nowrap">
                     {currentMonthAverageParticipation
                       ? `${currentMonthAverageParticipation}명`
                       : "0명"}
                   </dd>
                 </div>
-                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3 sm:col-span-4">
-                  <dt className="text-xs font-medium text-slate-600">최다 참여 활동</dt>
+                <div className="col-span-2 min-w-0 border-t border-[var(--color-border-subtle)] pt-3 sm:col-span-4">
+                  <dt className="ui-caption">최다 참여 활동</dt>
                   <dd className="mt-1 min-w-0">
                     {currentMonthMostParticipated ? (
                       <button
                         aria-label={`${currentMonthMostParticipated.title} 활동 상세 보기`}
-                        className="ui-focus-ring flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md py-1 text-left transition hover:bg-sky-100/70"
+                        className="ui-focus-ring mt-1 flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 text-left transition hover:bg-[var(--color-bg-selected)]"
                         onClick={() => {
                           restoreMostActivityFocusRef.current = true;
                           setSelectedActivity(currentMonthMostParticipated);
@@ -651,7 +654,7 @@ export default function DashboardPage() {
                         type="button"
                       >
                         <span className="min-w-0">
-                          <span className="block text-xs text-slate-400">
+                          <span className="ui-caption block">
                             {currentMonthMostParticipated.endDate
                               ? formatDateRange(
                                   currentMonthMostParticipated.date,
@@ -659,63 +662,63 @@ export default function DashboardPage() {
                                 )
                               : getDisplayDate(currentMonthMostParticipated.date)}
                           </span>
-                          <span className="mt-0.5 block break-words font-bold leading-5 text-slate-900">
+                          <span className="ui-card-title mt-0.5 block break-words">
                             {currentMonthMostParticipated.title}
                           </span>
                         </span>
-                        <span className="shrink-0 rounded-md bg-sky-100 px-2 py-1 text-sm font-semibold text-[var(--brand-strong)]">
-                          {currentMonthMostParticipated.participantCount}명
+                        <span className="ui-caption shrink-0 whitespace-nowrap text-[var(--color-text-secondary)]">
+                          참여 {currentMonthMostParticipated.participantCount}명
                         </span>
                       </button>
                     ) : (
-                      <span className="font-bold text-slate-900">기록 없음</span>
+                      <span className="ui-metric-inline">기록 없음</span>
                     )}
                   </dd>
                 </div>
               </dl>
-          </section>
+          </Surface>
 
-          <div className="min-w-0 grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
-            <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">이번 달 자주 함께한 길드원</h2>
-              <p className="mt-1 text-sm text-slate-500">길마를 제외한 활동별 참여 기록입니다.</p>
-              <div className="mt-4 space-y-4">
+            <Surface className="min-w-0" variant="section">
+              <h2 className="ui-section-title">이번 달 자주 함께한 길드원</h2>
+              <p className="ui-supporting-text mt-1">길마를 제외한 활동별 참여 기록입니다.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (
-                    <div className="overflow-hidden rounded-md border border-sky-100 bg-white" key={type}>
-                      <h3 className="bg-sky-100/80 px-4 py-3 text-sm font-semibold text-slate-800">
+                    <div className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-muted)]" key={type}>
+                      <h3 className="px-4 pt-3 text-sm font-semibold text-[var(--color-text-secondary)]">
                         {type === "airship" ? "비공정" : "점령전"}
                       </h3>
                       {participants.length > 0 ? (
-                        <ol className="space-y-2 bg-slate-50/70 px-4 py-3">
+                        <ol className="space-y-2 px-4 py-3">
                           {participants.map((participant) => (
                             <li className="flex items-center justify-between gap-3 text-sm" key={participant.id}>
-                              <span className="min-w-0 truncate text-slate-700">{participant.nickname}</span>
-                              <strong className="shrink-0 rounded-md bg-sky-100 px-2 py-0.5 text-[var(--brand-strong)]">{participant.count}회</strong>
+                              <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{participant.nickname}</span>
+                              <strong className="shrink-0 text-[var(--color-text-primary)]">{participant.count}회</strong>
                             </li>
                           ))}
                         </ol>
                       ) : (
-                        <p className="bg-slate-50/70 px-4 py-3 text-sm text-slate-500">기록 없음</p>
+                        <p className="px-4 py-3 text-sm text-[var(--color-text-muted)]">기록 없음</p>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </section>
+            </Surface>
           </div>
 
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="ui-section-title">
                   최근 활동
                 </h2>
               </div>
               <Link
-                className="w-fit rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
+                className="ui-focus-ring inline-flex min-h-11 w-fit items-center rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
                 href={`/viewer?month=${currentMonth}`}
               >
                 이번 달 전체 보기
@@ -724,7 +727,7 @@ export default function DashboardPage() {
 
             <div
               aria-label="최근 활동 종류"
-              className="flex w-full gap-1 overflow-x-auto rounded-md bg-sky-50 p-1 sm:w-fit"
+              className="flex w-full gap-1 overflow-x-auto rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] p-1 sm:w-fit"
               role="group"
             >
               {(Object.entries(recentActivityFilterLabels) as [RecentActivityFilter, string][]).map(
@@ -733,8 +736,8 @@ export default function DashboardPage() {
                     aria-pressed={recentActivityFilter === value}
                     className={`ui-focus-ring min-h-10 shrink-0 rounded-md px-3 text-sm font-medium transition ${
                       recentActivityFilter === value
-                        ? "bg-white text-[var(--brand-strong)] shadow-sm"
-                        : "text-slate-600 hover:bg-white/70"
+                          ? "border border-[var(--color-border-selected)] bg-[var(--color-bg-surface)] text-[var(--color-text-accent)] shadow-sm"
+                          : "border border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-interactive)]"
                     }`}
                     key={value}
                     onClick={() => setRecentActivityFilter(value)}
@@ -747,7 +750,7 @@ export default function DashboardPage() {
             </div>
 
             {visibleRecentActivities.length === 0 ? (
-              <p className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
+              <p className="ui-empty-state ui-empty-state-surface py-10">
                 선택한 종류의 활동 기록이 없습니다.
               </p>
             ) : (
@@ -758,8 +761,8 @@ export default function DashboardPage() {
                       (activity) => activity.label === track,
                     );
                     return (
-                      <section className="rounded-md bg-sky-50/70 p-3" key={track}>
-                        <h3 className="px-1 pb-3 text-sm font-semibold text-slate-700">{track}</h3>
+                      <section className="rounded-md bg-[var(--color-bg-muted)] p-3" key={track}>
+                        <h3 className="px-1 pb-3 text-sm font-semibold text-[var(--color-text-secondary)]">{track}</h3>
                         {trackActivities.length > 0 ? (
                           <ul className="grid gap-3">
                             {trackActivities.map((activity) => (
@@ -775,7 +778,7 @@ export default function DashboardPage() {
                             ))}
                           </ul>
                         ) : (
-                          <p className="rounded-md border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm text-slate-500">기록 없음</p>
+                          <p className="ui-empty-state ui-empty-state-surface py-6">기록 없음</p>
                         )}
                       </section>
                     );

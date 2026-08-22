@@ -1,5 +1,6 @@
 import type { DashboardActivitySummary } from "@/src/lib/dashboardStats";
 import { formatMonthDay } from "@/src/lib/displayFormat";
+import { Surface } from "@/src/components/ui/Surface";
 
 export function AirshipParticipationChart({
   activities,
@@ -27,12 +28,12 @@ export function AirshipParticipationChart({
     .join(" ");
 
   return (
-    <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <h2 className="text-lg font-semibold text-slate-900">이번 달 비공정 참여 인원</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <Surface className="min-w-0" variant="section">
+      <h2 className="ui-section-title">이번 달 비공정 참여 인원</h2>
+      <p className="ui-supporting-text mt-1">
         아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다.
       </p>
-      <div aria-label="비공정 종류 범례" className="mt-3 flex gap-4 text-xs text-slate-600">
+      <div aria-label="비공정 종류 범례" className="ui-caption mt-3 flex gap-4 text-[var(--color-text-secondary)]">
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-violet-400" />아우로라</span>
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-cyan-500" />오션헤븐</span>
       </div>
@@ -41,7 +42,7 @@ export function AirshipParticipationChart({
           이번 달 비공정 기록이 없습니다.
         </p>
       ) : (
-        <div className="mt-3 min-w-0 rounded-md border border-sky-100 bg-sky-50/60 p-3">
+        <div className="mt-3 min-w-0 rounded-md bg-[var(--color-bg-muted)] p-3">
           <div className="max-w-full overflow-x-auto overscroll-x-contain">
             <svg
               aria-label="이번 달 비공정 회차별 참여 인원 변화"
@@ -73,6 +74,6 @@ export function AirshipParticipationChart({
           </div>
         </div>
       )}
-    </section>
+    </Surface>
   );
 }
