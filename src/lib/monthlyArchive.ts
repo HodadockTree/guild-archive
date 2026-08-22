@@ -83,6 +83,28 @@ export function getMonthlyArchiveSummaries(
     }
   >();
 
+  members.forEach((member) => {
+    const month = getMonthKey(member.joinedAt);
+
+    if (!month || summariesByMonth.has(month)) return;
+
+    summariesByMonth.set(month, {
+      month,
+      activityCount: 0,
+      eventCount: 0,
+      participantMemberCount: 0,
+      totalParticipationCount: 0,
+      auroraAverageParticipantCount: 0,
+      oceanAverageParticipantCount: 0,
+      participantMemberIds: new Set<string>(),
+      representativeEvents: [],
+      auroraParticipationTotal: 0,
+      auroraActivityCount: 0,
+      oceanParticipationTotal: 0,
+      oceanActivityCount: 0,
+    });
+  });
+
   activities.forEach((activity) => {
     const month = getMonthKey(activity.date);
 

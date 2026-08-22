@@ -10,6 +10,10 @@ import {
   getCountedActivityParticipantIds,
   isCountedActivityMember,
 } from "@/src/lib/activityParticipants";
+import {
+  getMonthlyAnniversaries,
+  type AnniversaryMilestone,
+} from "@/src/lib/anniversaries";
 
 export type MonthlyActivitySummary = {
   id: string;
@@ -30,6 +34,12 @@ export type MonthlyTopParticipant = {
   memberId: string;
   nickname: string;
   count: number;
+};
+
+export type MonthlyNewMember = {
+  id: string;
+  nickname: string;
+  joinedAt: string;
 };
 
 export type MonthlyConquestSummary = {
@@ -67,6 +77,8 @@ export type MonthlyReport = {
   conquestSummaries: MonthlyConquestSummary[];
   eventSummaries: MonthlyEventSummary[];
   activitySummaries: MonthlyActivitySummary[];
+  newMembers: MonthlyNewMember[];
+  anniversaries: AnniversaryMilestone[];
 };
 
 function getMonthKey(date: string) {
@@ -161,6 +173,17 @@ export function getMonthlyReport(
       )
       .map((member) => member.id),
   );
+  const newMembers = members
+    .filter((member) => getMonthKey(member.joinedAt) === month)
+    .map((member) => ({
+      id: member.id,
+      nickname: member.nickname,
+      joinedAt: member.joinedAt,
+    }))
+    .sort((first, second) =>
+      first.joinedAt.localeCompare(second.joinedAt) ||
+      first.nickname.localeCompare(second.nickname, "ko"),
+    );
 
   const report = monthlyActivities.reduce(
     (summary, activity) => {
@@ -299,6 +322,8 @@ export function getMonthlyReport(
         (countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0) ===
           maxActivityParticipantCount,
     })),
+    newMembers,
+    anniversaries: getMonthlyAnniversaries(members, month, periodEnd),
   };
 }
 

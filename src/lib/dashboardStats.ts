@@ -9,6 +9,10 @@ import {
   isRankedActivityMember,
 } from "@/src/lib/activityParticipants";
 import type { ActivityParticipant } from "@/src/lib/memberActivity";
+import {
+  getUpcomingAnniversaries,
+  type UpcomingAnniversary,
+} from "@/src/lib/anniversaries";
 
 export type DashboardMonthlyTrend = {
   month: string;
@@ -63,6 +67,7 @@ export type DashboardStats = {
     airship: DashboardTopParticipant[];
     siege: DashboardTopParticipant[];
   };
+  upcomingAnniversaries: UpcomingAnniversary[];
 };
 
 function getMonthKey(date: string) {
@@ -303,5 +308,6 @@ export function getGuildDashboardStats(
       airship: getTopParticipants("airship"),
       siege: getTopParticipants("siege"),
     },
+    upcomingAnniversaries: getUpcomingAnniversaries(members, referenceDate),
   };
 }

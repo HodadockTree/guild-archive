@@ -498,7 +498,11 @@ export async function getServerMonthlyReport(month: string) {
 
   return {
     month,
-    hasData: report.totalActivities > 0 || highlights.length > 0,
+    hasData:
+      report.totalActivities > 0 ||
+      highlights.length > 0 ||
+      report.newMembers.length > 0 ||
+      report.anniversaries.length > 0,
     report,
     highlights: highlights.map(toPublicMonthlyHighlight),
   };

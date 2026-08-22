@@ -22,6 +22,10 @@ import {
   formatMonth,
   formatMonthDay,
 } from "@/src/lib/displayFormat";
+import {
+  GUILD_STARTED_AT,
+  type UpcomingAnniversary,
+} from "@/src/lib/anniversaries";
 
 type DashboardState =
   | { status: "loading" }
@@ -53,7 +57,25 @@ function getDisplayDate(date: string) {
   return formatMonthDay(date);
 }
 
-const GUILD_STARTED_AT = { year: 2026, monthIndex: 0, day: 22 } as const;
+function getAnniversaryMilestoneLabel(anniversary: UpcomingAnniversary) {
+  return anniversary.milestoneKind === "years"
+    ? `${anniversary.milestone}주년`
+    : `${anniversary.milestone}일`;
+}
+
+function getAnniversaryMessage(anniversary: UpcomingAnniversary) {
+  const milestone = getAnniversaryMilestoneLabel(anniversary);
+
+  if (anniversary.daysUntil === 0) {
+    return anniversary.nickname
+      ? `${anniversary.nickname}님이 냥춘과 함께한 지 ${milestone}이 되었어요`
+      : `냥춘과 함께한 지 ${milestone}이 되었어요`;
+  }
+
+  return anniversary.nickname
+    ? `${anniversary.nickname}님 가입 ${milestone} · ${anniversary.daysUntil}일 뒤`
+    : `냥춘과 함께한 지 ${milestone} · ${anniversary.daysUntil}일 뒤`;
+}
 
 function getGuildAgeDays(today: Date) {
   const todayDate = Date.UTC(
@@ -61,11 +83,10 @@ function getGuildAgeDays(today: Date) {
     today.getMonth(),
     today.getDate(),
   );
-  const startedDate = Date.UTC(
-    GUILD_STARTED_AT.year,
-    GUILD_STARTED_AT.monthIndex,
-    GUILD_STARTED_AT.day,
-  );
+  const [startedYear, startedMonth, startedDay] = GUILD_STARTED_AT
+    .split("-")
+    .map(Number);
+  const startedDate = Date.UTC(startedYear, startedMonth - 1, startedDay);
   const elapsedDays = Math.floor((todayDate - startedDate) / 86_400_000) + 1;
 
   return elapsedDays > 0 ? elapsedDays : null;
@@ -613,6 +634,30 @@ export default function DashboardPage() {
               />
             </dl>
           </Surface>
+
+          {dashboard.upcomingAnniversaries.length > 0 ? (
+            <Surface variant="section">
+              <h2 className="ui-section-title">다가오는 기록</h2>
+              <ul className="mt-3 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-4">
+                {dashboard.upcomingAnniversaries.map((anniversary) => (
+                  <li className="py-3" key={anniversary.id}>
+                    {anniversary.memberId ? (
+                      <Link
+                        className="ui-focus-ring inline-flex min-h-11 max-w-full items-center rounded-md px-1 text-sm font-medium text-[var(--color-text-primary)] transition hover:text-[var(--color-text-accent)]"
+                        href={`/members/${encodeURIComponent(anniversary.memberId)}`}
+                      >
+                        {getAnniversaryMessage(anniversary)}
+                      </Link>
+                    ) : (
+                      <p className="flex min-h-11 items-center text-sm font-medium text-[var(--color-text-primary)]">
+                        {getAnniversaryMessage(anniversary)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          ) : null}
 
           <Surface className="min-w-0" variant="section">
               <h2 className="ui-section-title">이번 달 활동 요약</h2>

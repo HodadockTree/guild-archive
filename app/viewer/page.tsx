@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog, MonthlyHighlight } from "@/src/types";
+import type { AnniversaryMilestone } from "@/src/lib/anniversaries";
 import {
   conquestTypes,
   getActivityDisplayTitle,
@@ -48,6 +50,16 @@ type ReportState =
     };
 
 type MonthlyActivityFilter = "all" | "airship" | "siege" | "other";
+
+function getMonthlyAnniversaryLabel(anniversary: AnniversaryMilestone) {
+  const milestone = anniversary.milestoneKind === "years"
+    ? `${anniversary.milestone}주년`
+    : `${anniversary.milestone}일`;
+
+  return anniversary.nickname
+    ? `${anniversary.nickname}님과 함께한 지 ${milestone}`
+    : `냥춘 ${milestone}`;
+}
 
 const monthlyActivityFilterLabels: Record<MonthlyActivityFilter, string> = {
   all: "전체",
@@ -489,6 +501,52 @@ export default function ViewerPage() {
               </div>
             </dl>
           </Surface>
+
+          {monthlyReport.newMembers.length > 0 ? (
+            <Surface variant="section">
+              <h2 className="ui-section-title">
+                이번 달 새로 함께한 길드원 · {monthlyReport.newMembers.length}명
+              </h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {monthlyReport.newMembers.map((member) => (
+                  <li key={member.id}>
+                    <Link
+                      aria-label={`${member.nickname} 개인 기록 페이지 보기`}
+                      className="ui-focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                      href={`/members/${encodeURIComponent(member.id)}`}
+                    >
+                      {member.nickname}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          ) : null}
+
+          {monthlyReport.anniversaries.length > 0 ? (
+            <Surface variant="section">
+              <h2 className="ui-section-title">이번 달 기념일</h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {monthlyReport.anniversaries.map((anniversary) => (
+                  <li key={anniversary.id}>
+                    {anniversary.memberId ? (
+                      <Link
+                        aria-label={`${anniversary.nickname} 개인 기록 페이지 보기`}
+                        className="ui-focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                        href={`/members/${encodeURIComponent(anniversary.memberId)}`}
+                      >
+                        {getMonthlyAnniversaryLabel(anniversary)}
+                      </Link>
+                    ) : (
+                      <span className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)]">
+                        {getMonthlyAnniversaryLabel(anniversary)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          ) : null}
 
           <Surface variant="section">
             <h2 className="ui-section-title">이번 달 참여 분석</h2>
