@@ -9,8 +9,11 @@ import { Surface } from "@/src/components/ui/Surface";
 import { formatDateRange, formatFullDate, formatMonth } from "@/src/lib/displayFormat";
 import {
   memberProfileActivityTypeLabels,
+  type MemberProfileActivityType,
   type MemberProfileData,
 } from "@/src/lib/memberProfile";
+
+type ActivityFilter = "all" | MemberProfileActivityType;
 
 function displayDate(date: string | null) {
   return date ? formatFullDate(date) : "-";
@@ -18,6 +21,7 @@ function displayDate(date: string | null) {
 
 export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
   const [selectedActivity, setSelectedActivity] = useState<ActivityDetail | null>(null);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [expandedActivityMonths, setExpandedActivityMonths] = useState<Set<string>>(
     () =>
       new Set(
@@ -36,8 +40,20 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
     1,
     ...profile.monthlyParticipation.map((item) => item.count),
   );
+  const activityFilterItems = [
+    { type: "all" as const, label: "전체", count: summary.totalActivityCount },
+    ...profile.typeCounts,
+  ];
+  const filteredActivities =
+    activityFilter === "all"
+      ? profile.activities
+      : profile.activities.filter((activity) => activity.type === activityFilter);
+  const emptyFilterLabel =
+    activityFilter === "all"
+      ? null
+      : memberProfileActivityTypeLabels[activityFilter];
   const activityGroups = Array.from(
-    profile.activities.reduce((groups, activity) => {
+    filteredActivities.reduce((groups, activity) => {
       const month = activity.date.slice(0, 7);
       groups.set(month, [...(groups.get(month) ?? []), activity]);
       return groups;
@@ -52,6 +68,18 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
       else next.add(month);
       return next;
     });
+  };
+
+  const selectActivityFilter = (filter: ActivityFilter) => {
+    const nextActivities =
+      filter === "all"
+        ? profile.activities
+        : profile.activities.filter((activity) => activity.type === filter);
+
+    setActivityFilter(filter);
+    setExpandedActivityMonths(
+      new Set(nextActivities[0]?.date ? [nextActivities[0].date.slice(0, 7)] : []),
+    );
   };
 
   const focusActivityMonth = (month: string) => {
@@ -123,13 +151,29 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
         <div className="grid gap-4 lg:grid-cols-2">
           <Surface className="p-5">
             <h2 className="ui-section-title">활동 종류별 기록</h2>
-            <ul className="mt-4 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-4">
-              {profile.typeCounts.map((item) => (
-                <li className="flex items-center justify-between py-3 first:pt-0 last:pb-0" key={item.type}>
-                  <span className="ui-body-text font-medium">{item.label}</span>
-                  <span className="ui-metric-inline">{item.count}회</span>
-                </li>
-              ))}
+            <ul className="mt-4 grid grid-cols-2 gap-2">
+              {activityFilterItems.map((item) => {
+                const isSelected = activityFilter === item.type;
+
+                return (
+                  <li key={item.type}>
+                    <button
+                      aria-label={`${item.label} 활동 ${item.count}회 보기`}
+                      aria-pressed={isSelected}
+                      className={`ui-focus-ring flex min-h-14 w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-left transition-colors ${
+                        isSelected
+                          ? "border-[var(--color-border-interactive)] bg-[var(--color-bg-interactive)]"
+                          : "border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                      }`}
+                      onClick={() => selectActivityFilter(item.type)}
+                      type="button"
+                    >
+                      <span className={`ui-body-text ${isSelected ? "font-semibold text-[var(--color-text-accent)]" : "font-medium"}`}>{item.label}</span>
+                      <span className="ui-metric-inline shrink-0">{item.count}회</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </Surface>
 
@@ -162,7 +206,7 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
 
         <section aria-labelledby="activity-list-title">
           <h2 className="ui-section-title" id="activity-list-title">개인 활동 기록</h2>
-          {profile.activities.length ? (
+          {filteredActivities.length ? (
             <div className="mt-3 divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">
               {activityGroups.map(({ month, activities }) => {
                 const isExpanded = expandedActivityMonths.has(month);
@@ -206,6 +250,10 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
                 );
               })}
             </div>
+          ) : profile.activities.length ? (
+            <p className="ui-empty-state mt-3 px-5 py-10">
+              참여한 {emptyFilterLabel} 기록이 없습니다.
+            </p>
           ) : (
             <p className="ui-empty-state mt-3 px-5 py-10">아직 함께한 활동 기록이 없습니다.</p>
           )}

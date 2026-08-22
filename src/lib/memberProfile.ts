@@ -4,6 +4,10 @@ import { toMemberActivityRecord, type MemberActivityRecord } from "@/src/lib/mem
 
 export type MemberProfileActivityType = "airship" | "siege" | "other";
 
+export type MemberProfileActivityRecord = MemberActivityRecord & {
+  type: MemberProfileActivityType;
+};
+
 export type MemberProfileData = {
   member: Pick<GuildMember, "id" | "nickname" | "status" | "joinedAt" | "leftAt">;
   summary: {
@@ -20,7 +24,7 @@ export type MemberProfileData = {
     count: number;
   }>;
   monthlyParticipation: Array<{ month: string; count: number }>;
-  activities: MemberActivityRecord[];
+  activities: MemberProfileActivityRecord[];
 };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -143,8 +147,9 @@ export function getMemberProfile(
           count: monthCounts.get(month) ?? 0,
         }))
       : [],
-    activities: memberActivities.map((activity) =>
-      toMemberActivityRecord(activity, membersById),
-    ),
+    activities: memberActivities.map((activity) => ({
+      ...toMemberActivityRecord(activity, membersById),
+      type: getActivityStatsType(activity.type),
+    })),
   };
 }
