@@ -135,7 +135,9 @@ textarea {
   }
 
   .ui-button-primary,
-  .ui-button-ghost {
+  .ui-button-secondary,
+  .ui-button-ghost,
+  .ui-button-danger {
     min-height: 2.75rem;
     border-radius: var(--radius-control);
     padding-inline: var(--space-4);
@@ -160,6 +162,27 @@ textarea {
 
   .ui-button-ghost:hover {
     background: var(--color-bg-muted);
+  }
+
+  .ui-button-secondary {
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-surface);
+    color: var(--color-text-secondary);
+  }
+
+  .ui-button-secondary:hover {
+    border-color: var(--color-border-selected);
+    color: var(--color-text-primary);
+  }
+
+  .ui-button-danger {
+    border: 1px solid color-mix(in srgb, var(--color-state-error) 30%, white);
+    background: var(--color-bg-surface);
+    color: var(--color-state-error);
+  }
+
+  .ui-button-danger:hover {
+    background: color-mix(in srgb, var(--color-state-error) 6%, white);
   }
 
   .admin-member-form label {

@@ -1775,7 +1775,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <MonthlyHighlightsAdmin />
+      <MonthlyHighlightsAdmin isActive={activeAdminSection === "highlights"} />
 
       <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
