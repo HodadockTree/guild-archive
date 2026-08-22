@@ -18,6 +18,14 @@ function displayDate(date: string | null) {
 
 export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
   const [selectedActivity, setSelectedActivity] = useState<ActivityDetail | null>(null);
+  const [expandedActivityMonths, setExpandedActivityMonths] = useState<Set<string>>(
+    () =>
+      new Set(
+        profile.activities[0]?.date
+          ? [profile.activities[0].date.slice(0, 7)]
+          : [],
+      ),
+  );
   const { member, summary } = profile;
   const mostFrequentLabel = summary.mostFrequentTypes.length
     ? summary.mostFrequentTypes
@@ -28,6 +36,23 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
     1,
     ...profile.monthlyParticipation.map((item) => item.count),
   );
+  const activityGroups = Array.from(
+    profile.activities.reduce((groups, activity) => {
+      const month = activity.date.slice(0, 7);
+      groups.set(month, [...(groups.get(month) ?? []), activity]);
+      return groups;
+    }, new Map<string, typeof profile.activities>()),
+    ([month, activities]) => ({ month, activities }),
+  ).sort((first, second) => second.month.localeCompare(first.month));
+
+  const toggleActivityMonth = (month: string) => {
+    setExpandedActivityMonths((current) => {
+      const next = new Set(current);
+      if (next.has(month)) next.delete(month);
+      else next.add(month);
+      return next;
+    });
+  };
 
   const focusActivityMonth = (month: string) => {
     const activity = document.querySelector<HTMLButtonElement>(
@@ -138,20 +163,49 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
         <section aria-labelledby="activity-list-title">
           <h2 className="ui-section-title" id="activity-list-title">개인 활동 기록</h2>
           {profile.activities.length ? (
-            <ul className="mt-3 space-y-2">
-              {profile.activities.map((activity) => (
-                <li key={activity.id}>
-                  <button className="ui-focus-ring block min-h-11 w-full cursor-pointer rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 text-left transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]" data-activity-month={activity.date.slice(0, 7)} onClick={() => setSelectedActivity(activity)} type="button">
-                    <span className="ui-caption block">{formatDateRange(activity.date, activity.endDate)}</span>
-                    <span className="ui-card-title mt-1 block break-words">{activity.title}</span>
-                    <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <Badge tone="neutral">{activity.label}</Badge>
-                      <span className="ui-caption">함께한 길드원 {activity.participantCount}명</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3 divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">
+              {activityGroups.map(({ month, activities }) => {
+                const isExpanded = expandedActivityMonths.has(month);
+                const groupId = `member-activities-${month}`;
+
+                return (
+                  <section className="py-2" key={month}>
+                    <button
+                      aria-controls={groupId}
+                      aria-expanded={isExpanded}
+                      className="ui-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-[var(--radius-control)] px-2 text-left transition-colors hover:bg-[var(--color-bg-interactive)]"
+                      data-activity-month={month}
+                      onClick={() => toggleActivityMonth(month)}
+                      type="button"
+                    >
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {formatMonth(month)} · {activities.length}회
+                      </span>
+                      <span aria-hidden className="shrink-0 text-sm text-[var(--color-text-accent)]">
+                        {isExpanded ? "▴" : "▾"}
+                      </span>
+                    </button>
+
+                    {isExpanded ? (
+                      <ul className="mt-2 space-y-2" id={groupId}>
+                        {activities.map((activity) => (
+                          <li key={activity.id}>
+                            <button className="ui-focus-ring block min-h-11 w-full cursor-pointer rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 text-left transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]" onClick={() => setSelectedActivity(activity)} type="button">
+                              <span className="ui-caption block">{formatDateRange(activity.date, activity.endDate)}</span>
+                              <span className="ui-card-title mt-1 block break-words">{activity.title}</span>
+                              <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <Badge tone="neutral">{activity.label}</Badge>
+                                <span className="ui-caption">함께한 길드원 {activity.participantCount}명</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
           ) : (
             <p className="ui-empty-state mt-3 px-5 py-10">아직 함께한 활동 기록이 없습니다.</p>
           )}
