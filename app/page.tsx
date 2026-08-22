@@ -144,7 +144,7 @@ function MemberList({
 }) {
   if (members.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+      <p className="ui-empty-state px-4 py-8">
         {emptyMessage}
       </p>
     );
@@ -152,9 +152,9 @@ function MemberList({
 
   return (
     <div className="space-y-3">
-      <div className="hidden overflow-hidden rounded-md border border-sky-100 sm:block">
+      <div className="hidden overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-default)] sm:block">
         <table className="w-full text-left text-sm">
-          <thead className="bg-sky-50 text-xs font-semibold text-slate-500">
+          <thead className="bg-[var(--color-bg-muted)] text-xs font-semibold text-[var(--color-text-muted)]">
             <tr>
               <th className="px-4 py-3">닉네임</th>
               <th className="px-4 py-3">가입일</th>
@@ -162,23 +162,23 @@ function MemberList({
               <th className="px-4 py-3">함께한 기간</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-sky-100 bg-white">
+          <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
             {members.map((member) => (
               <tr key={member.id}>
-                <td className="px-4 py-3 font-semibold text-slate-900">
-                  <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-md px-2 py-1 transition hover:bg-sky-100" href={`/members/${encodeURIComponent(member.id)}`}>
+                <td className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">
+                  <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-2 py-1 transition-colors hover:bg-[var(--color-bg-interactive)]" href={`/members/${encodeURIComponent(member.id)}`}>
                     {member.nickname}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {member.joinedAt ? formatFullDate(member.joinedAt) : "-"}
                 </td>
                 {showLeftAt ? (
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                     {member.leftAt ? formatFullDate(member.leftAt) : "-"}
                   </td>
                 ) : null}
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {getDurationLabel(member)}
                 </td>
               </tr>
@@ -190,13 +190,13 @@ function MemberList({
       <ul className="space-y-2 sm:hidden">
         {members.map((member) => (
         <li
-          className="rounded-md border border-sky-100 bg-sky-50 px-4 py-3"
+          className="rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-4 py-3"
           key={member.id}
         >
-          <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-md px-2 py-1 font-semibold text-slate-900 transition hover:bg-sky-100" href={`/members/${encodeURIComponent(member.id)}`}>
+          <Link aria-label={`${member.nickname} 개인 기록 페이지 보기`} className="ui-focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-2 py-1 font-semibold text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-interactive)]" href={`/members/${encodeURIComponent(member.id)}`}>
             {member.nickname}
           </Link>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+          <p className="ui-body-text mt-1">
             가입일 {member.joinedAt ? formatFullDate(member.joinedAt) : "-"} ·{" "}
             {showLeftAt ? `탈퇴일 ${member.leftAt ? formatFullDate(member.leftAt) : "-"} · ` : ""}
             {getDurationLabel(member)}
@@ -219,7 +219,7 @@ function ParticipantChipList({
 }) {
   if (members.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+      <p className="ui-empty-state px-4 py-8">
         {emptyMessage}
       </p>
     );
@@ -231,7 +231,7 @@ function ParticipantChipList({
         <li key={member.id}>
           <button
             aria-label={`${member.nickname} 활동 기록 보기`}
-            className="ui-focus-ring min-h-11 max-w-full cursor-pointer rounded-md bg-sky-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-sky-100"
+            className="ui-focus-ring min-h-11 max-w-full cursor-pointer rounded-[var(--radius-control)] border border-[var(--color-border-interactive)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-accent)] transition-colors hover:border-[var(--color-border-selected)] hover:bg-[var(--color-bg-interactive)]"
             onClick={(event) => onSelectMember(member, event.currentTarget)}
             type="button"
           >
@@ -254,7 +254,7 @@ function ActivitySummaryList({
 }) {
   if (activities.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+      <p className="ui-empty-state px-4 py-8">
         {emptyMessage}
       </p>
     );
@@ -265,23 +265,23 @@ function ActivitySummaryList({
       {activities.map((activity) => (
         <li key={activity.id}>
           <button
-            className="w-full rounded-md border border-sky-100 bg-white px-4 py-3 text-left text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/50 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+            className="ui-focus-ring w-full cursor-pointer rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 text-left transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
             onClick={() => onSelectActivity(activity)}
             type="button"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs text-slate-500">
+                <p className="ui-caption">
                   {formatDateRange(activity.date, activity.endDate)}
                 </p>
-                <h3 className="mt-1 font-semibold leading-6 text-slate-900">
+                <h3 className="ui-card-title mt-1">
                   {activity.title}
                 </h3>
                 {activity.label.startsWith("점령전 (") ? (
-                  <p className="mt-1 text-slate-600">{activity.label}</p>
+                  <p className="ui-body-text mt-1">{activity.label}</p>
                 ) : null}
               </div>
-              <span className="w-fit shrink-0 rounded-md bg-sky-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              <span className="ui-caption w-fit shrink-0">
                 참여 {activity.participantCount}명
               </span>
             </div>
@@ -548,11 +548,11 @@ export default function DashboardPage() {
       />
 
       {dashboardState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <Surface className="py-10 text-center" variant="section">
+          <h2 className="ui-section-title">
             대시보드 데이터를 불러오는 중입니다.
           </h2>
-        </section>
+        </Surface>
       ) : null}
 
       {dashboardState.status === "error" ? (
@@ -875,7 +875,7 @@ export default function DashboardPage() {
               title={`${selectedMonthMember.nickname}님의 활동 기록`}
             >
               <Link
-                className="ui-focus-ring mb-4 inline-flex min-h-11 items-center rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:border-sky-300 hover:bg-sky-50"
+                className="ui-focus-ring mb-4 inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm font-semibold text-[var(--color-text-accent)] transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
                 href={`/members/${encodeURIComponent(selectedMonthMember.id)}`}
               >
                 개인 기록 보기

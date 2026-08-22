@@ -26,7 +26,7 @@ export function ButtonLink({
 }: ButtonLinkProps) {
   return (
     <Link
-      className={`ui-focus-ring inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border px-3 py-2 text-sm transition ${variantClasses[variant]} ${className}`}
+      className={`ui-focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-control)] border px-3 py-2 text-sm transition ${variantClasses[variant]} ${className}`}
       {...props}
     >
       {children}
