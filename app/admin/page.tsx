@@ -346,6 +346,7 @@ function readFileAsText(file: File) {
 
 export default function Home() {
   const [nickname, setNickname] = useState("");
+  const [newMemberJoinedAt, setNewMemberJoinedAt] = useState(today);
   const [newMemberGender, setNewMemberGender] = useState<
     GuildMemberGender | ""
   >("");
@@ -742,10 +743,12 @@ export default function Home() {
 
     addMember({
       nickname: trimmedNickname,
+      joinedAt: newMemberJoinedAt,
       gender: newMemberGender || undefined,
       birthYear: newMemberBirthYearResult.birthYear,
     });
     setNickname("");
+    setNewMemberJoinedAt(today());
     setNewMemberGender("");
     setNewMemberBirthYearInput("");
     setMemberFeedbackMessage("");
@@ -1299,7 +1302,7 @@ export default function Home() {
         }}
       />
 
-      <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4" data-admin-panel="activity">
+      <section className="hidden" data-admin-panel="activity">
         <h2 className="text-lg font-semibold text-neutral-900">
           월별 정산 설정
         </h2>
@@ -1334,7 +1337,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm" data-admin-panel="activity">
+      <section className="hidden" data-admin-panel="activity">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-neutral-950">
             냥춘 {getMonthLabel(reportMonth)} 활동 정산
@@ -1776,7 +1779,7 @@ export default function Home() {
 
       <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
+          <h2 className="ui-section-title">
             &#44600;&#46300;&#50896; &#44288;&#47532;
           </h2>
           <span className="text-sm text-neutral-500">
@@ -1790,31 +1793,41 @@ export default function Home() {
           </p>
         ) : null}
 
-        <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+        <div className="ui-surface ui-surface-section space-y-4">
           <div>
-            <h3 className="text-base font-semibold text-neutral-900">
+            <h3 className="ui-card-title">
               새 길드원 등록
             </h3>
-            <p className="text-sm text-neutral-500">
-              닉네임과 선택 정보를 입력해 새 길드원을 등록합니다.
+            <p className="ui-supporting-text">
+              가입일은 오늘로 설정되며, 필요한 경우 과거 날짜로 변경할 수 있습니다.
             </p>
           </div>
-          <form className="space-y-3" onSubmit={handleAddMember}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+          <form className="space-y-4" onSubmit={handleAddMember}>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="ui-form-field">
                 <span>닉네임</span>
                 <input
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   type="text"
                   placeholder="닉네임 입력"
                   value={nickname}
                   onChange={(event) => setNickname(event.target.value)}
                 />
               </label>
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <label className="ui-form-field">
+                <span>가입일</span>
+                <input
+                  className="ui-form-control"
+                  onChange={(event) => setNewMemberJoinedAt(event.target.value)}
+                  required
+                  type="date"
+                  value={newMemberJoinedAt}
+                />
+              </label>
+              <label className="ui-form-field">
                 <span>성별 (선택)</span>
                 <select
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   value={newMemberGender}
                   onChange={(event) =>
                     setNewMemberGender(
@@ -1832,10 +1845,10 @@ export default function Home() {
                   )}
                 </select>
               </label>
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <label className="ui-form-field">
                 <span>출생연도 (선택)</span>
                 <input
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   inputMode="numeric"
                   maxLength={4}
                   placeholder="예: 98 또는 1998"
@@ -1863,7 +1876,7 @@ export default function Home() {
               </p>
             ) : null}
             <button
-              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95 sm:w-fit"
+              className="ui-button-primary sm:w-fit"
               type="submit"
             >
               등록
@@ -2081,11 +2094,11 @@ export default function Home() {
       {isEditingMember ? (
         <section className="space-y-4" data-admin-panel="members" ref={memberFormRef}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-neutral-900">
+            <h2 className="ui-section-title">
               길드원 정보 수정
             </h2>
             <button
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="ui-button-ghost"
               type="button"
               onClick={resetMemberForm}
             >
@@ -2093,7 +2106,7 @@ export default function Home() {
             </button>
           </div>
           <form
-            className="space-y-4 rounded-md border border-neutral-200 p-4"
+            className="admin-member-form ui-surface ui-surface-section space-y-4"
             onSubmit={handleSubmitMemberEdit}
           >
             <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">

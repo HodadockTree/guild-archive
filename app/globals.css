@@ -110,6 +110,87 @@ textarea {
     outline-offset: 2px;
   }
 
+  .ui-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .ui-form-control {
+    min-height: 2.75rem;
+    width: 100%;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-bg-surface);
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+  }
+
+  .ui-form-control:focus {
+    border-color: var(--color-border-selected);
+  }
+
+  .ui-button-primary,
+  .ui-button-ghost {
+    min-height: 2.75rem;
+    border-radius: var(--radius-control);
+    padding-inline: var(--space-4);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .ui-button-primary {
+    background: var(--color-brand-strong);
+    color: var(--color-text-inverse);
+  }
+
+  .ui-button-primary:hover {
+    filter: brightness(0.95);
+  }
+
+  .ui-button-ghost {
+    border: 1px solid var(--color-border-default);
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .ui-button-ghost:hover {
+    background: var(--color-bg-muted);
+  }
+
+  .admin-member-form label {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .admin-member-form input,
+  .admin-member-form select,
+  .admin-member-form textarea {
+    width: 100%;
+    border-color: var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+  }
+
+  .admin-member-form input,
+  .admin-member-form select {
+    min-height: 2.75rem;
+  }
+
+  .admin-member-form button[type="submit"] {
+    min-height: 2.75rem;
+    border-radius: var(--radius-control);
+    background: var(--color-brand-strong);
+    color: var(--color-text-inverse);
+  }
+
   .ui-page-title {
     color: var(--color-text-primary);
     font-size: 1.875rem;
