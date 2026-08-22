@@ -28,7 +28,7 @@ export function AirshipParticipationChart({
 
   return (
     <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <h2 className="text-lg font-semibold text-slate-900">이번 달 비공정 참여 흐름</h2>
+      <h2 className="text-lg font-semibold text-slate-900">이번 달 비공정 참여 인원</h2>
       <p className="mt-1 text-sm text-slate-500">
         아우로라와 오션헤븐의 회차별 참여 인원 변화를 비교합니다.
       </p>

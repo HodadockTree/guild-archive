@@ -96,7 +96,7 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
           </Surface>
 
           <Surface className="p-5">
-            <h2 className="text-lg font-semibold text-slate-900">월별 참여 흐름</h2>
+            <h2 className="text-lg font-semibold text-slate-900">월별 참여 기록</h2>
             {profile.monthlyParticipation.length ? (
               <ul className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                 {profile.monthlyParticipation.map((item) => (

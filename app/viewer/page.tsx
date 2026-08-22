@@ -5,8 +5,10 @@ import type { ActivityLog, MonthlyHighlight } from "@/src/types";
 import {
   conquestTypes,
   getActivityDisplayTitle,
+  getKnownConquestTypes,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
+import { getActivityStatsType } from "@/src/lib/activityStats";
 import {
   getMostParticipatedActivity,
   type MonthlyReport,
@@ -43,6 +45,15 @@ type ReportState =
       highlights: MonthlyHighlight[];
     };
 
+type MonthlyActivityFilter = "all" | "airship" | "siege" | "other";
+
+const monthlyActivityFilterLabels: Record<MonthlyActivityFilter, string> = {
+  all: "전체",
+  airship: "비공정",
+  siege: "점령전",
+  other: "이벤트",
+};
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -53,6 +64,10 @@ function getMonthLabel(month: string) {
 
 function getDisplayDate(date: string) {
   return formatMonthDay(date);
+}
+
+function getSiegeRoundLabel(activity: ActivityLog) {
+  return activity.title?.trim().match(/^(\d+회차)(?:\s|$)/)?.[1] ?? "점령전";
 }
 
 function toActivityDetail(
@@ -75,6 +90,65 @@ function toActivityDetail(
     })),
     memo: activity.memo?.trim() || undefined,
   };
+}
+
+function MonthlyActivityCard({
+  activity,
+  compactAirship = false,
+  onSelect,
+}: {
+  activity: MonthlyReport["activities"][number];
+  compactAirship?: boolean;
+  onSelect: () => void;
+}) {
+  const statsType = getActivityStatsType(activity.type);
+  const isSiege = statsType === "siege";
+  const conquestLabel = getKnownConquestTypes(activity.conquestTypes).join(" · ");
+
+  return (
+    <li className="flex flex-col overflow-hidden rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40">
+      <button
+        className="ui-focus-ring flex w-full flex-1 cursor-pointer flex-col text-left"
+        onClick={onSelect}
+        type="button"
+      >
+        <div className="flex flex-1 flex-col px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-slate-500">
+              <span>
+                {activity.endDate
+                  ? formatDateRange(activity.date, activity.endDate)
+                  : getDisplayDate(activity.date)}
+              </span>
+              {isSiege ? (
+                <>
+                  <span aria-hidden="true" className="text-slate-300">·</span>
+                  <strong className="text-slate-700">{getSiegeRoundLabel(activity)}</strong>
+                </>
+              ) : null}
+            </div>
+            <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              {activity.participantIds.length}명
+            </span>
+          </div>
+          {isSiege ? (
+            <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+              {conquestLabel || "점령전 종류 미기록"}
+            </h3>
+          ) : compactAirship ? null : (
+            <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+              {getActivityDisplayTitle(activity)}
+            </h3>
+          )}
+          {activity.memo?.trim() ? (
+            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+              {activity.memo.trim()}
+            </p>
+          ) : null}
+        </div>
+      </button>
+    </li>
+  );
 }
 
 function subscribeLocation(onStoreChange: () => void) {
@@ -131,6 +205,8 @@ export default function ViewerPage() {
   });
   const [selectedActivity, setSelectedActivity] =
     useState<ActivityDetail | null>(null);
+  const [activityFilter, setActivityFilter] =
+    useState<MonthlyActivityFilter>("all");
   const queryMonth = useSyncExternalStore<string>(
     subscribeLocation,
     getMonthSnapshot,
@@ -269,14 +345,16 @@ export default function ViewerPage() {
   const mostParticipatedActivity = monthlyReport
     ? getMostParticipatedActivity(monthlyReport.activities)
     : null;
-  const recentActivities = monthlyReport
+  const monthlyActivities = monthlyReport
     ? [...monthlyReport.activities].sort((a, b) => {
         const dateOrder = b.date.localeCompare(a.date);
         return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
       })
     : [];
-  const activitiesById = new Map(
-    monthlyReport?.activities.map((activity) => [activity.id, activity]) ?? [],
+  const visibleActivities = monthlyActivities.filter((activity) =>
+    activityFilter === "all"
+      ? true
+      : getActivityStatsType(activity.type) === activityFilter,
   );
   const conquestCounts = new Map(
     monthlyReport?.conquestSummaries.map((summary) => [summary.label, summary.count]) ?? [],
@@ -496,99 +574,78 @@ export default function ViewerPage() {
 
           </section>
 
-          {monthlyReport.eventSummaries.length > 0 ? (
-            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">
-                이번 달 이벤트
-              </h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {monthlyReport.eventSummaries.map((activity) => (
-                  <li
-                    className="rounded-md border border-sky-100 bg-white px-3 py-3 text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/40"
-                    key={activity.id}
-                  >
+          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {getMonthLabel(reportMonth)} 활동
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">선택한 달에 기록된 활동만 표시합니다.</p>
+              </div>
+              <div
+                aria-label="월간 활동 종류"
+                className="flex w-full gap-1 overflow-x-auto rounded-md bg-sky-50 p-1 sm:w-fit"
+                role="group"
+              >
+                {(Object.entries(monthlyActivityFilterLabels) as [MonthlyActivityFilter, string][]).map(
+                  ([value, label]) => (
                     <button
-                      className="ui-focus-ring w-full cursor-pointer text-left"
-                      onClick={() => {
-                        const detailActivity = activitiesById.get(activity.id);
-
-                        if (detailActivity) {
-                          setSelectedActivity(toActivityDetail(detailActivity));
-                        }
-                      }}
+                      aria-pressed={activityFilter === value}
+                      className={`ui-focus-ring min-h-10 shrink-0 rounded-md px-3 text-sm font-medium transition ${
+                        activityFilter === value
+                          ? "bg-white text-[var(--brand-strong)] shadow-sm"
+                          : "text-slate-600 hover:bg-white/70"
+                      }`}
+                      key={value}
+                      onClick={() => setActivityFilter(value)}
                       type="button"
                     >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-xs text-slate-500">
-                          {activity.endDate
-                            ? formatDateRange(activity.date, activity.endDate)
-                            : getDisplayDate(activity.date)}
-                        </p>
-                        <h3 className="truncate font-semibold text-slate-900">
-                          {activity.title}
-                        </h3>
-                      </div>
-                      <span className="w-fit shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                        참여 {activity.participantCount}명
-                      </span>
-                    </div>
-                    {activity.memo ? (
-                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-slate-600">
-                        {activity.memo}
-                      </p>
-                    ) : null}
+                      {label}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-            <h2 className="text-lg font-semibold text-slate-900">
-              이번 달 전체 활동
-            </h2>
-            {recentActivities.length === 0 ? (
+                  ),
+                )}
+              </div>
+            </div>
+            {visibleActivities.length === 0 ? (
               <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
-                선택한 월에 저장된 활동 기록이 없습니다.
+                선택한 종류의 활동 기록이 없습니다.
               </p>
+            ) : activityFilter === "airship" ? (
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                {(["아우로라", "오션헤븐"] as const).map((airshipLabel) => {
+                  const airshipActivities = visibleActivities.filter(
+                    (activity) => getMonthlyActivityLabel(activity) === airshipLabel,
+                  );
+
+                  return (
+                    <section className="rounded-md bg-sky-50/70 p-3" key={airshipLabel}>
+                      <h3 className="px-1 pb-3 text-sm font-semibold text-slate-700">{airshipLabel}</h3>
+                      {airshipActivities.length > 0 ? (
+                        <ul className="grid gap-3">
+                          {airshipActivities.map((activity) => (
+                            <MonthlyActivityCard
+                              activity={activity}
+                              compactAirship
+                              key={activity.id}
+                              onSelect={() => setSelectedActivity(toActivityDetail(activity))}
+                            />
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="rounded-md border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm text-slate-500">기록 없음</p>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
             ) : (
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {recentActivities.map((activity) => (
-                  <li
-                    className="flex flex-col overflow-hidden rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40"
+                {visibleActivities.map((activity) => (
+                  <MonthlyActivityCard
+                    activity={activity}
                     key={activity.id}
-                  >
-                    <button
-                      className="ui-focus-ring flex w-full flex-1 cursor-pointer flex-col text-left"
-                      onClick={() => setSelectedActivity(toActivityDetail(activity))}
-                      type="button"
-                    >
-                    <div className="flex flex-1 flex-col px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <span className="text-xs text-slate-500">
-                            {activity.endDate
-                              ? formatDateRange(activity.date, activity.endDate)
-                              : getDisplayDate(activity.date)}
-                          </span>
-                        </div>
-                        <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          {activity.participantIds.length}명
-                        </span>
-                      </div>
-                      <h3 className="mt-3 min-h-12 line-clamp-2 text-base font-semibold leading-6 text-slate-900">
-                        {getActivityDisplayTitle(activity)}
-                      </h3>
-                      {activity.memo?.trim() ? (
-                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                          {activity.memo.trim()}
-                        </p>
-                      ) : null}
-                    </div>
-                    </button>
-                  </li>
+                    onSelect={() => setSelectedActivity(toActivityDetail(activity))}
+                  />
                 ))}
               </ul>
             )}

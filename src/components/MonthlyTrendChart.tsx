@@ -82,13 +82,13 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
     <section className="min-w-0 rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/40 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">길드 흐름</h2>
+          <h2 className="text-lg font-semibold text-slate-900">길드 활동 기록</h2>
           <p className="mt-1 text-sm text-slate-500">
             월별 변화를 지표별로 확인할 수 있습니다.
           </p>
         </div>
         <div
-          aria-label="길드 흐름 지표"
+          aria-label="길드 활동 지표"
           className="inline-flex w-fit rounded-md bg-sky-50 p-1"
           role="tablist"
         >
@@ -280,7 +280,7 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
   return (
     <section className="h-full min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
+        <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 기록</h2>
         <p className="mt-1 text-sm text-slate-500">월별 활동 횟수와 활동 참여 인원을 비교합니다.</p>
       </div>
 
