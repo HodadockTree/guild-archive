@@ -35,6 +35,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [status, setStatus] = useState<Status>({ type: "idle" });
+  const isBusy = status.type === "loading";
 
   const resetForm = useCallback(() => {
     setCategory("game_update");
@@ -61,7 +62,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     if (!trimmedToken) {
       setTokenReady(false);
       setStatus({ type: "error", message: "월별 주요 기록을 관리하려면 관리자 토큰을 입력해 주세요." });
-      return;
+      return false;
     }
 
     setStatus({ type: "loading", message: "주요 기록을 불러오는 중입니다." });
@@ -75,6 +76,9 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
         error?: string;
         highlights?: MonthlyHighlight[];
       };
+      if (response.status === 401) {
+        throw new Error("관리자 토큰이 올바르지 않습니다.");
+      }
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "주요 기록을 불러오지 못했습니다.");
       }
@@ -83,9 +87,10 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
       setTokenReady(true);
       window.sessionStorage.setItem(TOKEN_SESSION_KEY, trimmedToken);
       setStatus({ type: "idle" });
+      return true;
     } catch (error) {
       setHighlights([]);
-      if (error instanceof Error && error.message === "인증에 실패했습니다.") {
+      if (error instanceof Error && error.message === "관리자 토큰이 올바르지 않습니다.") {
         window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
         setTokenReady(false);
       }
@@ -93,6 +98,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
         type: "error",
         message: error instanceof Error ? error.message : "주요 기록을 불러오지 못했습니다.",
       });
+      return false;
     }
   }, []);
 
@@ -131,14 +137,19 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
         { method: editingId ? "PUT" : "POST", headers: requestHeaders(), body: JSON.stringify(input) },
       );
       const result = (await response.json()) as { ok?: boolean; error?: string };
+      if (response.status === 401) {
+        window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
+        setTokenReady(false);
+        throw new Error("관리자 인증이 만료되었습니다. 토큰을 다시 입력해주세요.");
+      }
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "주요 기록을 저장하지 못했습니다.");
       }
 
       const message = editingId ? "주요 기록을 수정했습니다." : "주요 기록을 추가했습니다.";
       resetForm();
-      await loadHighlights(month, adminToken);
-      setStatus({ type: "success", message });
+      const refreshed = await loadHighlights(month, adminToken);
+      if (refreshed) setStatus({ type: "success", message });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "주요 기록을 저장하지 못했습니다." });
     }
@@ -163,6 +174,11 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
         headers: requestHeaders(),
       });
       const result = (await response.json()) as { ok?: boolean; error?: string };
+      if (response.status === 401) {
+        window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
+        setTokenReady(false);
+        throw new Error("관리자 인증이 만료되었습니다. 토큰을 다시 입력해주세요.");
+      }
       if (!response.ok || !result.ok) throw new Error(result.error ?? "주요 기록을 삭제하지 못했습니다.");
       if (editingId === highlight.id) resetForm();
       setHighlights((items) => items.filter((item) => item.id !== highlight.id));
@@ -182,7 +198,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
       <div className="ui-surface ui-surface-section space-y-4">
         <label className="ui-form-field max-w-xs">
           <span>대상 월</span>
-          <input className="ui-form-control" type="month" value={month} onChange={(event) => {
+          <input className="ui-form-control" disabled={isBusy} type="month" value={month} onChange={(event) => {
             setMonth(event.target.value);
             resetForm();
           }} required />
@@ -190,12 +206,15 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
 
         {!tokenReady ? (
           <form className="space-y-3" onSubmit={handleTokenSubmit}>
-            <p className="ui-supporting-text">이 브라우저 탭을 닫을 때까지만 관리자 토큰을 기억합니다.</p>
+            <div>
+              <h3 className="ui-card-title">관리자 인증이 필요합니다.</h3>
+              <p className="ui-supporting-text">정상 인증 후 이 브라우저 탭을 닫을 때까지만 관리자 토큰을 기억합니다.</p>
+            </div>
             <label className="ui-form-field max-w-md">
               <span>관리자 토큰</span>
               <input autoComplete="off" className="ui-form-control" placeholder="ADMIN_IMPORT_TOKEN 값 입력" type="password" value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
             </label>
-            <button className="ui-button-primary" disabled={status.type === "loading"} type="submit">인증하고 기록 조회</button>
+            <button className="ui-button-primary" disabled={isBusy} type="submit">인증하고 기록 조회</button>
           </form>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -203,7 +222,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
               <h3 className="ui-card-title">등록된 주요 기록 {highlights.length}건</h3>
               <p className="ui-caption">{monthLabel(month)} 기준</p>
             </div>
-            <button className="ui-button-primary" type="button" onClick={() => {
+            <button className="ui-button-primary" disabled={isBusy} type="button" onClick={() => {
               resetForm();
               setIsFormOpen(true);
             }}>+ 주요 기록 추가</button>
@@ -232,8 +251,8 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
                     {highlight.description ? <p className="ui-body-text mt-1 line-clamp-2 whitespace-pre-wrap">{highlight.description}</p> : null}
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <button className="ui-button-secondary" type="button" onClick={() => handleEdit(highlight)}>수정</button>
-                    <button className="ui-button-danger" type="button" onClick={() => handleDelete(highlight)}>삭제</button>
+                    <button className="ui-button-secondary" disabled={isBusy} type="button" onClick={() => handleEdit(highlight)}>수정</button>
+                    <button className="ui-button-danger" disabled={isBusy} type="button" onClick={() => handleDelete(highlight)}>삭제</button>
                   </div>
                 </div>
               </li>
@@ -255,8 +274,8 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
           <label className="ui-form-field"><span>제목</span><input className="ui-form-control" maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
           <label className="ui-form-field"><span>한 줄 설명</span><textarea className="ui-form-control min-h-20 resize-y" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <div className="flex flex-wrap gap-2">
-            <button className="ui-button-primary" disabled={status.type === "loading"} type="submit">{editingId ? "주요 기록 수정" : "주요 기록 추가"}</button>
-            <button className="ui-button-ghost" type="button" onClick={resetForm}>취소</button>
+            <button className="ui-button-primary" disabled={isBusy} type="submit">{editingId ? "주요 기록 수정" : "주요 기록 추가"}</button>
+            <button className="ui-button-ghost" disabled={isBusy} type="button" onClick={resetForm}>취소</button>
           </div>
         </form>
       ) : null}
