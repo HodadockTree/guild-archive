@@ -25,6 +25,7 @@ export interface MonthlyHighlight {
   title: string;
   startDate?: string;
   endDate?: string;
+  sourceActivityId?: string;
   dateText?: string;
   description?: string;
   /** Legacy backup/DB compatibility only. The application no longer uses images. */

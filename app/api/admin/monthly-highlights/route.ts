@@ -1,6 +1,7 @@
 import {
   createServerMonthlyHighlight,
   getServerMonthlyHighlights,
+  getServerMonthlyHighlightSourceActivityIds,
 } from "@/src/lib/serverDb";
 import { getAdminImportToken, getBearerToken } from "@/src/lib/serverAuth";
 import { validateMonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
@@ -22,7 +23,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const month = new URL(request.url).searchParams.get("month")?.trim();
+  const searchParams = new URL(request.url).searchParams;
+  if (searchParams.get("sources") === "1") {
+    return Response.json({
+      ok: true,
+      sourceActivityIds: await getServerMonthlyHighlightSourceActivityIds(),
+    });
+  }
+  const month = searchParams.get("month")?.trim();
 
   if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
     return Response.json(

@@ -45,7 +45,10 @@ import {
   AdminSectionNav,
   type AdminSection,
 } from "@/src/components/admin/AdminSectionNav";
-import { MonthlyHighlightsAdmin } from "@/src/components/admin/MonthlyHighlightsAdmin";
+import {
+  MonthlyHighlightsAdmin,
+  type MonthlyHighlightDraft,
+} from "@/src/components/admin/MonthlyHighlightsAdmin";
 import {
   conquestTypes,
   getKnownConquestTypes,
@@ -431,6 +434,11 @@ export default function Home() {
   const [isDangerDataToolsOpen, setIsDangerDataToolsOpen] = useState(false);
   const [activeAdminSection, setActiveAdminSection] =
     useState<AdminSection>("activity");
+  const [monthlyHighlightDraft, setMonthlyHighlightDraft] =
+    useState<MonthlyHighlightDraft | null>(null);
+  const [highlightSourceActivityIds, setHighlightSourceActivityIds] =
+    useState<string[]>([]);
+  const highlightDraftRequestIdRef = useRef(0);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const [activeMemberSearch, setActiveMemberSearch] = useState("");
@@ -1267,6 +1275,19 @@ export default function Home() {
     });
   };
 
+  const handleAddEventToMonthlyHighlights = (activity: ActivityLog) => {
+    highlightDraftRequestIdRef.current += 1;
+    setMonthlyHighlightDraft({
+      requestId: highlightDraftRequestIdRef.current,
+      sourceActivityId: activity.id,
+      startDate: activity.date,
+      endDate: activity.endDate,
+      title: activity.title?.trim() || "이벤트",
+      description: activity.memo?.trim() || undefined,
+    });
+    setActiveAdminSection("highlights");
+  };
+
   const handleDeleteActivity = (activityId: string) => {
     const shouldDelete = window.confirm("이 활동 기록을 삭제할까요?");
 
@@ -1816,7 +1837,12 @@ export default function Home() {
         ) : null}
       </section>
 
-      <MonthlyHighlightsAdmin isActive={activeAdminSection === "highlights"} />
+      <MonthlyHighlightsAdmin
+        draft={monthlyHighlightDraft}
+        isActive={activeAdminSection === "highlights"}
+        key={monthlyHighlightDraft?.requestId ?? "monthly-highlights"}
+        onSourceActivityIdsChange={setHighlightSourceActivityIds}
+      />
 
       <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
@@ -2764,6 +2790,21 @@ export default function Home() {
                     ) : null}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
+                    {getVisibleActivityType(activity.type) === "other" ? (
+                      highlightSourceActivityIds.includes(activity.id) ? (
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                          주요 기록 등록됨
+                        </span>
+                      ) : (
+                        <button
+                          className="rounded-md border border-[var(--brand-strong)] px-3 py-1.5 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)]"
+                          type="button"
+                          onClick={() => handleAddEventToMonthlyHighlights(activity)}
+                        >
+                          주요 기록으로 추가
+                        </button>
+                      )
+                    ) : null}
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"

@@ -31,7 +31,7 @@ export type MonthlyHighlightInput = Pick<
   MonthlyHighlight,
   "month" | "category" | "title"
 > &
-  Partial<Pick<MonthlyHighlight, "startDate" | "endDate" | "dateText" | "description">>;
+  Partial<Pick<MonthlyHighlight, "startDate" | "endDate" | "sourceActivityId" | "dateText" | "description">>;
 
 export type PublicMonthlyHighlight = Pick<
   MonthlyHighlight,
@@ -72,6 +72,7 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
   const title = typeof record.title === "string" ? record.title.trim() : "";
   const startDate = typeof record.startDate === "string" ? record.startDate.trim() : "";
   const endDate = typeof record.endDate === "string" ? record.endDate.trim() : "";
+  const sourceActivityId = typeof record.sourceActivityId === "string" ? record.sourceActivityId.trim() : "";
   const dateText =
     typeof record.dateText === "string" ? record.dateText.trim() : "";
   const description =
@@ -91,6 +92,10 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
 
   if (endDate && endDate < startDate) {
     throw new Error("종료일은 시작일과 같거나 이후여야 합니다.");
+  }
+
+  if (sourceActivityId.length > 100) {
+    throw new Error("원본 이벤트 연결 정보가 올바르지 않습니다.");
   }
 
   if (
@@ -119,6 +124,7 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
     title,
     startDate: startDate || undefined,
     endDate: endDate && endDate !== startDate ? endDate : undefined,
+    sourceActivityId: sourceActivityId || undefined,
     dateText: dateText || undefined,
     description: description || undefined,
   };

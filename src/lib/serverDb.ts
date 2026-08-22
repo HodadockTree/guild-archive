@@ -61,6 +61,7 @@ type MonthlyHighlightRow = {
   title: string;
   startDate: string | null;
   endDate: string | null;
+  sourceActivityId: string | null;
   dateText: string | null;
   description: string | null;
   createdAt: string;
@@ -332,6 +333,7 @@ function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
     title: row.title,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
+    sourceActivityId: row.sourceActivityId ?? undefined,
     dateText: row.dateText ?? undefined,
     description: row.description ?? undefined,
     createdAt: row.createdAt,
@@ -344,14 +346,14 @@ export async function getServerMonthlyHighlights(month?: string) {
   const statement = month
     ? db
         .prepare(
-          `SELECT id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
+          `SELECT id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
            FROM monthly_highlights
            WHERE (startDate IS NULL AND month = ?)
               OR (startDate <= ? AND COALESCE(endDate, startDate) >= ?)`,
         )
         .bind(month, `${month}-31`, `${month}-01`)
     : db.prepare(
-        `SELECT id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
+        `SELECT id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
          FROM monthly_highlights`,
       );
   const { results } = await statement.all<MonthlyHighlightRow>();
@@ -363,6 +365,16 @@ export async function createServerMonthlyHighlight(
 ) {
   const db = await getDb();
   const now = new Date().toISOString();
+
+  if (input.sourceActivityId) {
+    const existing = await db
+      .prepare("SELECT id FROM monthly_highlights WHERE sourceActivityId = ?")
+      .bind(input.sourceActivityId)
+      .first<{ id: string }>();
+    if (existing) {
+      throw new Error("이미 주요 기록으로 추가된 이벤트입니다.");
+    }
+  }
   const highlight: MonthlyHighlight = {
     id: crypto.randomUUID(),
     ...input,
@@ -373,8 +385,8 @@ export async function createServerMonthlyHighlight(
   await db
     .prepare(
       `INSERT INTO monthly_highlights (
-        id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       highlight.id,
@@ -383,6 +395,7 @@ export async function createServerMonthlyHighlight(
       highlight.title,
       highlight.startDate ?? null,
       highlight.endDate ?? null,
+      highlight.sourceActivityId ?? null,
       highlight.dateText ?? null,
       highlight.description ?? null,
       highlight.createdAt,
@@ -402,7 +415,7 @@ export async function updateServerMonthlyHighlight(
   const result = await db
     .prepare(
       `UPDATE monthly_highlights
-       SET month = ?, category = ?, title = ?, startDate = ?, endDate = ?, dateText = ?, description = ?,
+       SET month = ?, category = ?, title = ?, startDate = ?, endDate = ?, sourceActivityId = ?, dateText = ?, description = ?,
            updatedAt = ?
        WHERE id = ?`,
     )
@@ -412,6 +425,7 @@ export async function updateServerMonthlyHighlight(
       input.title,
       input.startDate ?? null,
       input.endDate ?? null,
+      input.sourceActivityId ?? null,
       input.dateText ?? null,
       input.description ?? null,
       updatedAt,
@@ -428,6 +442,14 @@ export async function updateServerMonthlyHighlight(
     ...input,
     updatedAt,
   };
+}
+
+export async function getServerMonthlyHighlightSourceActivityIds() {
+  const db = await getDb();
+  const { results } = await db
+    .prepare("SELECT sourceActivityId FROM monthly_highlights WHERE sourceActivityId IS NOT NULL")
+    .all<{ sourceActivityId: string }>();
+  return results.map((row) => row.sourceActivityId);
 }
 
 export async function deleteServerMonthlyHighlight(id: string) {

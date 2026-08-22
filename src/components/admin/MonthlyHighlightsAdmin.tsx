@@ -15,6 +15,15 @@ type Status =
   | { type: "idle" }
   | { type: "loading" | "success" | "error"; message: string };
 
+export type MonthlyHighlightDraft = {
+  requestId: number;
+  sourceActivityId: string;
+  startDate: string;
+  endDate?: string;
+  title: string;
+  description?: string;
+};
+
 function currentMonth() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7);
 }
@@ -28,19 +37,28 @@ function openNativePicker(event: MouseEvent<HTMLInputElement>) {
   try { event.currentTarget.showPicker?.(); } catch { /* Browser keeps its native input behavior. */ }
 }
 
-export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
-  const [month, setMonth] = useState(currentMonth);
-  const [category, setCategory] = useState<MonthlyHighlightCategory>("game_update");
-  const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+export function MonthlyHighlightsAdmin({
+  draft,
+  isActive,
+  onSourceActivityIdsChange,
+}: {
+  draft: MonthlyHighlightDraft | null;
+  isActive: boolean;
+  onSourceActivityIdsChange: (ids: string[]) => void;
+}) {
+  const [month, setMonth] = useState(draft?.startDate.slice(0, 7) ?? currentMonth);
+  const [category, setCategory] = useState<MonthlyHighlightCategory>(draft ? "game_event" : "game_update");
+  const [title, setTitle] = useState(draft?.title ?? "");
+  const [startDate, setStartDate] = useState(draft?.startDate ?? "");
+  const [endDate, setEndDate] = useState(draft?.endDate ?? "");
+  const [sourceActivityId, setSourceActivityId] = useState(draft?.sourceActivityId ?? "");
   const [dateText, setDateText] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(draft?.description ?? "");
   const [adminToken, setAdminToken] = useState("");
   const [tokenReady, setTokenReady] = useState(false);
   const [highlights, setHighlights] = useState<MonthlyHighlight[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(Boolean(draft));
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const isBusy = status.type === "loading";
 
@@ -49,6 +67,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     setTitle("");
     setStartDate("");
     setEndDate("");
+    setSourceActivityId("");
     setDateText("");
     setDescription("");
     setEditingId(null);
@@ -111,6 +130,22 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     }
   }, []);
 
+  const loadSourceActivityIds = useCallback(async (token: string) => {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) return;
+    const response = await fetch("/api/admin/monthly-highlights?sources=1", {
+      headers: { Authorization: `Bearer ${trimmedToken}` },
+      cache: "no-store",
+    });
+    const result = (await response.json()) as {
+      ok?: boolean;
+      sourceActivityIds?: string[];
+    };
+    if (response.ok && result.ok) {
+      onSourceActivityIdsChange(result.sourceActivityIds ?? []);
+    }
+  }, [onSourceActivityIdsChange]);
+
   useEffect(() => {
     if (!isActive || !tokenReady) return;
     const timerId = window.setTimeout(() => {
@@ -118,6 +153,11 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     }, 0);
     return () => window.clearTimeout(timerId);
   }, [adminToken, isActive, loadHighlights, month, tokenReady]);
+
+  useEffect(() => {
+    if (!tokenReady) return;
+    void loadSourceActivityIds(adminToken);
+  }, [adminToken, loadSourceActivityIds, tokenReady]);
 
   const requestHeaders = () => ({
     "Content-Type": "application/json",
@@ -127,6 +167,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
   const handleTokenSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await loadHighlights(month, adminToken);
+    await loadSourceActivityIds(adminToken);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -135,7 +176,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     try {
       input = validateMonthlyHighlightInput({
         month: startDate ? startDate.slice(0, 7) : month,
-        category, title, startDate, endDate, dateText, description,
+        category, title, startDate, endDate, sourceActivityId, dateText, description,
       });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "입력값을 확인해 주세요." });
@@ -161,6 +202,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
       const message = editingId ? "주요 기록을 수정했습니다." : "주요 기록을 추가했습니다.";
       resetForm();
       const refreshed = await loadHighlights(month, adminToken);
+      await loadSourceActivityIds(adminToken);
       if (refreshed) setStatus({ type: "success", message });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "주요 기록을 저장하지 못했습니다." });
@@ -172,6 +214,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     setTitle(highlight.title);
     setStartDate(highlight.startDate ?? "");
     setEndDate(highlight.endDate ?? "");
+    setSourceActivityId(highlight.sourceActivityId ?? "");
     setDateText(highlight.dateText ?? "");
     setDescription(highlight.description ?? "");
     setEditingId(highlight.id);
@@ -196,6 +239,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
       if (!response.ok || !result.ok) throw new Error(result.error ?? "주요 기록을 삭제하지 못했습니다.");
       if (editingId === highlight.id) resetForm();
       setHighlights((items) => items.filter((item) => item.id !== highlight.id));
+      await loadSourceActivityIds(adminToken);
       setStatus({ type: "success", message: "주요 기록을 삭제했습니다." });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "주요 기록을 삭제하지 못했습니다." });
