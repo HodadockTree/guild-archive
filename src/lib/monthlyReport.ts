@@ -79,6 +79,7 @@ export type MonthlyReport = {
   activitySummaries: MonthlyActivitySummary[];
   newMembers: MonthlyNewMember[];
   anniversaries: AnniversaryMilestone[];
+  calendarAnniversaries: AnniversaryMilestone[];
 };
 
 function getMonthKey(date: string) {
@@ -324,6 +325,7 @@ export function getMonthlyReport(
     })),
     newMembers,
     anniversaries: getMonthlyAnniversaries(members, month, periodEnd),
+    calendarAnniversaries: getMonthlyAnniversaries(members, month),
   };
 }
 

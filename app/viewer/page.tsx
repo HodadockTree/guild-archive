@@ -654,7 +654,7 @@ export default function ViewerPage() {
 
           <MonthlyActivityCalendar
             activities={monthlyReport.activities}
-            anniversaries={monthlyReport.anniversaries}
+            anniversaries={monthlyReport.calendarAnniversaries}
             month={reportMonth}
             onSelectActivity={(activity) =>
               setSelectedActivity(toActivityDetail(activity))
