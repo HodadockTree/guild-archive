@@ -1,4 +1,5 @@
 import type { MonthlyReport } from "@/src/lib/monthlyReport";
+import Link from "next/link";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 import { getActivityStatsType } from "@/src/lib/activityStats";
 import { Surface } from "@/src/components/ui/Surface";
@@ -41,10 +42,12 @@ function getCalendarActivityColors(activity: MonthlyActivity) {
 
 export function MonthlyActivityCalendar({
   activities,
+  anniversaries,
   month,
   onSelectActivity,
 }: {
   activities: MonthlyActivity[];
+  anniversaries: MonthlyReport["anniversaries"];
   month: string;
   onSelectActivity: (activity: MonthlyActivity) => void;
 }) {
@@ -55,6 +58,7 @@ export function MonthlyActivityCalendar({
   const firstWeekday = new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay();
   const dayCount = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
   const activitiesByDay = new Map<number, CalendarActivity[]>();
+  const anniversariesByDay = new Map<number, MonthlyReport["anniversaries"]>();
   const monthStart = `${month}-01`;
   const monthEnd = `${month}-${String(dayCount).padStart(2, "0")}`;
 
@@ -74,6 +78,16 @@ export function MonthlyActivityCalendar({
     }
   });
 
+  anniversaries.forEach((anniversary) => {
+    if (!anniversary.date.startsWith(`${month}-`)) return;
+
+    const day = Number(anniversary.date.slice(8, 10));
+    anniversariesByDay.set(day, [
+      ...(anniversariesByDay.get(day) ?? []),
+      anniversary,
+    ]);
+  });
+
   const cells = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: dayCount }, (_, index) => index + 1),
@@ -84,7 +98,7 @@ export function MonthlyActivityCalendar({
   return (
     <Surface variant="section">
       <h2 className="ui-section-title">활동 달력</h2>
-      <p className="ui-supporting-text mt-1">날짜별 활동을 선택하면 참여 기록을 자세히 볼 수 있습니다.</p>
+      <p className="ui-supporting-text mt-1">날짜별 활동과 기념일을 함께 살펴볼 수 있습니다.</p>
       <div className="mt-4 min-w-0 overflow-hidden">
         <div className="w-full min-w-0">
           <div className="grid grid-cols-7 border-b border-[var(--color-border-subtle)] text-center text-xs font-semibold text-[var(--color-text-muted)]">
@@ -95,8 +109,13 @@ export function MonthlyActivityCalendar({
           <div className="grid grid-cols-7 overflow-hidden rounded-b-md border-l border-[var(--color-border-subtle)]">
             {cells.map((day, index) => {
               const dayActivities = day ? activitiesByDay.get(day) ?? [] : [];
+              const dayAnniversaries = day ? anniversariesByDay.get(day) ?? [] : [];
               const visibleActivities = dayActivities.slice(0, maxVisibleActivitiesPerDay);
-              const hiddenActivityCount = dayActivities.length - visibleActivities.length;
+              const remainingSlots = maxVisibleActivitiesPerDay - visibleActivities.length;
+              const visibleAnniversaries = dayAnniversaries.slice(0, remainingSlots);
+              const hiddenItemCount =
+                dayActivities.length + dayAnniversaries.length -
+                visibleActivities.length - visibleAnniversaries.length;
               return (
                 <div
                   className={`min-h-24 min-w-0 overflow-hidden border-b border-r border-[var(--color-border-subtle)] p-1 sm:min-h-28 sm:p-2 ${day ? "bg-[var(--color-bg-surface)]" : "bg-[var(--color-bg-interactive)]"}`}
@@ -129,13 +148,39 @@ export function MonthlyActivityCalendar({
                             </li>
                           );
                         })}
-                        {hiddenActivityCount > 0 ? (
+                        {visibleAnniversaries.map((anniversary) => {
+                          const milestone = anniversary.milestoneKind === "years"
+                            ? `${anniversary.milestone}주년`
+                            : `${anniversary.milestone}일`;
+                          const label = anniversary.nickname
+                            ? `${anniversary.nickname} ${milestone}`
+                            : `냥춘 ${milestone}`;
+
+                          return (
+                            <li className="min-w-0" key={anniversary.id}>
+                              {anniversary.memberId ? (
+                                <Link
+                                  aria-label={`${label} · 개인 기록 페이지 보기`}
+                                  className="ui-focus-ring flex min-h-6 w-full min-w-0 items-center overflow-hidden rounded border border-dashed border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-1 py-1 text-left text-[10px] text-[var(--color-text-muted)] transition hover:bg-[var(--color-bg-interactive)] sm:px-1.5 sm:text-[11px]"
+                                  href={`/members/${encodeURIComponent(anniversary.memberId)}`}
+                                >
+                                  <span className="truncate">{label}</span>
+                                </Link>
+                              ) : (
+                                <span className="flex min-h-6 w-full min-w-0 items-center overflow-hidden rounded border border-dashed border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-1 py-1 text-[10px] text-[var(--color-text-muted)] sm:px-1.5 sm:text-[11px]">
+                                  <span className="truncate">{label}</span>
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                        {hiddenItemCount > 0 ? (
                           <li
                             className="px-1 text-[10px] font-semibold text-[var(--color-text-muted)] sm:text-[11px]"
-                            title={`${day}일 일정 ${hiddenActivityCount}개 더 있음`}
+                            title={`${day}일 일정 ${hiddenItemCount}개 더 있음`}
                           >
-                            <span aria-hidden>+{hiddenActivityCount}</span>
-                            <span className="sr-only">{day}일에 일정 {hiddenActivityCount}개 더 있음</span>
+                            <span aria-hidden>+{hiddenItemCount}</span>
+                            <span className="sr-only">{day}일에 일정 {hiddenItemCount}개 더 있음</span>
                           </li>
                         ) : null}
                       </ul>

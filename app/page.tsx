@@ -65,16 +65,17 @@ function getAnniversaryMilestoneLabel(anniversary: UpcomingAnniversary) {
 
 function getAnniversaryMessage(anniversary: UpcomingAnniversary) {
   const milestone = getAnniversaryMilestoneLabel(anniversary);
+  const date = formatMonthDay(anniversary.date);
 
   if (anniversary.daysUntil === 0) {
     return anniversary.nickname
-      ? `${anniversary.nickname}님이 냥춘과 함께한 지 ${milestone}이 되었어요`
-      : `냥춘과 함께한 지 ${milestone}이 되었어요`;
+      ? `${date} · ${anniversary.nickname}님이 냥춘과 함께한 지 ${milestone}이 되었어요`
+      : `${date} · 냥춘과 함께한 지 ${milestone}이 되었어요`;
   }
 
   return anniversary.nickname
-    ? `${anniversary.nickname}님 가입 ${milestone} · ${anniversary.daysUntil}일 뒤`
-    : `냥춘과 함께한 지 ${milestone} · ${anniversary.daysUntil}일 뒤`;
+    ? `${date} · ${anniversary.nickname}님 가입 ${milestone} · ${anniversary.daysUntil}일 뒤`
+    : `${date} · 냥춘과 함께한 지 ${milestone} · ${anniversary.daysUntil}일 뒤`;
 }
 
 function getGuildAgeDays(today: Date) {
@@ -635,30 +636,6 @@ export default function DashboardPage() {
             </dl>
           </Surface>
 
-          {dashboard.upcomingAnniversaries.length > 0 ? (
-            <Surface variant="section">
-              <h2 className="ui-section-title">다가오는 기록</h2>
-              <ul className="mt-3 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-4">
-                {dashboard.upcomingAnniversaries.map((anniversary) => (
-                  <li className="py-3" key={anniversary.id}>
-                    {anniversary.memberId ? (
-                      <Link
-                        className="ui-focus-ring inline-flex min-h-11 max-w-full items-center rounded-md px-1 text-sm font-medium text-[var(--color-text-primary)] transition hover:text-[var(--color-text-accent)]"
-                        href={`/members/${encodeURIComponent(anniversary.memberId)}`}
-                      >
-                        {getAnniversaryMessage(anniversary)}
-                      </Link>
-                    ) : (
-                      <p className="flex min-h-11 items-center text-sm font-medium text-[var(--color-text-primary)]">
-                        {getAnniversaryMessage(anniversary)}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </Surface>
-          ) : null}
-
           <Surface className="min-w-0" variant="section">
               <h2 className="ui-section-title">이번 달 활동 요약</h2>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-4">
@@ -722,6 +699,30 @@ export default function DashboardPage() {
                 </div>
               </dl>
           </Surface>
+
+          {dashboard.upcomingAnniversaries.length > 0 ? (
+            <Surface variant="section">
+              <h2 className="ui-section-title">다가오는 기록</h2>
+              <ul className="mt-2 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-3">
+                {dashboard.upcomingAnniversaries.map((anniversary) => (
+                  <li className="py-1" key={anniversary.id}>
+                    {anniversary.memberId ? (
+                      <Link
+                        className="ui-focus-ring inline-flex min-h-11 max-w-full items-center rounded-md px-1 text-sm font-medium leading-5 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-accent)]"
+                        href={`/members/${encodeURIComponent(anniversary.memberId)}`}
+                      >
+                        {getAnniversaryMessage(anniversary)}
+                      </Link>
+                    ) : (
+                      <p className="flex min-h-11 items-center px-1 text-sm font-medium leading-5 text-[var(--color-text-primary)]">
+                        {getAnniversaryMessage(anniversary)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          ) : null}
 
           <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />

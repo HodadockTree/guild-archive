@@ -105,6 +105,31 @@ function getAnniversaryTargets(
   ];
 }
 
+function removeGuildDuplicateMemberAnniversaries<T extends AnniversaryMilestone>(
+  anniversaries: T[],
+  members: GuildMember[],
+) {
+  const guildMilestones = new Set(
+    anniversaries
+      .filter((anniversary) => !anniversary.memberId)
+      .map(
+        (anniversary) =>
+          `${anniversary.milestoneKind}:${anniversary.milestone}`,
+      ),
+  );
+  const membersById = new Map(members.map((member) => [member.id, member]));
+
+  return anniversaries.filter((anniversary) => {
+    if (!anniversary.memberId) return true;
+
+    const member = membersById.get(anniversary.memberId);
+    return member?.joinedAt !== GUILD_STARTED_AT ||
+      !guildMilestones.has(
+        `${anniversary.milestoneKind}:${anniversary.milestone}`,
+      );
+  });
+}
+
 export function getUpcomingAnniversaries(
   members: GuildMember[],
   referenceDate: string,
@@ -135,7 +160,7 @@ export function getUpcomingAnniversaries(
     }];
   });
 
-  return candidates
+  return removeGuildDuplicateMemberAnniversaries(candidates, members)
     .sort((first, second) =>
       first.daysUntil - second.daysUntil ||
       first.date.localeCompare(second.date) ||
@@ -164,7 +189,7 @@ export function getMonthlyAnniversaries(
 
   const periodEnd = Math.min(monthEnd, requestedEnd ?? monthEnd);
 
-  return getAnniversaryTargets(members, false)
+  const anniversaries = getAnniversaryTargets(members, false)
     .flatMap((target) => {
       const start = parseDateToUtc(target.startDate);
       const leftAt = target.leftAt ? parseDateToUtc(target.leftAt) : null;
@@ -221,7 +246,9 @@ export function getMonthlyAnniversaries(
       }
 
       return milestones;
-    })
+    });
+
+  return removeGuildDuplicateMemberAnniversaries(anniversaries, members)
     .sort((first, second) =>
       first.date.localeCompare(second.date) ||
       (first.nickname ?? "").localeCompare(second.nickname ?? "", "ko") ||
