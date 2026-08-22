@@ -4,6 +4,7 @@ export type GuildMemberGender = "female" | "male" | "other";
 export interface GuildMember {
   id: string;
   nickname: string;
+  previousNicknames?: string[];
   status: GuildMemberStatus;
   joinedAt: string;
   leftAt: string | null;

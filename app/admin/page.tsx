@@ -348,6 +348,22 @@ function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
   return activities.some((activity) => activity.participantIds.includes(memberId));
 }
 
+function parsePreviousNicknames(value: string, currentNickname: string) {
+  const current = currentNickname.trim().toLocaleLowerCase("ko");
+  return Array.from(
+    new Map(
+      value
+        .split(",")
+        .map((nickname) => nickname.trim())
+        .filter(
+          (nickname) =>
+            nickname && nickname.toLocaleLowerCase("ko") !== current,
+        )
+        .map((nickname) => [nickname.toLocaleLowerCase("ko"), nickname]),
+    ).values(),
+  );
+}
+
 function readFileAsText(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -401,6 +417,8 @@ export default function Home() {
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEditNickname, setMemberEditNickname] = useState("");
+  const [memberEditPreviousNicknamesInput, setMemberEditPreviousNicknamesInput] =
+    useState("");
   const [memberEditStatus, setMemberEditStatus] =
     useState<GuildMemberStatus>("active");
   const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
@@ -439,6 +457,7 @@ export default function Home() {
   const [highlightSourceActivityIds, setHighlightSourceActivityIds] =
     useState<string[]>([]);
   const highlightDraftRequestIdRef = useRef(0);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const [activeMemberSearch, setActiveMemberSearch] = useState("");
@@ -758,6 +777,7 @@ export default function Home() {
   const resetMemberForm = () => {
     setEditingMemberId(null);
     setMemberEditNickname("");
+    setMemberEditPreviousNicknamesInput("");
     setMemberEditStatus("active");
     setMemberEditJoinedAt("");
     setMemberEditLeftAt("");
@@ -1095,6 +1115,9 @@ export default function Home() {
     setActiveAdminSection("members");
     setEditingMemberId(member.id);
     setMemberEditNickname(member.nickname);
+    setMemberEditPreviousNicknamesInput(
+      member.previousNicknames?.join(", ") ?? "",
+    );
     setMemberEditStatus(member.status);
     setMemberEditJoinedAt(member.joinedAt);
     setMemberEditLeftAt(member.leftAt ?? "");
@@ -1109,6 +1132,23 @@ export default function Home() {
         block: "start",
       });
     });
+  };
+
+  const returnToMemberRow = (memberId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`admin-member-${memberId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    });
+  };
+
+  const handleCancelMemberEdit = () => {
+    const memberId = editingMemberId;
+    resetMemberForm();
+    if (memberId) returnToMemberRow(memberId);
   };
 
   const handleSubmitMemberEdit = (event: FormEvent<HTMLFormElement>) => {
@@ -1136,8 +1176,19 @@ export default function Home() {
       return;
     }
 
-    updateMember(editingMemberId, {
+    const editedMemberId = editingMemberId;
+    const originalNickname = editingMember?.nickname.trim() ?? "";
+    const nicknameHistoryInput =
+      originalNickname && originalNickname !== trimmedNickname
+        ? `${memberEditPreviousNicknamesInput}, ${originalNickname}`
+        : memberEditPreviousNicknamesInput;
+
+    updateMember(editedMemberId, {
       nickname: trimmedNickname,
+      previousNicknames: parsePreviousNicknames(
+        nicknameHistoryInput,
+        trimmedNickname,
+      ),
       status: memberEditStatus,
       joinedAt: memberEditJoinedAt,
       leftAt: memberEditStatus === "left" ? memberEditLeftAt || null : null,
@@ -1149,6 +1200,7 @@ export default function Home() {
     resetMemberForm();
     setMemberFeedbackMessage("");
     notifyMembersChanged();
+    returnToMemberRow(editedMemberId);
   };
 
   const clearMemberReferences = (memberId: string) => {
@@ -1158,6 +1210,10 @@ export default function Home() {
 
     if (historyMemberId === memberId) {
       setHistoryMemberId(null);
+    }
+
+    if (expandedMemberId === memberId) {
+      setExpandedMemberId(null);
     }
 
     setSelectedMemberIds((currentIds) =>
@@ -1342,6 +1398,30 @@ export default function Home() {
   const historyMemberStats = selectedHistoryMember
     ? getMemberActivityStats(activities, selectedHistoryMember.id)
     : null;
+
+  const renderMemberDetails = (member: GuildMember) => {
+    const stats = getMemberActivityStats(activities, member.id);
+    const demographics = [
+      member.gender ? guildMemberGenderLabels[member.gender] : null,
+      getMemberDemographicsLabel(member.birthYear, currentYear),
+    ].filter(Boolean).join(" · ");
+
+    return (
+      <div className="mt-3 rounded-md border border-sky-100 bg-sky-50/60 p-3" id={`admin-member-details-${member.id}`}>
+        <dl className="grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+          <div><dt className="text-xs font-medium text-neutral-500">현재 닉네임</dt><dd className="mt-0.5 font-semibold text-neutral-950">{member.nickname}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">이전 닉네임</dt><dd className="mt-0.5 text-neutral-700">{member.previousNicknames?.length ? member.previousNicknames.join(", ") : "기록 없음"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">가입일 / 상태</dt><dd className="mt-0.5 text-neutral-700">{member.joinedAt} · {member.status === "active" ? "활동중" : "탈퇴"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">성별 / 출생 정보</dt><dd className="mt-0.5 text-neutral-700">{demographics || "미입력"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">총 활동 수</dt><dd className="mt-0.5 font-semibold text-neutral-900">{stats.total}회</dd></div>
+        </dl>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button className="ui-button-secondary" onClick={() => handleViewMemberHistory(member.id)} type="button">개인 기록 보기</button>
+          <button className="ui-button-secondary" onClick={() => handleEditMember(member)} type="button">수정</button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -2016,14 +2096,21 @@ export default function Home() {
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
               {paginatedActiveMembers.map((member) => (
                   <li
-                    className="flex gap-3 bg-white px-3 py-2.5"
+                    className="bg-white px-3 py-2.5"
+                    id={`admin-member-${member.id}`}
                     key={member.id}
                   >
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                       <div className="min-w-0 sm:flex sm:items-center sm:gap-3">
-                        <p className="truncate font-semibold text-neutral-950 sm:min-w-28">
+                        <button
+                          aria-controls={`admin-member-details-${member.id}`}
+                          aria-expanded={expandedMemberId === member.id}
+                          className="ui-focus-ring block min-h-11 truncate rounded-md px-1 text-left font-semibold text-[var(--brand-strong)] hover:underline sm:min-w-28"
+                          onClick={() => setExpandedMemberId((currentId) => currentId === member.id ? null : member.id)}
+                          type="button"
+                        >
                           {member.nickname}
-                        </p>
+                        </button>
                         {member.joinedAt ? (
                           <p className="whitespace-nowrap text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
@@ -2057,6 +2144,7 @@ export default function Home() {
                           <span aria-hidden>⋯</span>
                       </button>
                     </div>
+                    {expandedMemberId === member.id ? renderMemberDetails(member) : null}
                   </li>
               ))}
             </ul>
@@ -2114,15 +2202,22 @@ export default function Home() {
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
               {paginatedLeftMembers.map((member) => (
                   <li
-                    className="flex gap-3 px-3 py-2.5"
+                    className="px-3 py-2.5"
+                    id={`admin-member-${member.id}`}
                     key={member.id}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-medium text-neutral-700">
+                          <button
+                            aria-controls={`admin-member-details-${member.id}`}
+                            aria-expanded={expandedMemberId === member.id}
+                            className="ui-focus-ring min-h-11 truncate rounded-md px-1 text-left font-semibold text-[var(--brand-strong)] hover:underline"
+                            onClick={() => setExpandedMemberId((currentId) => currentId === member.id ? null : member.id)}
+                            type="button"
+                          >
                             {member.nickname}
-                          </p>
+                          </button>
                           <span className="rounded-sm bg-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
                             &#53448;&#53748;
                           </span>
@@ -2165,6 +2260,7 @@ export default function Home() {
                           <span aria-hidden>⋯</span>
                       </button>
                     </div>
+                    {expandedMemberId === member.id ? renderMemberDetails(member) : null}
                   </li>
               ))}
             </ul>
@@ -2189,7 +2285,7 @@ export default function Home() {
             <button
               className="ui-button-ghost"
               type="button"
-              onClick={resetMemberForm}
+              onClick={handleCancelMemberEdit}
             >
               수정 취소
             </button>
@@ -2198,8 +2294,8 @@ export default function Home() {
             className="admin-member-form ui-surface ui-surface-section space-y-4"
             onSubmit={handleSubmitMemberEdit}
           >
-            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-              {editingMember?.nickname || "선택한 길드원"} 정보를 수정 중입니다.
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800">
+              {editingMember?.nickname || "선택한 길드원"} 수정 중 · 저장하거나 취소하면 원래 행으로 돌아갑니다.
             </p>
 
             {memberFeedbackMessage ? (
@@ -2246,6 +2342,18 @@ export default function Home() {
                 />
               </label>
             </div>
+
+            <label className="block space-y-1 text-sm font-medium text-neutral-700">
+              <span>이전 닉네임 (선택)</span>
+              <input
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                placeholder="여러 개면 쉼표로 구분"
+                type="text"
+                value={memberEditPreviousNicknamesInput}
+                onChange={(event) => setMemberEditPreviousNicknamesInput(event.target.value)}
+              />
+              <span className="block text-xs font-normal text-neutral-500">현재 닉네임을 변경하면 변경 전 닉네임은 자동으로 추가됩니다.</span>
+            </label>
             {memberEditBirthYearInput ? (
               <p
                 className={`text-sm ${
@@ -2318,18 +2426,16 @@ export default function Home() {
               <span>메모</span>
               <textarea
                 className="min-h-24 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                placeholder="가입 경로, 닉네임 변경 이력, 참고할 내용을 남겨주세요."
+                placeholder="가입 경로나 참고할 내용을 남겨주세요."
                 value={memberEditMemo}
                 onChange={(event) => setMemberEditMemo(event.target.value)}
               />
             </label>
 
-            <button
-              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
-              type="submit"
-            >
-              길드원 정보 저장
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button className="ui-button-primary" type="submit">길드원 정보 저장</button>
+              <button className="ui-button-secondary" onClick={handleCancelMemberEdit} type="button">취소하고 원래 행으로 돌아가기</button>
+            </div>
           </form>
         </section>
       ) : null}
@@ -2890,28 +2996,6 @@ export default function Home() {
           <p className="truncate border-b border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
             {menuMember.nickname}
           </p>
-          <button
-            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-            onClick={() => {
-              setMemberMenuPosition(null);
-              handleEditMember(menuMember);
-            }}
-            role="menuitem"
-            type="button"
-          >
-            수정
-          </button>
-          <button
-            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-            onClick={() => {
-              setMemberMenuPosition(null);
-              handleViewMemberHistory(menuMember.id);
-            }}
-            role="menuitem"
-            type="button"
-          >
-            활동 이력 보기
-          </button>
           {menuMember.status === "active" ? (
             <button
               className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"

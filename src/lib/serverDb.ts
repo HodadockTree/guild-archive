@@ -26,6 +26,7 @@ const D1_BINDING_MISSING_ERROR_MESSAGE =
 type MemberRow = {
   id: string;
   nickname: string;
+  previousNicknames: string | null;
   status: GuildMember["status"];
   joinedAt: string;
   leftAt: string | null;
@@ -102,6 +103,11 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof member.nickname !== "string" ||
       typeof member.status !== "string" ||
       typeof member.joinedAt !== "string" ||
+      (member.previousNicknames !== undefined &&
+        (!Array.isArray(member.previousNicknames) ||
+          member.previousNicknames.some(
+            (nickname) => typeof nickname !== "string",
+          ))) ||
       (member.gender !== undefined &&
         member.gender !== "female" &&
         member.gender !== "male" &&
@@ -156,12 +162,15 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO members (
-          id, nickname, status, joinedAt, leftAt, memo, gender, birthYear, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, nickname, previousNicknames, status, joinedAt, leftAt, memo, gender, birthYear, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         member.id,
         member.nickname,
+        member.previousNicknames?.length
+          ? JSON.stringify(member.previousNicknames)
+          : null,
         member.status,
         member.joinedAt || null,
         member.leftAt ?? null,
@@ -259,16 +268,29 @@ export async function importBackupJson(data: unknown) {
   };
 }
 
+function parsePreviousNicknames(value: string | null) {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === "string")
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getServerMembers(): Promise<GuildMember[]> {
   const db = await getDb();
   const { results } = await db
     .prepare(
-      "SELECT id, nickname, status, joinedAt, leftAt, memo, gender, birthYear FROM members",
+      "SELECT id, nickname, previousNicknames, status, joinedAt, leftAt, memo, gender, birthYear FROM members",
     )
     .all<MemberRow>();
 
   return results.map((member) => ({
     ...member,
+    previousNicknames: parsePreviousNicknames(member.previousNicknames),
     leftAt: member.leftAt ?? null,
     memo: member.memo ?? undefined,
     gender: member.gender ?? undefined,

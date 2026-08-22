@@ -6,6 +6,7 @@
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
   nickname TEXT NOT NULL,
+  previousNicknames TEXT,
   status TEXT NOT NULL,
   joinedAt TEXT,
   leftAt TEXT,

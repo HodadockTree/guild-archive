@@ -44,8 +44,14 @@ function hasValidOptionalMemberDemographics(member: unknown) {
     (Number.isInteger(member.birthYear) &&
       (member.birthYear as number) >= 1900 &&
       (member.birthYear as number) <= new Date().getFullYear());
+  const previousNicknamesAreValid =
+    member.previousNicknames === undefined ||
+    (Array.isArray(member.previousNicknames) &&
+      member.previousNicknames.every(
+        (nickname) => typeof nickname === "string",
+      ));
 
-  return genderIsValid && birthYearIsValid;
+  return genderIsValid && birthYearIsValid && previousNicknamesAreValid;
 }
 
 function hasBasicActivityLogFields(activity: unknown) {
