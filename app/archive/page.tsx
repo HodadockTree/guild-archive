@@ -9,7 +9,7 @@ import {
   GuildFlowChart,
   MonthlyAirshipAverageChart,
 } from "@/src/components/MonthlyTrendChart";
-import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
+import { Surface } from "@/src/components/ui/Surface";
 import type { MonthlyHighlightCategory } from "@/src/types";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
@@ -95,11 +95,11 @@ export default function ArchivePage() {
       />
 
       {archiveState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <Surface className="py-10 text-center" variant="section">
+          <h2 className="ui-section-title">
             월별 기록을 불러오는 중입니다.
           </h2>
-        </section>
+        </Surface>
       ) : null}
 
       {archiveState.status === "error" ? (
@@ -113,43 +113,46 @@ export default function ArchivePage() {
         </section>
       ) : null}
 
-      {archiveState.status === "success" ? (
-        <>
-          <GuildFlowChart trends={monthlyTrends} />
-          <MonthlyAirshipAverageChart trends={monthlyTrends} />
-        </>
-      ) : null}
-
       {archiveState.status === "success" && monthlySummaries.length === 0 ? (
-        <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <section className="ui-empty-state ui-empty-state-surface px-5 py-10">
+          <h2 className="ui-section-title">
             아직 기록된 활동이 없습니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+          <p className="ui-supporting-text mx-auto mt-2 max-w-xl">
             활동 기록이 생기면 월별 기록이 표시됩니다.
           </p>
         </section>
       ) : null}
 
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
-        <section className="grid gap-3">
-          {monthlySummaries.map((summary) => (
+        <Surface aria-label="월별 기록 목록" variant="section">
+          <div className="grid gap-3">
+            {monthlySummaries.map((summary) => (
               <Link
-              aria-label={`${getMonthDisplayLabel(summary.month)} 월간 리포트 보기`}
-              className="ui-focus-ring block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-2.5 shadow-sm transition hover:border-sky-300 hover:bg-sky-50/40 focus-visible:border-sky-300 focus-visible:bg-sky-50/40 sm:px-4 sm:py-3"
-              href={`/viewer?month=${summary.month}`}
-              id={`archive-month-${summary.month}`}
-              key={summary.month}
-            >
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 className="shrink-0 text-base font-bold text-slate-900 sm:text-lg">
+                aria-label={`${getMonthDisplayLabel(summary.month)} 월간 리포트 보기`}
+                className="ui-focus-ring block rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                href={`/viewer?month=${summary.month}`}
+                id={`archive-month-${summary.month}`}
+                key={summary.month}
+              >
+                <h2 className="ui-card-title sm:text-lg">
                   {getMonthDisplayLabel(summary.month)}
                 </h2>
+                <p className="ui-supporting-text mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>활동 <strong className="ui-metric-inline">{summary.activityCount}회</strong></span>
+                  <span>길드원 <strong className="ui-metric-inline">{summary.participantMemberCount}명</strong></span>
+                  <span>총 참여 <strong className="ui-metric-inline">{summary.totalParticipationCount}회</strong></span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                 {(summary.representativeHighlights?.length ?? 0) > 0 ? (
                   <ul className="flex flex-wrap gap-1.5" aria-label="주요 기록">
-                    {summary.representativeHighlights?.map((highlight) => (
+                    {summary.representativeHighlights?.map((highlight, index) => (
                       <li
-                        className={`rounded-full px-2 py-0.5 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
+                        className={`max-w-full rounded-full px-2 py-0.5 text-xs leading-5 break-words ${
+                          index === 0
+                            ? "bg-[var(--color-brand-soft)] font-semibold text-[var(--color-text-accent)]"
+                            : "bg-[var(--color-bg-muted)] font-medium text-[var(--color-text-secondary)]"
+                        }`}
                         key={highlight.id}
                       >
                         {highlight.title}
@@ -161,7 +164,7 @@ export default function ArchivePage() {
                   <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
                     {summary.representativeEvents.map((event) => (
                       <li
-                        className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-slate-700"
+                        className="max-w-full rounded-full bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs leading-5 break-words text-[var(--color-text-secondary)]"
                         key={event.id}
                       >
                         {event.title}
@@ -169,15 +172,18 @@ export default function ArchivePage() {
                     ))}
                   </ul>
                 ) : null}
-              </div>
-              <p className="mt-1 text-sm leading-5 text-slate-500">
-                활동 {summary.activityCount}회 · 함께한 길드원{" "}
-                {summary.participantMemberCount}명 · 총 참여{" "}
-                {summary.totalParticipationCount}회
-              </p>
+                </div>
               </Link>
-          ))}
-        </section>
+            ))}
+          </div>
+        </Surface>
+      ) : null}
+
+      {archiveState.status === "success" ? (
+        <>
+          <GuildFlowChart trends={monthlyTrends} />
+          <MonthlyAirshipAverageChart trends={monthlyTrends} />
+        </>
       ) : null}
     </main>
   );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatMonth } from "@/src/lib/displayFormat";
 import type { MonthlyHighlightCategory } from "@/src/types";
+import { Surface } from "@/src/components/ui/Surface";
 
 export type MonthlyTrend = {
   month: string;
@@ -19,9 +20,9 @@ export type MonthlyTrend = {
 
 export function MonthlyAirshipAverageChart({ trends }: { trends: MonthlyTrend[] }) {
   return (
-    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <h2 className="text-lg font-semibold text-slate-900">월별 비공정 평균 참여 인원</h2>
-      <p className="mt-1 text-sm text-slate-500">비공정별 월간 평균 참여 인원을 각각 살펴봅니다.</p>
+    <Surface variant="section">
+      <h2 className="ui-section-title">월별 비공정 평균 참여 인원</h2>
+      <p className="ui-supporting-text mt-1">비공정별 월간 평균 참여 인원을 각각 살펴봅니다.</p>
       {trends.length === 0 ? (
         <p className="ui-empty-state mt-4">표시할 비공정 기록이 없습니다.</p>
       ) : (
@@ -30,7 +31,7 @@ export function MonthlyAirshipAverageChart({ trends }: { trends: MonthlyTrend[] 
           <AirshipAverageSeriesChart color="#06b6d4" keyName="oceanAverageParticipantCount" label="오션헤븐" trends={trends} />
         </div>
       )}
-    </section>
+    </Surface>
   );
 }
 
@@ -54,8 +55,8 @@ function AirshipAverageSeriesChart({ color, keyName, label, trends }: {
   const points = trends.map((trend, index) => `${getX(index)},${getY(trend[keyName] ?? 0)}`).join(" ");
 
   return (
-    <div className="min-w-0 rounded-md bg-sky-50/60 p-4">
-      <h3 className="text-sm font-semibold text-slate-800">{label}</h3>
+    <div className="min-w-0 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4">
+      <h3 className="ui-card-title text-sm">{label}</h3>
       <div className="mt-2 overflow-x-auto">
         <svg aria-label={`${label} 월별 평균 참여 인원`} className="h-auto min-w-[32.5rem]" role="img" style={{ width: chartWidth }} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
           {[0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -145,17 +146,17 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
   const activeTrend = activeIndex >= 0 ? visibleTrends[activeIndex] : null;
 
   return (
-    <section className="min-w-0 rounded-md border border-sky-100 bg-white p-4 shadow-sm shadow-sky-100/40 sm:p-5">
+    <Surface className="min-w-0" variant="section">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">길드 활동 기록</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="ui-section-title">길드 활동 기록</h2>
+          <p className="ui-supporting-text mt-1">
             월별 변화를 지표별로 확인할 수 있습니다.
           </p>
         </div>
         <div
           aria-label="길드 활동 지표"
-          className="inline-flex w-fit rounded-md bg-sky-50 p-1"
+          className="inline-flex w-fit rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] p-1"
           role="tablist"
         >
           {(Object.keys(flowMetricConfig) as FlowMetric[]).map((key) => (
@@ -164,8 +165,8 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
               aria-selected={metric === key}
               className={`ui-focus-ring min-h-10 rounded px-3 text-sm font-semibold transition ${
                 metric === key
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "border border-[var(--color-border-selected)] bg-[var(--color-bg-selected)] text-[var(--color-text-accent)]"
+                  : "border border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-interactive)] hover:text-[var(--color-text-primary)]"
               }`}
               id={`guild-flow-tab-${key}`}
               key={key}
@@ -206,7 +207,7 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
         role="tabpanel"
       >
         {maxValue === 0 ? (
-          <p className="rounded-md border border-dashed border-sky-200 px-4 py-10 text-center text-sm text-slate-500">
+          <p className="ui-empty-state ui-empty-state-surface px-4 py-10">
             표시할 {config.label} 기록이 아직 없습니다.
           </p>
         ) : (
@@ -314,7 +315,7 @@ export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
         )}
       </div>
 
-    </section>
+    </Surface>
   );
 }
 
