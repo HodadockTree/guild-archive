@@ -4,7 +4,10 @@ import {
   getActivityDisplayTitle,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
-import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
+import {
+  getCountedActivityParticipantIds,
+  isRankedActivityMember,
+} from "@/src/lib/activityParticipants";
 import type { ActivityParticipant } from "@/src/lib/memberActivity";
 
 export type DashboardMonthlyTrend = {
@@ -19,12 +22,19 @@ export type DashboardActivitySummary = {
   endDate?: string;
   label: string;
   statsType: "airship" | "siege" | "other";
+  airshipType?: ActivityLog["airshipType"];
   participantIds: string[];
   title: string;
   participantCount: number;
   participantNames: string[];
   participants: ActivityParticipant[];
   memo?: string;
+};
+
+export type DashboardTopParticipant = {
+  id: string;
+  nickname: string;
+  count: number;
 };
 
 export type DashboardMemberSummary = {
@@ -49,6 +59,10 @@ export type DashboardStats = {
   recentActivity: DashboardActivitySummary | null;
   recentActivities: DashboardActivitySummary[];
   monthlyTrends: DashboardMonthlyTrend[];
+  currentMonthTopParticipants: {
+    airship: DashboardTopParticipant[];
+    siege: DashboardTopParticipant[];
+  };
 };
 
 function getMonthKey(date: string) {
@@ -94,6 +108,7 @@ function toActivitySummary(
     endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     statsType: getActivityStatsType(activity.type),
+    airshipType: activity.airshipType,
     title: getActivityDisplayTitle(activity),
     participantIds,
     participantCount: participantIds.length,
@@ -180,6 +195,37 @@ export function getGuildDashboardStats(
       participantMemberIds: Set<string>;
     }
   >();
+  const rankingCounts = {
+    airship: new Map<string, number>(),
+    siege: new Map<string, number>(),
+  };
+
+  currentMonthActivities.forEach((activity) => {
+    const statsType = getActivityStatsType(activity.type);
+
+    if (statsType !== "airship" && statsType !== "siege") return;
+
+    getCountedActivityParticipantIds(activity.participantIds, membersById)
+      .filter((memberId) => {
+        const member = membersById.get(memberId);
+        return member ? isRankedActivityMember(member) : false;
+      })
+      .forEach((memberId) => {
+        rankingCounts[statsType].set(
+          memberId,
+          (rankingCounts[statsType].get(memberId) ?? 0) + 1,
+        );
+      });
+  });
+
+  const getTopParticipants = (type: "airship" | "siege") =>
+    Array.from(rankingCounts[type], ([id, count]) => ({
+      id,
+      nickname: membersById.get(id)?.nickname ?? getUnknownMemberName(id),
+      count,
+    }))
+      .sort((a, b) => b.count - a.count || a.nickname.localeCompare(b.nickname, "ko"))
+      .slice(0, 3);
 
   activities.forEach((activity) => {
     const month = getMonthKey(activity.date);
@@ -253,5 +299,9 @@ export function getGuildDashboardStats(
       .slice(0, 6)
       .map((activity) => toActivitySummary(activity, membersById)),
     monthlyTrends,
+    currentMonthTopParticipants: {
+      airship: getTopParticipants("airship"),
+      siege: getTopParticipants("siege"),
+    },
   };
 }

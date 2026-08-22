@@ -15,6 +15,7 @@ import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
 import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
+import { AirshipParticipationChart } from "@/src/components/AirshipParticipationChart";
 import {
   formatDateRange,
   formatFullDate,
@@ -35,13 +36,13 @@ type SummaryModalKey =
   | "allActivities"
   | "allMembers";
 
-type RecentActivityFilter = "all" | "aurora" | "ocean" | "other";
+type RecentActivityFilter = "all" | "airship" | "siege" | "other";
 
 const recentActivityFilterLabels: Record<RecentActivityFilter, string> = {
   all: "전체",
-  aurora: "아우로라",
-  ocean: "오션헤븐",
-  other: "점령전·기타",
+  airship: "비공정",
+  siege: "점령전",
+  other: "기타",
 };
 
 function getMonthLabel(month: string) {
@@ -333,9 +334,11 @@ function CumulativeSummaryCard({
 function ActivityCard({
   activity,
   onSelect,
+  showTitle = true,
 }: {
   activity: DashboardActivitySummary;
   onSelect: (activity: ActivityDetail) => void;
+  showTitle?: boolean;
 }) {
   return (
     <li>
@@ -358,9 +361,11 @@ function ActivityCard({
           </span>
         </div>
 
-        <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
-          {activity.title}
-        </h3>
+        {showTitle ? (
+          <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+            {activity.title}
+          </h3>
+        ) : null}
         {activity.memo ? (
           <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
             {activity.memo}
@@ -488,15 +493,9 @@ export default function DashboardPage() {
     dashboard?.allActivities
       .filter((activity) => {
         if (recentActivityFilter === "all") return true;
-        if (recentActivityFilter === "other") {
-          return activity.statsType !== "airship";
-        }
-        return (
-          activity.statsType === "airship" &&
-          activity.label === recentActivityFilterLabels[recentActivityFilter]
-        );
+        return activity.statsType === recentActivityFilter;
       })
-      .slice(0, 6) ?? [];
+      .slice(0, recentActivityFilter === "airship" ? 12 : 6) ?? [];
 
   return (
     <main className="app-shell">
@@ -644,6 +643,38 @@ export default function DashboardPage() {
             </section>
           </div>
 
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+            <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
+            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+              <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 리더</h2>
+              <p className="mt-1 text-sm text-slate-500">바나몽·반아몽을 제외한 참여 순위입니다.</p>
+              <div className="mt-4 space-y-4">
+                {(["airship", "siege"] as const).map((type) => {
+                  const participants = dashboard.currentMonthTopParticipants[type];
+                  return (
+                    <div className="rounded-md bg-sky-50 px-4 py-3" key={type}>
+                      <h3 className="text-sm font-semibold text-slate-700">
+                        {type === "airship" ? "비공정 많이 간 길드원" : "점령전 많이 뛴 길드원"}
+                      </h3>
+                      {participants.length > 0 ? (
+                        <ol className="mt-2 space-y-2">
+                          {participants.map((participant, index) => (
+                            <li className="flex items-center justify-between gap-3 text-sm" key={participant.id}>
+                              <span className="min-w-0 truncate text-slate-700">{index + 1}. {participant.nickname}</span>
+                              <strong className="shrink-0 text-[var(--brand-strong)]">{participant.count}회</strong>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="mt-2 text-sm text-slate-500">기록 없음</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -688,18 +719,50 @@ export default function DashboardPage() {
                 선택한 종류의 활동 기록이 없습니다.
               </p>
             ) : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleRecentActivities.map((activity) => (
-                  <ActivityCard
-                    activity={activity}
-                    key={activity.id}
-                    onSelect={(selected) => {
-                      restoreMostActivityFocusRef.current = false;
-                      setSelectedActivity(selected);
-                    }}
-                  />
-                ))}
-              </ul>
+              recentActivityFilter === "airship" ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {(["아우로라", "오션헤븐"] as const).map((track) => {
+                    const trackActivities = visibleRecentActivities.filter(
+                      (activity) => activity.label === track,
+                    );
+                    return (
+                      <section className="rounded-md bg-sky-50/70 p-3" key={track}>
+                        <h3 className="px-1 pb-3 text-sm font-semibold text-slate-700">{track} 트랙</h3>
+                        {trackActivities.length > 0 ? (
+                          <ul className="grid gap-3">
+                            {trackActivities.map((activity) => (
+                              <ActivityCard
+                                activity={activity}
+                                key={activity.id}
+                                onSelect={(selected) => {
+                                  restoreMostActivityFocusRef.current = false;
+                                  setSelectedActivity(selected);
+                                }}
+                                showTitle={false}
+                              />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm text-slate-500">기록 없음</p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {visibleRecentActivities.map((activity) => (
+                    <ActivityCard
+                      activity={activity}
+                      key={activity.id}
+                      onSelect={(selected) => {
+                        restoreMostActivityFocusRef.current = false;
+                        setSelectedActivity(selected);
+                      }}
+                    />
+                  ))}
+                </ul>
+              )
             )}
           </section>
 
