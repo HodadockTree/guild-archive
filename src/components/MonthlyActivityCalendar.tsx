@@ -1,6 +1,7 @@
 import type { MonthlyReport } from "@/src/lib/monthlyReport";
 import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 import { getActivityStatsType } from "@/src/lib/activityStats";
+import { Surface } from "@/src/components/ui/Surface";
 
 type MonthlyActivity = MonthlyReport["activities"][number];
 type CalendarActivity = {
@@ -80,27 +81,27 @@ export function MonthlyActivityCalendar({
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <h2 className="text-lg font-semibold text-slate-900">활동 달력</h2>
-      <p className="mt-1 text-sm text-slate-500">날짜별 활동을 선택하면 참여 기록을 자세히 볼 수 있습니다.</p>
+    <Surface variant="section">
+      <h2 className="ui-section-title">활동 달력</h2>
+      <p className="ui-supporting-text mt-1">날짜별 활동을 선택하면 참여 기록을 자세히 볼 수 있습니다.</p>
       <div className="mt-4 overflow-x-auto">
         <div className="min-w-[44rem]">
-          <div className="grid grid-cols-7 border-b border-sky-100 text-center text-xs font-semibold text-slate-500">
+          <div className="grid grid-cols-7 border-b border-[var(--color-border-subtle)] text-center text-xs font-semibold text-[var(--color-text-muted)]">
             {weekdayLabels.map((label, index) => (
               <div className={`py-2 ${index === 0 ? "text-rose-500" : index === 6 ? "text-sky-600" : ""}`} key={label}>{label}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 overflow-hidden rounded-b-md border-l border-sky-100">
+          <div className="grid grid-cols-7 overflow-hidden rounded-b-md border-l border-[var(--color-border-subtle)]">
             {cells.map((day, index) => {
               const dayActivities = day ? activitiesByDay.get(day) ?? [] : [];
               return (
                 <div
-                  className={`min-h-28 border-b border-r border-sky-100 p-2 ${day ? "bg-white" : "bg-slate-50/70"}`}
+                  className={`min-h-28 border-b border-r border-[var(--color-border-subtle)] p-2 ${day ? "bg-[var(--color-bg-surface)]" : "bg-[var(--color-bg-interactive)]"}`}
                   key={`${day ?? "empty"}-${index}`}
                 >
                   {day ? (
                     <>
-                      <span className={`text-xs font-semibold ${index % 7 === 0 ? "text-rose-500" : index % 7 === 6 ? "text-sky-600" : "text-slate-600"}`}>{day}</span>
+                      <span className={`text-xs font-semibold ${index % 7 === 0 ? "text-rose-500" : index % 7 === 6 ? "text-sky-600" : "text-[var(--color-text-secondary)]"}`}>{day}</span>
                       <ul className="mt-1.5 space-y-1">
                         {dayActivities.map(({ activity, isRangeStart, isRangeEnd }) => {
                           const connectsLeft = !isRangeStart && index % 7 !== 0;
@@ -134,6 +135,6 @@ export function MonthlyActivityCalendar({
           </div>
         </div>
       </div>
-    </section>
+    </Surface>
   );
 }
