@@ -392,7 +392,7 @@ export default function Home() {
   const [activitySortOrder, setActivitySortOrder] =
     useState<ActivitySortOrder>("latest");
   const [activityMonthFilter, setActivityMonthFilter] = useState("all");
-  const [activitySearch, setActivitySearch] = useState("");
+  const [activityDateFilter, setActivityDateFilter] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const [activityFeedbackMessage, setActivityFeedbackMessage] = useState("");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
@@ -590,25 +590,16 @@ export default function Home() {
       : sortedActivities.filter(
           (activity) => getVisibleActivityType(activity.type) === activityFilter,
         );
-  const activitySearchKeyword = activitySearch.trim().toLocaleLowerCase("ko");
-  const shortDateSearchMatch = /^(\d{2})\/(\d{2})$/.exec(
-    activitySearchKeyword,
-  );
-  const activityDateSearchKeyword = shortDateSearchMatch
-    ? `-${shortDateSearchMatch[1]}-${shortDateSearchMatch[2]}`
-    : activitySearchKeyword;
   const filteredActivities = typeFilteredActivities.filter((activity) => {
     const matchesMonth =
       activityMonthFilter === "all" ||
       activity.date.startsWith(activityMonthFilter);
-    const matchesSearch =
-      !activitySearchKeyword ||
-      activity.date.includes(activityDateSearchKeyword) ||
-      (activity.title ?? "")
-        .toLocaleLowerCase("ko")
-        .includes(activitySearchKeyword);
+    const matchesDate =
+      !activityDateFilter ||
+      (activity.date <= activityDateFilter &&
+        (activity.endDate ?? activity.date) >= activityDateFilter);
 
-    return matchesMonth && matchesSearch;
+    return matchesMonth && matchesDate;
   });
   const maxFilteredParticipantCount = filteredActivities.reduce(
     (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
@@ -617,6 +608,17 @@ export default function Home() {
   const activityMonthOptions = Array.from(
     new Set(activities.map((activity) => activity.date.slice(0, 7))),
   ).sort((a, b) => b.localeCompare(a));
+  const selectedActivityMonthParts = activityMonthFilter
+    .split("-")
+    .map(Number);
+  const activityDateFilterMin = activityMonthFilter === "all"
+    ? undefined
+    : `${activityMonthFilter}-01`;
+  const activityDateFilterMax = activityMonthFilter === "all"
+    ? undefined
+    : new Date(
+        Date.UTC(selectedActivityMonthParts[0], selectedActivityMonthParts[1], 0),
+      ).toISOString().slice(0, 10);
   const activityTotalPages = Math.max(
     1,
     Math.ceil(filteredActivities.length / ACTIVITY_PAGE_SIZE),
@@ -635,7 +637,7 @@ export default function Home() {
   );
   const hasActiveActivityFilters =
     activityMonthFilter !== "all" ||
-    activitySearch.trim() !== "" ||
+    activityDateFilter !== "" ||
     activitySortOrder !== "latest" ||
     activityFilter !== "all";
   const selectedMemberActivities = selectedHistoryMember
@@ -2682,6 +2684,7 @@ export default function Home() {
                 value={activityMonthFilter}
                 onChange={(event) => {
                   setActivityMonthFilter(event.target.value);
+                  setActivityDateFilter("");
                   setActivityPage(1);
                 }}
               >
@@ -2694,14 +2697,16 @@ export default function Home() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:col-span-2 lg:col-span-3 xl:col-span-1">
-              <span className="h-5">제목·날짜 검색</span>
+              <span className="h-5">날짜 선택</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-                type="search"
-                placeholder="제목, YYYY-MM-DD, MM/DD"
-                value={activitySearch}
+                min={activityDateFilterMin}
+                max={activityDateFilterMax}
+                onClick={openNativePicker}
+                type="date"
+                value={activityDateFilter}
                 onChange={(event) => {
-                  setActivitySearch(event.target.value);
+                  setActivityDateFilter(event.target.value);
                   setActivityPage(1);
                 }}
               />
@@ -2748,7 +2753,7 @@ export default function Home() {
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] sm:col-span-2 lg:col-span-2 lg:w-auto lg:justify-self-end xl:col-span-1"
                 onClick={() => {
                   setActivityMonthFilter("all");
-                  setActivitySearch("");
+                  setActivityDateFilter("");
                   setActivitySortOrder("latest");
                   setActivityFilter("all");
                   setActivityPage(1);
