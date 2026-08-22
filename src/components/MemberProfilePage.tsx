@@ -22,6 +22,7 @@ function displayDate(date: string | null) {
 export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
   const [selectedActivity, setSelectedActivity] = useState<ActivityDetail | null>(null);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [selectedActivityMonth, setSelectedActivityMonth] = useState<string | null>(null);
   const [expandedActivityMonths, setExpandedActivityMonths] = useState<Set<string>>(
     () =>
       new Set(
@@ -60,6 +61,7 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
     }, new Map<string, typeof profile.activities>()),
     ([month, activities]) => ({ month, activities }),
   ).sort((first, second) => second.month.localeCompare(first.month));
+  const availableActivityMonths = new Set(activityGroups.map(({ month }) => month));
 
   const toggleActivityMonth = (month: string) => {
     setExpandedActivityMonths((current) => {
@@ -77,18 +79,26 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
         : profile.activities.filter((activity) => activity.type === filter);
 
     setActivityFilter(filter);
+    setSelectedActivityMonth(null);
     setExpandedActivityMonths(
       new Set(nextActivities[0]?.date ? [nextActivities[0].date.slice(0, 7)] : []),
     );
   };
 
   const focusActivityMonth = (month: string) => {
-    const activity = document.querySelector<HTMLButtonElement>(
-      `[data-activity-month="${month}"]`,
-    );
+    if (!availableActivityMonths.has(month)) return;
 
-    activity?.scrollIntoView({ behavior: "smooth", block: "center" });
-    activity?.focus({ preventScroll: true });
+    setSelectedActivityMonth(month);
+    setExpandedActivityMonths((current) => new Set(current).add(month));
+
+    window.requestAnimationFrame(() => {
+      const activity = document.querySelector<HTMLButtonElement>(
+        `[data-activity-month="${month}"]`,
+      );
+
+      activity?.scrollIntoView({ behavior: "smooth", block: "center" });
+      activity?.focus({ preventScroll: true });
+    });
   };
 
   return (
@@ -181,22 +191,37 @@ export function MemberProfilePage({ profile }: { profile: MemberProfileData }) {
             <h2 className="ui-section-title">월별 참여 기록</h2>
             {profile.monthlyParticipation.length ? (
               <ul className="mt-4 max-h-72 divide-y divide-[var(--color-border-subtle)] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-2">
-                {profile.monthlyParticipation.map((item) => (
-                  <li key={item.month}>
-                    <button
-                      aria-label={`${formatMonth(item.month)} 개인 활동 기록으로 이동`}
-                      className="ui-focus-ring grid min-h-11 w-full cursor-pointer grid-cols-[minmax(4.75rem,auto)_minmax(4rem,1fr)_auto] items-center gap-3 rounded-[var(--radius-control)] px-2 text-left transition-colors hover:bg-[var(--color-bg-interactive)]"
-                      onClick={() => focusActivityMonth(item.month)}
-                      type="button"
-                    >
-                      <span className="text-sm font-medium text-[var(--color-text-accent)] underline decoration-[var(--color-border-interactive)] underline-offset-4">{formatMonth(item.month)}</span>
-                      <span className="h-2 overflow-hidden rounded-full bg-[var(--color-bg-surface)]">
-                        <span className="block h-full rounded-full bg-[var(--color-brand-primary)]" style={{ width: `${(item.count / maxMonthlyCount) * 100}%` }} />
-                      </span>
-                      <span className="ui-caption text-right text-[var(--color-text-secondary)]">{item.count}회</span>
-                    </button>
-                  </li>
-                ))}
+                {profile.monthlyParticipation.map((item) => {
+                  const isAvailable = availableActivityMonths.has(item.month);
+                  const isSelected = selectedActivityMonth === item.month;
+
+                  return (
+                    <li key={item.month}>
+                      <button
+                        aria-label={isAvailable
+                          ? `${formatMonth(item.month)} 개인 활동 기록으로 이동`
+                          : `${formatMonth(item.month)} 현재 필터의 활동 기록 없음`}
+                        aria-pressed={isSelected}
+                        className={`ui-focus-ring grid min-h-11 w-full grid-cols-[minmax(4.75rem,auto)_minmax(4rem,1fr)_auto] items-center gap-3 rounded-[var(--radius-control)] px-2 text-left transition-colors ${
+                          isSelected
+                            ? "bg-[var(--color-bg-interactive)]"
+                            : isAvailable
+                              ? "cursor-pointer hover:bg-[var(--color-bg-interactive)]"
+                              : "cursor-not-allowed opacity-45"
+                        }`}
+                        disabled={!isAvailable}
+                        onClick={() => focusActivityMonth(item.month)}
+                        type="button"
+                      >
+                        <span className="text-sm font-medium text-[var(--color-text-accent)] underline decoration-[var(--color-border-interactive)] underline-offset-4">{formatMonth(item.month)}</span>
+                        <span className="h-2 overflow-hidden rounded-full bg-[var(--color-bg-surface)]">
+                          <span className="block h-full rounded-full bg-[var(--color-brand-primary)]" style={{ width: `${(item.count / maxMonthlyCount) * 100}%` }} />
+                        </span>
+                        <span className="ui-caption text-right text-[var(--color-text-secondary)]">{item.count}회</span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="ui-empty-state mt-4 px-4 py-5">표시할 가입 기간 정보가 없습니다.</p>
