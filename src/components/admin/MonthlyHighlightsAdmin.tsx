@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
 import type { MonthlyHighlight, MonthlyHighlightCategory } from "@/src/types";
 import {
   monthlyHighlightCategoryBadgeClasses,
   monthlyHighlightCategories,
   monthlyHighlightCategoryLabels,
+  getMonthlyHighlightDateText,
   validateMonthlyHighlightInput,
 } from "@/src/lib/monthlyHighlights";
 
@@ -23,10 +24,16 @@ function monthLabel(month: string) {
   return `${year}년 ${Number(monthNumber)}월`;
 }
 
+function openNativePicker(event: MouseEvent<HTMLInputElement>) {
+  try { event.currentTarget.showPicker?.(); } catch { /* Browser keeps its native input behavior. */ }
+}
+
 export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
   const [month, setMonth] = useState(currentMonth);
   const [category, setCategory] = useState<MonthlyHighlightCategory>("game_update");
   const [title, setTitle] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [dateText, setDateText] = useState("");
   const [description, setDescription] = useState("");
   const [adminToken, setAdminToken] = useState("");
@@ -40,6 +47,8 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
   const resetForm = useCallback(() => {
     setCategory("game_update");
     setTitle("");
+    setStartDate("");
+    setEndDate("");
     setDateText("");
     setDescription("");
     setEditingId(null);
@@ -124,7 +133,10 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
     event.preventDefault();
     let input;
     try {
-      input = validateMonthlyHighlightInput({ month, category, title, dateText, description });
+      input = validateMonthlyHighlightInput({
+        month: startDate ? startDate.slice(0, 7) : month,
+        category, title, startDate, endDate, dateText, description,
+      });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "입력값을 확인해 주세요." });
       return;
@@ -158,6 +170,8 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
   const handleEdit = (highlight: MonthlyHighlight) => {
     setCategory(highlight.category);
     setTitle(highlight.title);
+    setStartDate(highlight.startDate ?? "");
+    setEndDate(highlight.endDate ?? "");
     setDateText(highlight.dateText ?? "");
     setDescription(highlight.description ?? "");
     setEditingId(highlight.id);
@@ -198,7 +212,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
       <div className="ui-surface ui-surface-section space-y-4">
         <label className="ui-form-field max-w-xs">
           <span>대상 월</span>
-          <input className="ui-form-control" disabled={isBusy} type="month" value={month} onChange={(event) => {
+          <input className="ui-form-control" disabled={isBusy} onClick={openNativePicker} type="month" value={month} onChange={(event) => {
             setMonth(event.target.value);
             resetForm();
           }} required />
@@ -245,7 +259,7 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-2 py-1 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}>{monthlyHighlightCategoryLabels[highlight.category]}</span>
-                      {highlight.dateText ? <span className="ui-caption">{highlight.dateText}</span> : null}
+                      {getMonthlyHighlightDateText(highlight) ? <span className="ui-caption">{getMonthlyHighlightDateText(highlight)}</span> : null}
                     </div>
                     <h3 className="ui-card-title mt-2">{highlight.title}</h3>
                     {highlight.description ? <p className="ui-body-text mt-1 line-clamp-2 whitespace-pre-wrap">{highlight.description}</p> : null}
@@ -269,7 +283,8 @@ export function MonthlyHighlightsAdmin({ isActive }: { isActive: boolean }) {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="ui-form-field"><span>구분</span><select className="ui-form-control" value={category} onChange={(event) => setCategory(event.target.value as MonthlyHighlightCategory)}>{monthlyHighlightCategories.map((value) => <option key={value} value={value}>{monthlyHighlightCategoryLabels[value]}</option>)}</select></label>
-            <label className="ui-form-field"><span>날짜·기간</span><input className="ui-form-control" maxLength={80} placeholder="예: 7월 1일~7월 14일" value={dateText} onChange={(event) => setDateText(event.target.value)} /></label>
+            <label className="ui-form-field"><span>시작일</span><input className="ui-form-control" onClick={openNativePicker} type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
+            <label className="ui-form-field"><span>종료일 <span className="font-normal text-neutral-500">(선택)</span></span><input className="ui-form-control" min={startDate} onClick={openNativePicker} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
           </div>
           <label className="ui-form-field"><span>제목</span><input className="ui-form-control" maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
           <label className="ui-form-field"><span>한 줄 설명</span><textarea className="ui-form-control min-h-20 resize-y" maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} /></label>

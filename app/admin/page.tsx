@@ -195,6 +195,22 @@ function getAirshipAutoTitle(airshipType: AirshipType) {
   return airshipAutoTitles[airshipType];
 }
 
+function openNativePicker(event: ReactMouseEvent<HTMLInputElement>) {
+  try {
+    event.currentTarget.showPicker?.();
+  } catch {
+    // Unsupported browsers keep the native date input behavior.
+  }
+}
+
+function isSystemGeneratedActivityTitle(activity: ActivityLog) {
+  const title = activity.title?.trim() ?? "";
+  if (getVisibleActivityType(activity.type) === "airship") {
+    return Object.values(airshipAutoTitles).includes(title);
+  }
+  return getVisibleActivityType(activity.type) === "siege" && /^\d+회차 점령전$/.test(title);
+}
+
 function getMemberActivityStatsSummary(
   activities: ActivityLog[],
   memberId: string,
@@ -1156,7 +1172,7 @@ export default function Home() {
     setActivityAirshipType(airshipType);
     setActivityTitle(getAirshipAutoTitle(airshipType));
     setIsSiegeTitleAutoSuggested(false);
-    setHasManuallyEditedActivityTitle(true);
+    setHasManuallyEditedActivityTitle(false);
   };
 
   const handleToggleConquestType = (conquestType: ConquestType) => {
@@ -1232,7 +1248,7 @@ export default function Home() {
     setActivityConquestTypes(getKnownConquestTypes(activity.conquestTypes));
     setActivityTitle(activity.title ?? "");
     setIsSiegeTitleAutoSuggested(false);
-    setHasManuallyEditedActivityTitle(true);
+    setHasManuallyEditedActivityTitle(!isSystemGeneratedActivityTitle(activity));
     setActivityMemo(activity.memo ?? "");
     setSelectedMemberIds(activity.participantIds);
     setParticipantSearch("");
@@ -1846,6 +1862,7 @@ export default function Home() {
                   onChange={(event) => setNewMemberJoinedAt(event.target.value)}
                   required
                   type="date"
+                  onClick={openNativePicker}
                   value={newMemberJoinedAt}
                 />
               </label>
@@ -2231,6 +2248,7 @@ export default function Home() {
                 <input
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
                   type="date"
+                  onClick={openNativePicker}
                   value={memberEditJoinedAt}
                   onChange={(event) => setMemberEditJoinedAt(event.target.value)}
                 />
@@ -2241,6 +2259,7 @@ export default function Home() {
                 <input
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400"
                   type="date"
+                  onClick={openNativePicker}
                   value={memberEditLeftAt}
                   onChange={(event) => setMemberEditLeftAt(event.target.value)}
                   disabled={memberEditStatus === "active"}
@@ -2303,6 +2322,7 @@ export default function Home() {
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                 type="date"
+                onClick={openNativePicker}
                 value={activityDate}
                 onChange={(event) => setActivityDate(event.target.value)}
                 required
@@ -2316,6 +2336,7 @@ export default function Home() {
                   className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                   min={activityDate}
                   type="date"
+                  onClick={openNativePicker}
                   value={activityEndDate}
                   onChange={(event) => setActivityEndDate(event.target.value)}
                 />
@@ -2331,14 +2352,14 @@ export default function Home() {
                   const nextType = event.target.value as VisibleActivityType;
                   setActivityType(nextType);
 
-                  if (
-                    nextType === "siege" &&
-                    !editingActivityId &&
-                    !activityTitle.trim() &&
-                    !hasManuallyEditedActivityTitle
-                  ) {
-                    setActivityTitle(getNextSiegeTitle(activities));
-                    setIsSiegeTitleAutoSuggested(true);
+                  if (!hasManuallyEditedActivityTitle) {
+                    const nextTitle = nextType === "siege"
+                      ? getNextSiegeTitle(activities)
+                      : nextType === "airship"
+                        ? getAirshipAutoTitle(activityAirshipType)
+                        : "";
+                    setActivityTitle(nextTitle);
+                    setIsSiegeTitleAutoSuggested(nextType === "siege");
                   }
 
                   if (nextType !== "airship") {
@@ -2875,6 +2896,7 @@ export default function Home() {
               onChange={(event) => setLeaveDate(event.target.value)}
               required
               type="date"
+              onClick={openNativePicker}
               value={leaveDate}
             />
           </label>

@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS monthly_highlights (
   month TEXT NOT NULL,
   category TEXT NOT NULL,
   title TEXT NOT NULL,
+  startDate TEXT,
+  endDate TEXT,
   dateText TEXT,
   description TEXT,
   imageUrl TEXT,
@@ -73,3 +75,4 @@ CREATE INDEX IF NOT EXISTS idx_activity_participants_memberId ON activity_partic
 CREATE INDEX IF NOT EXISTS idx_activity_conquest_types_activityId ON activity_conquest_types(activityId);
 CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month ON monthly_highlights(month);
 CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month_createdAt ON monthly_highlights(month, createdAt);
+CREATE INDEX IF NOT EXISTS idx_monthly_highlights_start_end ON monthly_highlights(startDate, endDate);

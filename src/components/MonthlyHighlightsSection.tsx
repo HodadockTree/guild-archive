@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { MonthlyHighlight } from "@/src/types";
+import { getMonthlyHighlightDateText } from "@/src/lib/monthlyHighlights";
 import {
   monthlyHighlightCategoryBadgeClasses,
   monthlyHighlightCategoryLabels,
@@ -13,6 +14,8 @@ type PublicMonthlyHighlight = Pick<
   | "id"
   | "category"
   | "title"
+  | "startDate"
+  | "endDate"
   | "dateText"
   | "description"
 >;
@@ -54,9 +57,9 @@ export function MonthlyHighlightsSection({
                 >
                   {monthlyHighlightCategoryLabels[highlight.category]}
                 </span>
-                {highlight.dateText ? (
+                {getMonthlyHighlightDateText(highlight) ? (
                   <span className="ui-caption">
-                    {highlight.dateText}
+                    {getMonthlyHighlightDateText(highlight)}
                   </span>
                 ) : null}
               </div>

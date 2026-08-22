@@ -31,7 +31,7 @@ export type MonthlyHighlightInput = Pick<
   MonthlyHighlight,
   "month" | "category" | "title"
 > &
-  Partial<Pick<MonthlyHighlight, "dateText" | "description">>;
+  Partial<Pick<MonthlyHighlight, "startDate" | "endDate" | "dateText" | "description">>;
 
 export type PublicMonthlyHighlight = Pick<
   MonthlyHighlight,
@@ -39,6 +39,8 @@ export type PublicMonthlyHighlight = Pick<
   | "month"
   | "category"
   | "title"
+  | "startDate"
+  | "endDate"
   | "dateText"
   | "description"
 >;
@@ -51,6 +53,8 @@ export function toPublicMonthlyHighlight(
     month: highlight.month,
     category: highlight.category,
     title: highlight.title,
+    startDate: highlight.startDate,
+    endDate: highlight.endDate,
     dateText: highlight.dateText,
     description: highlight.description,
   };
@@ -66,6 +70,8 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
   const category =
     typeof record.category === "string" ? record.category.trim() : "";
   const title = typeof record.title === "string" ? record.title.trim() : "";
+  const startDate = typeof record.startDate === "string" ? record.startDate.trim() : "";
+  const endDate = typeof record.endDate === "string" ? record.endDate.trim() : "";
   const dateText =
     typeof record.dateText === "string" ? record.dateText.trim() : "";
   const description =
@@ -73,6 +79,18 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
 
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
     throw new Error("대상 월을 YYYY-MM 형식으로 입력해 주세요.");
+  }
+
+  if (startDate && !/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(startDate)) {
+    throw new Error("시작일을 YYYY-MM-DD 형식으로 입력해 주세요.");
+  }
+
+  if (endDate && !startDate) {
+    throw new Error("종료일을 입력하려면 시작일이 필요합니다.");
+  }
+
+  if (endDate && endDate < startDate) {
+    throw new Error("종료일은 시작일과 같거나 이후여야 합니다.");
   }
 
   if (
@@ -99,6 +117,8 @@ export function validateMonthlyHighlightInput(data: unknown): MonthlyHighlightIn
     month,
     category: category as MonthlyHighlightCategory,
     title,
+    startDate: startDate || undefined,
+    endDate: endDate && endDate !== startDate ? endDate : undefined,
     dateText: dateText || undefined,
     description: description || undefined,
   };
@@ -115,8 +135,8 @@ export function sortMonthlyHighlights(highlights: MonthlyHighlight[]) {
   return [...highlights].sort((first, second) => {
     const categoryOrder =
       categoryPriority[first.category] - categoryPriority[second.category];
-    const firstDate = first.dateText?.trim() || "9999";
-    const secondDate = second.dateText?.trim() || "9999";
+    const firstDate = first.startDate || first.dateText?.trim() || "9999";
+    const secondDate = second.startDate || second.dateText?.trim() || "9999";
     const dateOrder = firstDate.localeCompare(secondDate, "ko");
 
     return (
@@ -125,4 +145,24 @@ export function sortMonthlyHighlights(highlights: MonthlyHighlight[]) {
       first.createdAt.localeCompare(second.createdAt)
     );
   });
+}
+
+export function getMonthlyHighlightDateText(highlight: Pick<MonthlyHighlight, "startDate" | "endDate" | "dateText">) {
+  if (!highlight.startDate) return highlight.dateText?.trim() || "";
+  const start = highlight.startDate.slice(5).replace("-", "/");
+  const end = highlight.endDate?.slice(5).replace("-", "/");
+  return end ? `${start}~${end}` : start;
+}
+
+export function getMonthlyHighlightMonths(highlight: Pick<MonthlyHighlight, "month" | "startDate" | "endDate">) {
+  if (!highlight.startDate) return [highlight.month];
+  const endMonth = (highlight.endDate ?? highlight.startDate).slice(0, 7);
+  const months: string[] = [];
+  let [year, month] = highlight.startDate.slice(0, 7).split("-").map(Number);
+  while (`${year}-${String(month).padStart(2, "0")}` <= endMonth) {
+    months.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month === 13) { year += 1; month = 1; }
+  }
+  return months;
 }

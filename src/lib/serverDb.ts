@@ -14,6 +14,7 @@ import {
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
 import type { MonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
 import {
+  getMonthlyHighlightMonths,
   sortMonthlyHighlights,
   toPublicMonthlyHighlight,
 } from "@/src/lib/monthlyHighlights";
@@ -58,6 +59,8 @@ type MonthlyHighlightRow = {
   month: string;
   category: MonthlyHighlightCategory;
   title: string;
+  startDate: string | null;
+  endDate: string | null;
   dateText: string | null;
   description: string | null;
   createdAt: string;
@@ -327,6 +330,8 @@ function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
     month: row.month,
     category: row.category,
     title: row.title,
+    startDate: row.startDate ?? undefined,
+    endDate: row.endDate ?? undefined,
     dateText: row.dateText ?? undefined,
     description: row.description ?? undefined,
     createdAt: row.createdAt,
@@ -339,13 +344,14 @@ export async function getServerMonthlyHighlights(month?: string) {
   const statement = month
     ? db
         .prepare(
-          `SELECT id, month, category, title, dateText, description, createdAt, updatedAt
+          `SELECT id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
            FROM monthly_highlights
-           WHERE month = ?`,
+           WHERE (startDate IS NULL AND month = ?)
+              OR (startDate <= ? AND COALESCE(endDate, startDate) >= ?)`,
         )
-        .bind(month)
+        .bind(month, `${month}-31`, `${month}-01`)
     : db.prepare(
-        `SELECT id, month, category, title, dateText, description, createdAt, updatedAt
+        `SELECT id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
          FROM monthly_highlights`,
       );
   const { results } = await statement.all<MonthlyHighlightRow>();
@@ -367,14 +373,16 @@ export async function createServerMonthlyHighlight(
   await db
     .prepare(
       `INSERT INTO monthly_highlights (
-        id, month, category, title, dateText, description, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, month, category, title, startDate, endDate, dateText, description, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       highlight.id,
       highlight.month,
       highlight.category,
       highlight.title,
+      highlight.startDate ?? null,
+      highlight.endDate ?? null,
       highlight.dateText ?? null,
       highlight.description ?? null,
       highlight.createdAt,
@@ -394,7 +402,7 @@ export async function updateServerMonthlyHighlight(
   const result = await db
     .prepare(
       `UPDATE monthly_highlights
-       SET month = ?, category = ?, title = ?, dateText = ?, description = ?,
+       SET month = ?, category = ?, title = ?, startDate = ?, endDate = ?, dateText = ?, description = ?,
            updatedAt = ?
        WHERE id = ?`,
     )
@@ -402,6 +410,8 @@ export async function updateServerMonthlyHighlight(
       input.month,
       input.category,
       input.title,
+      input.startDate ?? null,
+      input.endDate ?? null,
       input.dateText ?? null,
       input.description ?? null,
       updatedAt,
@@ -444,14 +454,15 @@ export async function getServerArchiveMonths() {
   const highlightsByMonth = new Map<string, MonthlyHighlight[]>();
 
   highlights.forEach((highlight) => {
-    highlightsByMonth.set(highlight.month, [
-      ...(highlightsByMonth.get(highlight.month) ?? []),
-      highlight,
-    ]);
+    getMonthlyHighlightMonths(highlight).forEach((highlightMonth) => {
+      highlightsByMonth.set(highlightMonth, [
+        ...(highlightsByMonth.get(highlightMonth) ?? []),
+        highlight,
+      ]);
 
-    if (!summariesByMonth.has(highlight.month)) {
-      summariesByMonth.set(highlight.month, {
-        month: highlight.month,
+      if (!summariesByMonth.has(highlightMonth)) {
+        summariesByMonth.set(highlightMonth, {
+        month: highlightMonth,
         activityCount: 0,
         eventCount: 0,
         participantMemberCount: 0,
@@ -459,8 +470,9 @@ export async function getServerArchiveMonths() {
         auroraAverageParticipantCount: 0,
         oceanAverageParticipantCount: 0,
         representativeEvents: [],
-      });
-    }
+        });
+      }
+    });
   });
 
   return Array.from(summariesByMonth.values())

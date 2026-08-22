@@ -23,6 +23,8 @@ export interface MonthlyHighlight {
   month: string;
   category: MonthlyHighlightCategory;
   title: string;
+  startDate?: string;
+  endDate?: string;
   dateText?: string;
   description?: string;
   /** Legacy backup/DB compatibility only. The application no longer uses images. */
