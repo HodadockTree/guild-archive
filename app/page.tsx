@@ -675,30 +675,30 @@ export default function DashboardPage() {
               </dl>
           </section>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+          <div className="min-w-0 grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
-            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+            <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 자주 함께한 길드원</h2>
               <p className="mt-1 text-sm text-slate-500">길마를 제외한 활동별 참여 기록입니다.</p>
               <div className="mt-4 space-y-4">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (
-                    <div className="rounded-md bg-sky-50 px-4 py-3" key={type}>
-                      <h3 className="text-sm font-semibold text-slate-700">
+                    <div className="overflow-hidden rounded-md border border-sky-100 bg-white" key={type}>
+                      <h3 className="bg-sky-100/80 px-4 py-3 text-sm font-semibold text-slate-800">
                         {type === "airship" ? "비공정" : "점령전"}
                       </h3>
                       {participants.length > 0 ? (
-                        <ol className="mt-2 space-y-2">
+                        <ol className="space-y-2 bg-slate-50/70 px-4 py-3">
                           {participants.map((participant) => (
                             <li className="flex items-center justify-between gap-3 text-sm" key={participant.id}>
                               <span className="min-w-0 truncate text-slate-700">{participant.nickname}</span>
-                              <strong className="shrink-0 text-[var(--brand-strong)]">{participant.count}회</strong>
+                              <strong className="shrink-0 rounded-md bg-sky-100 px-2 py-0.5 text-[var(--brand-strong)]">{participant.count}회</strong>
                             </li>
                           ))}
                         </ol>
                       ) : (
-                        <p className="mt-2 text-sm text-slate-500">기록 없음</p>
+                        <p className="bg-slate-50/70 px-4 py-3 text-sm text-slate-500">기록 없음</p>
                       )}
                     </div>
                   );

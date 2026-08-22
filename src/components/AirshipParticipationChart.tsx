@@ -27,7 +27,7 @@ export function AirshipParticipationChart({
     .join(" ");
 
   return (
-    <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+    <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <h2 className="text-lg font-semibold text-slate-900">이번 달 비공정 참여 인원</h2>
       <p className="mt-1 text-sm text-slate-500">
         아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다.
@@ -41,14 +41,15 @@ export function AirshipParticipationChart({
           이번 달 비공정 기록이 없습니다.
         </p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <svg
-            aria-label="이번 달 비공정 회차별 참여 인원 변화"
-            className="h-auto min-w-[40rem]"
-            role="img"
-            style={{ width: chartWidth }}
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          >
+        <div className="mt-3 min-w-0 rounded-md border border-sky-100 bg-sky-50/60 p-3">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain">
+            <svg
+              aria-label="이번 달 비공정 회차별 참여 인원 변화"
+              className="h-auto min-w-[40rem]"
+              role="img"
+              style={{ width: chartWidth }}
+              viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            >
             {[0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = plotBottom - (plotBottom - plotTop) * ratio;
               return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
@@ -68,7 +69,8 @@ export function AirshipParticipationChart({
                 </g>
               );
             })}
-          </svg>
+            </svg>
+          </div>
         </div>
       )}
     </section>
