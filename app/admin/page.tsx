@@ -736,6 +736,23 @@ export default function Home() {
     setEditingActivityId(null);
   };
 
+  const returnToActivityCard = (activityId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`admin-activity-${activityId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    });
+  };
+
+  const handleCancelActivityEdit = () => {
+    const activityId = editingActivityId;
+    resetActivityForm();
+    if (activityId) returnToActivityCard(activityId);
+  };
+
   const resetMemberForm = () => {
     setEditingMemberId(null);
     setMemberEditNickname("");
@@ -1222,7 +1239,8 @@ export default function Home() {
       memo: activityMemo.trim() || undefined,
     };
 
-    const wasEditingActivity = Boolean(editingActivityId);
+    const editedActivityId = editingActivityId;
+    const wasEditingActivity = Boolean(editedActivityId);
 
     try {
       if (editingActivityId) {
@@ -1244,6 +1262,7 @@ export default function Home() {
         : "활동 기록을 추가했습니다.",
     );
     notifyActivitiesChanged();
+    if (editedActivityId) returnToActivityCard(editedActivityId);
   };
 
   const handleEditActivity = (activity: ActivityLog) => {
@@ -2322,7 +2341,7 @@ export default function Home() {
             <button
               className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
               type="button"
-              onClick={resetActivityForm}
+              onClick={handleCancelActivityEdit}
             >
               수정 취소
             </button>
@@ -2338,8 +2357,8 @@ export default function Home() {
           onSubmit={handleSubmitActivity}
         >
           {isEditingActivity ? (
-            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-              {editingActivity?.title || "선택한 활동 기록"}을 수정 중입니다.
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800">
+              {editingActivity?.title || "선택한 활동 기록"} 수정 중 · 저장하거나 취소하면 원래 카드로 돌아갑니다.
             </p>
           ) : null}
           <div className="grid gap-4 rounded-md border border-neutral-200 bg-white p-4 md:grid-cols-2">
@@ -2624,17 +2643,28 @@ export default function Home() {
             />
           </label>
 
-          <button
-            className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
-            type="submit"
-          >
-            {isEditingActivity ? "활동 기록 수정" : "활동 기록 저장"}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
+              type="submit"
+            >
+              {isEditingActivity ? "변경 사항 저장" : "활동 기록 저장"}
+            </button>
+            {isEditingActivity ? (
+              <button
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 sm:w-auto"
+                onClick={handleCancelActivityEdit}
+                type="button"
+              >
+                취소하고 카드로 돌아가기
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
       <section className="space-y-3" data-admin-panel="activity">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">
               전체 활동 기록
@@ -2644,8 +2674,8 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[10rem_minmax(16rem,1fr)_9rem_10rem_auto] lg:items-end">
-            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[10rem_minmax(16rem,1fr)_9rem_10rem_auto] xl:items-end">
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:col-span-2 lg:col-span-1">
               <span className="h-5">월 선택</span>
               <select
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
@@ -2663,7 +2693,7 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:col-span-2 lg:col-span-3 xl:col-span-1">
               <span className="h-5">제목·날짜 검색</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
@@ -2715,7 +2745,7 @@ export default function Home() {
             {hasActiveActivityFilters ? (
               <button
                 aria-label="활동 기록 필터 초기화"
-                className="ui-focus-ring min-h-11 justify-self-end rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] md:col-span-2 lg:col-span-1"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] sm:col-span-2 lg:col-span-2 lg:w-auto lg:justify-self-end xl:col-span-1"
                 onClick={() => {
                   setActivityMonthFilter("all");
                   setActivitySearch("");
@@ -2750,6 +2780,7 @@ export default function Home() {
               return (
                 <li
                   className="flex flex-col rounded-md border border-neutral-200 bg-white px-4 py-3 shadow-sm"
+                  id={`admin-activity-${activity.id}`}
                   key={activity.id}
                 >
                   <div>
