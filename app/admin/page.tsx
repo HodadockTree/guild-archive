@@ -410,6 +410,9 @@ export default function Home() {
   const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
+  const [isAdvancedDataToolsOpen, setIsAdvancedDataToolsOpen] =
+    useState(false);
+  const [isDangerDataToolsOpen, setIsDangerDataToolsOpen] = useState(false);
   const [activeAdminSection, setActiveAdminSection] =
     useState<AdminSection>("activity");
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
@@ -854,7 +857,7 @@ export default function Home() {
 
     const scopeLabel = memberMemoClearScopeLabels[memberMemoClearScope];
     const shouldClear = window.confirm(
-      `${scopeLabel} 메모를 모두 삭제하시겠습니까?`,
+      `${scopeLabel} 메모를 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
     );
 
     if (!shouldClear) {
@@ -1533,31 +1536,28 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="space-y-3" data-admin-panel="data">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
-            데이터 관리 도구
-          </h2>
-          <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            type="button"
-            onClick={() => setIsDataToolsOpen((value) => !value)}
-          >
-            {isDataToolsOpen ? "접기" : "펼치기"}
-          </button>
+      <section className="space-y-4" data-admin-panel="data">
+        <div>
+          <h2 className="ui-section-title">데이터 관리</h2>
+          <p className="ui-supporting-text">
+            길드 데이터를 백업하거나 복원하고, 필요한 경우 유지보수 도구를 사용할 수 있습니다.
+          </p>
         </div>
 
         {isDataToolsOpen ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3 rounded-md border border-amber-200 bg-white p-4">
-              <h3 className="text-base font-semibold text-neutral-900">
+            <div className={`${isDangerDataToolsOpen ? "" : "hidden"} order-5 space-y-3 rounded-md border border-red-200 bg-white p-4 md:col-span-2`} id="danger-data-tools">
+              <h3 className="ui-card-title text-[var(--danger)]">
                 메모 일괄 삭제
               </h3>
+              <p className="ui-supporting-text">
+                선택한 범위의 메모가 일괄 삭제됩니다. 삭제 후 되돌릴 수 없습니다.
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                   <span>메모 삭제 범위</span>
                   <select
-                    className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none transition focus:border-neutral-900"
+                    className="ui-form-control sm:w-auto"
                     value={memberMemoClearScope}
                     onChange={(event) => {
                       setMemberMemoClearScope(
@@ -1572,7 +1572,7 @@ export default function Home() {
                   </select>
                 </label>
                 <button
-                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
+                  className="ui-button-danger"
                   type="button"
                   onClick={handleClearMemberMemos}
                 >
@@ -1588,13 +1588,16 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-              <h3 className="text-base font-semibold text-neutral-900">
+            <div className={`${isAdvancedDataToolsOpen ? "" : "hidden"} order-3 space-y-3 rounded-md border border-neutral-200 bg-white p-4 md:col-span-2`} id="advanced-data-tools">
+              <h3 className="ui-card-title">
                 탈퇴 길드원 복구
               </h3>
+              <p className="ui-supporting-text">
+                탈퇴 상태인 길드원을 기존 활동 기록 연결을 유지한 채 활동중으로 복구합니다.
+              </p>
               {leftMembers.length > 0 ? (
                 <button
-                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                  className="ui-button-secondary"
                   type="button"
                   onClick={handleRestoreLeftMembers}
                 >
@@ -1616,9 +1619,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+            <div className="order-1 space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                백업 / 복원
+                  백업 및 복원
               </p>
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
@@ -1629,7 +1632,7 @@ export default function Home() {
                 </p>
               </div>
               <button
-                className="rounded-md border border-[var(--brand-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)]"
+                className="ui-button-secondary w-full sm:w-auto"
                 type="button"
                 onClick={handleExportBackup}
               >
@@ -1642,7 +1645,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+            <div className="order-1 space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
                   JSON 백업 가져오기
@@ -1654,7 +1657,7 @@ export default function Home() {
               </div>
               <input
                 ref={backupFileInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                className="block w-full min-w-0 rounded-md border border-[var(--border)] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
                 type="file"
                 accept="application/json,.json"
                 onChange={handleBackupFileChange}
@@ -1758,7 +1761,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-2 rounded-md border border-red-200 bg-white p-4 md:col-span-2">
+            <div className="order-1 space-y-2 rounded-md border border-[var(--border)] bg-white p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 주의사항
               </p>
@@ -1771,6 +1774,28 @@ export default function Home() {
                 <li>복원 시 현재 데이터가 백업 파일 내용으로 덮어써집니다.</li>
               </ul>
             </div>
+
+            <button
+              aria-controls="advanced-data-tools"
+              aria-expanded={isAdvancedDataToolsOpen}
+              className="ui-focus-ring order-2 flex min-h-11 w-full items-center justify-between rounded-md border border-[var(--border)] bg-white px-4 text-left text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)] md:col-span-2"
+              onClick={() => setIsAdvancedDataToolsOpen((value) => !value)}
+              type="button"
+            >
+              <span>고급 관리 도구</span>
+              <span aria-hidden>{isAdvancedDataToolsOpen ? "▾" : "▸"}</span>
+            </button>
+
+            <button
+              aria-controls="danger-data-tools"
+              aria-expanded={isDangerDataToolsOpen}
+              className="ui-focus-ring order-4 flex min-h-11 w-full items-center justify-between rounded-md border border-red-200 bg-white px-4 text-left text-sm font-semibold text-[var(--danger)] hover:bg-red-50 md:col-span-2"
+              onClick={() => setIsDangerDataToolsOpen((value) => !value)}
+              type="button"
+            >
+              <span>위험 작업</span>
+              <span aria-hidden>{isDangerDataToolsOpen ? "▾" : "▸"}</span>
+            </button>
           </div>
         ) : null}
       </section>
