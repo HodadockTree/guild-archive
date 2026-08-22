@@ -37,7 +37,7 @@ export function AirshipParticipationChart({
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-cyan-500" />오션헤븐</span>
       </div>
       {trends.length === 0 ? (
-        <p className="mt-4 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
+        <p className="ui-empty-state mt-4">
           이번 달 비공정 기록이 없습니다.
         </p>
       ) : (

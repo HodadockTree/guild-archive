@@ -23,7 +23,7 @@ export function MonthlyAirshipAverageChart({ trends }: { trends: MonthlyTrend[] 
       <h2 className="text-lg font-semibold text-slate-900">월별 비공정 평균 참여 인원</h2>
       <p className="mt-1 text-sm text-slate-500">비공정별 월간 평균 참여 인원을 각각 살펴봅니다.</p>
       {trends.length === 0 ? (
-        <p className="mt-4 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">표시할 비공정 기록이 없습니다.</p>
+        <p className="ui-empty-state mt-4">표시할 비공정 기록이 없습니다.</p>
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <AirshipAverageSeriesChart color="#a78bfa" keyName="auroraAverageParticipantCount" label="아우로라" trends={trends} />
@@ -356,7 +356,7 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
       </div>
 
       {trends.length === 0 ? (
-        <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">최근 활동 기록이 아직 없습니다.</p>
+        <p className="ui-empty-state mt-5">최근 활동 기록이 아직 없습니다.</p>
       ) : (
         <div className="mt-3 min-w-0 overflow-hidden">
           <svg

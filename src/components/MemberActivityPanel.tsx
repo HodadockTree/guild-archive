@@ -155,7 +155,7 @@ export function MemberActivityPanel({
       <section>
         <h3 className="text-sm font-semibold text-slate-900">활동 내역</h3>
         {detail.activities.length === 0 ? (
-          <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">참여한 활동 기록이 없습니다.</p>
+          <p className="ui-empty-state mt-3">참여한 활동 기록이 없습니다.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {visibleActivities.map((activity) => {

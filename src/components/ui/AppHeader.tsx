@@ -27,7 +27,7 @@ export function AppHeader({
           <p className="text-sm font-medium text-[var(--text-secondary)]">
             {eyebrow}
           </p>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">
+          <h1 className="ui-page-title">
             {title}
           </h1>
           {description ? (

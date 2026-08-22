@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-type ButtonLinkVariant = "primary" | "secondary";
+type ButtonLinkVariant = "primary" | "secondary" | "quiet";
 
 type ButtonLinkProps = Omit<ComponentProps<typeof Link>, "className"> & {
   children: ReactNode;
@@ -11,9 +11,11 @@ type ButtonLinkProps = Omit<ComponentProps<typeof Link>, "className"> & {
 
 const variantClasses: Record<ButtonLinkVariant, string> = {
   primary:
-    "border-transparent bg-[var(--brand)] font-semibold text-[var(--text-primary)] hover:bg-sky-300",
+    "border-transparent bg-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)] hover:brightness-95",
   secondary:
-    "border-[var(--border)] bg-white font-medium text-[var(--text-primary)] hover:border-sky-300 hover:bg-[var(--surface-muted)]",
+    "border-[var(--color-border-default)] bg-[var(--color-bg-surface)] font-medium text-[var(--color-text-primary)] hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]",
+  quiet:
+    "border-transparent bg-transparent font-medium text-[var(--color-text-accent)] hover:bg-[var(--color-bg-muted)]",
 };
 
 export function ButtonLink({
