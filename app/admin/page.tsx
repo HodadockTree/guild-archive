@@ -344,6 +344,19 @@ function findMemberByNickname(
   );
 }
 
+function getMatchingPreviousNickname(member: GuildMember, keyword: string) {
+  const trimmedKeyword = keyword.trim();
+  if (!trimmedKeyword) return undefined;
+  return member.previousNicknames?.find((nickname) =>
+    matchesMemberKeyword(nickname, trimmedKeyword),
+  );
+}
+
+function matchesMemberSearch(member: GuildMember, keyword: string) {
+  return matchesMemberKeyword(member.nickname, keyword) ||
+    Boolean(getMatchingPreviousNickname(member, keyword));
+}
+
 function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
   return activities.some((activity) => activity.participantIds.includes(memberId));
 }
@@ -507,12 +520,12 @@ export default function Home() {
   const leftMembers = members.filter((member) => member.status === "left");
   const filteredActiveMembers = activeMemberSearch.trim()
     ? activeMembers.filter((member) =>
-        matchesMemberKeyword(member.nickname, activeMemberSearch.trim()),
+        matchesMemberSearch(member, activeMemberSearch.trim()),
       )
     : activeMembers;
   const filteredLeftMembers = leftMemberSearch.trim()
     ? leftMembers.filter((member) =>
-        matchesMemberKeyword(member.nickname, leftMemberSearch.trim()),
+        matchesMemberSearch(member, leftMemberSearch.trim()),
       )
     : leftMembers;
   const activeMemberTotalPages = Math.max(
@@ -2111,6 +2124,11 @@ export default function Home() {
                         >
                           {member.nickname}
                         </button>
+                        {getMatchingPreviousNickname(member, activeMemberSearch) ? (
+                          <p className="truncate text-xs font-medium text-sky-700">
+                            이전 닉네임: {getMatchingPreviousNickname(member, activeMemberSearch)}
+                          </p>
+                        ) : null}
                         {member.joinedAt ? (
                           <p className="whitespace-nowrap text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
@@ -2222,6 +2240,11 @@ export default function Home() {
                             &#53448;&#53748;
                           </span>
                         </div>
+                        {getMatchingPreviousNickname(member, leftMemberSearch) ? (
+                          <p className="text-xs font-medium text-sky-700">
+                            이전 닉네임: {getMatchingPreviousNickname(member, leftMemberSearch)}
+                          </p>
+                        ) : null}
                         {member.joinedAt ? (
                           <p className="text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
