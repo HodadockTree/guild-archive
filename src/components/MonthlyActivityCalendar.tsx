@@ -11,6 +11,7 @@ type CalendarActivity = {
 };
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+const maxVisibleActivitiesPerDay = 3;
 
 function getCalendarActivityLabel(activity: MonthlyActivity) {
   const statsType = getActivityStatsType(activity.type);
@@ -84,8 +85,8 @@ export function MonthlyActivityCalendar({
     <Surface variant="section">
       <h2 className="ui-section-title">활동 달력</h2>
       <p className="ui-supporting-text mt-1">날짜별 활동을 선택하면 참여 기록을 자세히 볼 수 있습니다.</p>
-      <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[44rem]">
+      <div className="mt-4 min-w-0 overflow-hidden">
+        <div className="w-full min-w-0">
           <div className="grid grid-cols-7 border-b border-[var(--color-border-subtle)] text-center text-xs font-semibold text-[var(--color-text-muted)]">
             {weekdayLabels.map((label, index) => (
               <div className={`py-2 ${index === 0 ? "text-rose-500" : index === 6 ? "text-sky-600" : ""}`} key={label}>{label}</div>
@@ -94,38 +95,45 @@ export function MonthlyActivityCalendar({
           <div className="grid grid-cols-7 overflow-hidden rounded-b-md border-l border-[var(--color-border-subtle)]">
             {cells.map((day, index) => {
               const dayActivities = day ? activitiesByDay.get(day) ?? [] : [];
+              const visibleActivities = dayActivities.slice(0, maxVisibleActivitiesPerDay);
+              const hiddenActivityCount = dayActivities.length - visibleActivities.length;
               return (
                 <div
-                  className={`min-h-28 border-b border-r border-[var(--color-border-subtle)] p-2 ${day ? "bg-[var(--color-bg-surface)]" : "bg-[var(--color-bg-interactive)]"}`}
+                  className={`min-h-24 min-w-0 overflow-hidden border-b border-r border-[var(--color-border-subtle)] p-1 sm:min-h-28 sm:p-2 ${day ? "bg-[var(--color-bg-surface)]" : "bg-[var(--color-bg-interactive)]"}`}
                   key={`${day ?? "empty"}-${index}`}
                 >
                   {day ? (
                     <>
                       <span className={`text-xs font-semibold ${index % 7 === 0 ? "text-rose-500" : index % 7 === 6 ? "text-sky-600" : "text-[var(--color-text-secondary)]"}`}>{day}</span>
                       <ul className="mt-1.5 space-y-1">
-                        {dayActivities.map(({ activity, isRangeStart, isRangeEnd }) => {
+                        {visibleActivities.map(({ activity, isRangeStart, isRangeEnd }) => {
                           const connectsLeft = !isRangeStart && index % 7 !== 0;
                           const connectsRight = !isRangeEnd && index % 7 !== 6;
-                          const showsLabel = !connectsLeft;
+                          const showsLabel = isRangeStart;
 
                           return (
-                            <li className={`${connectsLeft ? "-ml-2" : ""} ${connectsRight ? "-mr-2" : ""} ${showsLabel ? "relative z-10" : ""}`} key={activity.id}>
+                            <li className={`min-w-0 ${connectsLeft ? "-ml-1 sm:-ml-2" : ""} ${connectsRight ? "-mr-1 sm:-mr-2" : ""} ${showsLabel ? "relative z-10" : ""}`} key={activity.id}>
                               <button
                                 aria-label={`${getCalendarActivityLabel(activity)} · ${activity.participantIds.length}명`}
-                                className={`ui-focus-ring relative flex min-h-6 w-full items-center px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none" : "rounded-l"} ${connectsRight ? "rounded-r-none" : "rounded-r"}`}
+                                className={`ui-focus-ring flex min-h-6 w-full min-w-0 items-center overflow-hidden px-1 py-1 text-left text-[10px] transition sm:px-1.5 sm:text-[11px] ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none" : "rounded-l"} ${connectsRight ? "rounded-r-none" : "rounded-r"}`}
                                 onClick={() => onSelectActivity(activity)}
                                 type="button"
                               >
                                 {showsLabel ? (
-                                  <span className="pointer-events-none absolute left-1.5 z-20 flex items-center gap-1.5 whitespace-nowrap font-medium">
-                                    {getCalendarActivityLabel(activity)}
-                                    <span className="text-[10px] font-normal opacity-70">{activity.participantIds.length}명</span>
+                                  <span className="pointer-events-none flex min-w-0 w-full items-center gap-1 overflow-hidden font-medium">
+                                    <span className="min-w-0 truncate">{getCalendarActivityLabel(activity)}</span>
+                                    <span className="hidden shrink-0 text-[10px] font-normal opacity-70 sm:inline">{activity.participantIds.length}명</span>
                                   </span>
                                 ) : null}
                               </button>
                             </li>
                           );
                         })}
+                        {hiddenActivityCount > 0 ? (
+                          <li className="px-1 text-[10px] font-semibold text-[var(--color-text-muted)] sm:text-[11px]">
+                            +{hiddenActivityCount}
+                          </li>
+                        ) : null}
                       </ul>
                     </>
                   ) : null}
