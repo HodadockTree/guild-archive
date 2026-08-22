@@ -456,6 +456,8 @@ export async function getServerArchiveMonths() {
         eventCount: 0,
         participantMemberCount: 0,
         totalParticipationCount: 0,
+        auroraAverageParticipantCount: 0,
+        oceanAverageParticipantCount: 0,
         representativeEvents: [],
       });
     }

@@ -5,7 +5,10 @@ import { useEffect, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { GuildFlowChart } from "@/src/components/MonthlyTrendChart";
+import {
+  GuildFlowChart,
+  MonthlyAirshipAverageChart,
+} from "@/src/components/MonthlyTrendChart";
 import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
 import type { MonthlyHighlightCategory } from "@/src/types";
 
@@ -111,7 +114,10 @@ export default function ArchivePage() {
       ) : null}
 
       {archiveState.status === "success" ? (
-        <GuildFlowChart trends={monthlyTrends} />
+        <>
+          <GuildFlowChart trends={monthlyTrends} />
+          <MonthlyAirshipAverageChart trends={monthlyTrends} />
+        </>
       ) : null}
 
       {archiveState.status === "success" && monthlySummaries.length === 0 ? (

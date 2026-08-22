@@ -340,6 +340,14 @@ function ActivityCard({
   onSelect: (activity: ActivityDetail) => void;
   showTitle?: boolean;
 }) {
+  const isSiege = activity.statsType === "siege";
+  const siegeRound = activity.title.match(/^(\d+회차)(?:\s|$)/)?.[1];
+  const siegeTypes = activity.label
+    .match(/^점령전 \((.+)\)$/)?.[1]
+    ?.split(",")
+    .map((label) => label.trim())
+    .join(" · ");
+
   return (
     <li>
       <button
@@ -355,13 +363,23 @@ function ActivityCard({
                 ? formatDateRange(activity.date, activity.endDate)
                 : getDisplayDate(activity.date)}
             </span>
+            {isSiege && siegeRound ? (
+              <>
+                <span aria-hidden="true" className="text-xs text-slate-300">·</span>
+                <strong className="text-xs text-slate-700">{siegeRound}</strong>
+              </>
+            ) : null}
           </div>
           <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {activity.participantCount}명
           </span>
         </div>
 
-        {showTitle ? (
+        {isSiege ? (
+          <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
+            {siegeTypes || "점령전 종류 미기록"}
+          </h3>
+        ) : showTitle ? (
           <h3 className="mt-3 text-base font-semibold leading-6 text-slate-900">
             {activity.title}
           </h3>
@@ -489,13 +507,30 @@ export default function DashboardPage() {
         return participantOrder || b.date.localeCompare(a.date) || b.id.localeCompare(a.id);
       })[0] ?? null
     : null;
-  const visibleRecentActivities =
-    dashboard?.allActivities
-      .filter((activity) => {
-        if (recentActivityFilter === "all") return true;
-        return activity.statsType === recentActivityFilter;
-      })
-      .slice(0, recentActivityFilter === "airship" ? 12 : 6) ?? [];
+  const filteredRecentActivities =
+    dashboard?.allActivities.filter((activity) =>
+      recentActivityFilter === "all"
+        ? true
+        : activity.statsType === recentActivityFilter,
+    ) ?? [];
+  const visibleRecentActivities = (() => {
+    if (recentActivityFilter !== "airship") {
+      return filteredRecentActivities.slice(0, 6);
+    }
+
+    const auroraActivities = filteredRecentActivities.filter(
+      (activity) => activity.label === "아우로라",
+    );
+    const oceanActivities = filteredRecentActivities.filter(
+      (activity) => activity.label === "오션헤븐",
+    );
+    const trackCount = Math.min(6, auroraActivities.length, oceanActivities.length);
+
+    return [
+      ...auroraActivities.slice(0, trackCount),
+      ...oceanActivities.slice(0, trackCount),
+    ];
+  })();
 
   return (
     <main className="app-shell">
@@ -647,14 +682,14 @@ export default function DashboardPage() {
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
             <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 자주 함께한 길드원</h2>
-              <p className="mt-1 text-sm text-slate-500">바나몽·반아몽을 제외한 활동별 참여 기록입니다.</p>
+              <p className="mt-1 text-sm text-slate-500">길마를 제외한 활동별 참여 기록입니다.</p>
               <div className="mt-4 space-y-4">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (
                     <div className="rounded-md bg-sky-50 px-4 py-3" key={type}>
                       <h3 className="text-sm font-semibold text-slate-700">
-                        {type === "airship" ? "비공정에서 자주 함께한 길드원" : "점령전에서 자주 함께한 길드원"}
+                        {type === "airship" ? "비공정" : "점령전"}
                       </h3>
                       {participants.length > 0 ? (
                         <ol className="mt-2 space-y-2">

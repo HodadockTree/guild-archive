@@ -10,7 +10,7 @@ export function AirshipParticipationChart({
     .filter((activity) => activity.statsType === "airship")
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const chartWidth = Math.max(640, trends.length * 76);
-  const chartHeight = 210;
+  const chartHeight = 190;
   const plotLeft = 36;
   const plotRight = chartWidth - 28;
   const plotTop = 28;
@@ -30,7 +30,7 @@ export function AirshipParticipationChart({
     <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <h2 className="text-lg font-semibold text-slate-900">이번 달 비공정 참여 인원</h2>
       <p className="mt-1 text-sm text-slate-500">
-        아우로라와 오션헤븐의 회차별 참여 인원 변화를 비교합니다.
+        아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다.
       </p>
       <div aria-label="비공정 종류 범례" className="mt-3 flex gap-4 text-xs text-slate-600">
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-violet-400" />아우로라</span>
@@ -65,7 +65,6 @@ export function AirshipParticipationChart({
                   <circle cx={x} cy={y} fill={isAurora ? "#a78bfa" : "#06b6d4"} r="6" />
                   <text className="fill-slate-700 text-[11px] font-bold" textAnchor="middle" x={x} y={y - 12}>{trend.participantCount}명</text>
                   <text className="fill-slate-500 text-[10px]" textAnchor="middle" x={x} y="178">{formatMonthDay(trend.date)}</text>
-                  <text className="fill-slate-700 text-[10px] font-medium" textAnchor="middle" x={x} y="195">{isAurora ? "아우로라" : "오션헤븐"}</text>
                 </g>
               );
             })}

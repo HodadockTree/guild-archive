@@ -24,6 +24,7 @@ import {
   formatMonthDay,
 } from "@/src/lib/displayFormat";
 import { MonthlyHighlightsSection } from "@/src/components/MonthlyHighlightsSection";
+import { MonthlyActivityCalendar } from "@/src/components/MonthlyActivityCalendar";
 
 type MonthSummary = {
   month: string;
@@ -573,6 +574,14 @@ export default function ViewerPage() {
             </div>
 
           </section>
+
+          <MonthlyActivityCalendar
+            activities={monthlyReport.activities}
+            month={reportMonth}
+            onSelectActivity={(activity) =>
+              setSelectedActivity(toActivityDetail(activity))
+            }
+          />
 
           <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

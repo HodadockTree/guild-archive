@@ -1,5 +1,5 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
-import { getActivityStatsType } from "@/src/lib/activityStats";
+import { getActivityStatsType, getKnownAirshipType } from "@/src/lib/activityStats";
 import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
 
 export type MonthlyArchiveEventSummary = {
@@ -14,6 +14,8 @@ export type MonthlyArchiveSummary = {
   eventCount: number;
   participantMemberCount: number;
   totalParticipationCount: number;
+  auroraAverageParticipantCount: number;
+  oceanAverageParticipantCount: number;
   representativeEvents: MonthlyArchiveEventSummary[];
   participantMembers?: MonthlyArchiveParticipant[];
 };
@@ -74,6 +76,10 @@ export function getMonthlyArchiveSummaries(
     Omit<MonthlyArchiveSummary, "representativeEvents"> & {
       participantMemberIds: Set<string>;
       representativeEvents: MonthlyArchiveEventSummary[];
+      auroraParticipationTotal: number;
+      auroraActivityCount: number;
+      oceanParticipationTotal: number;
+      oceanActivityCount: number;
     }
   >();
 
@@ -90,8 +96,14 @@ export function getMonthlyArchiveSummaries(
       eventCount: 0,
       participantMemberCount: 0,
       totalParticipationCount: 0,
+      auroraAverageParticipantCount: 0,
+      oceanAverageParticipantCount: 0,
       participantMemberIds: new Set<string>(),
       representativeEvents: [],
+      auroraParticipationTotal: 0,
+      auroraActivityCount: 0,
+      oceanParticipationTotal: 0,
+      oceanActivityCount: 0,
     };
 
     summary.activityCount += 1;
@@ -104,6 +116,18 @@ export function getMonthlyArchiveSummaries(
     participantIds.forEach((memberId) => {
       summary.participantMemberIds.add(memberId);
     });
+
+    const airshipType = getKnownAirshipType(activity.airshipType);
+
+    if (getActivityStatsType(activity.type) === "airship" && airshipType) {
+      if (airshipType === "aurora") {
+        summary.auroraParticipationTotal += participantIds.length;
+        summary.auroraActivityCount += 1;
+      } else {
+        summary.oceanParticipationTotal += participantIds.length;
+        summary.oceanActivityCount += 1;
+      }
+    }
 
     if (getActivityStatsType(activity.type) === "other") {
       summary.eventCount += 1;
@@ -129,6 +153,16 @@ export function getMonthlyArchiveSummaries(
       eventCount: summary.eventCount,
       participantMemberCount: summary.participantMemberIds.size,
       totalParticipationCount: summary.totalParticipationCount,
+      auroraAverageParticipantCount: summary.auroraActivityCount
+        ? Number(
+            (summary.auroraParticipationTotal / summary.auroraActivityCount).toFixed(1),
+          )
+        : 0,
+      oceanAverageParticipantCount: summary.oceanActivityCount
+        ? Number(
+            (summary.oceanParticipationTotal / summary.oceanActivityCount).toFixed(1),
+          )
+        : 0,
       representativeEvents: summary.representativeEvents
         .sort((a, b) => {
           const dateOrder = b.date.localeCompare(a.date);
