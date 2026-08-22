@@ -58,7 +58,7 @@ function getMonthlyAnniversaryLabel(anniversary: AnniversaryMilestone) {
 
   return anniversary.nickname
     ? `${formatMonthDay(anniversary.date)} · ${anniversary.nickname}님 · 함께한 지 ${milestone}`
-    : `${formatMonthDay(anniversary.date)} · 냥춘 ${milestone}`;
+    : `${formatMonthDay(anniversary.date)} · 냥춘 · ${milestone}`;
 }
 
 const monthlyActivityFilterLabels: Record<MonthlyActivityFilter, string> = {
@@ -511,15 +511,20 @@ export default function ViewerPage() {
                     <h3 className="text-sm font-semibold text-[var(--color-text-secondary)]">
                       새로 함께한 길드원 · {monthlyReport.newMembers.length}명
                     </h3>
-                    <ul className="mt-2 flex flex-wrap gap-2">
+                    <ul className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
                       {monthlyReport.newMembers.map((member) => (
-                        <li key={member.id}>
+                        <li className="min-w-0" key={member.id}>
                           <Link
                             aria-label={`${member.nickname} 개인 기록 페이지 보기`}
-                            className="ui-focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-muted)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                            className="ui-focus-ring flex min-h-11 min-w-0 items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1.5 text-sm transition hover:bg-[var(--color-bg-interactive)]"
                             href={`/members/${encodeURIComponent(member.id)}`}
                           >
-                            {member.nickname}
+                            <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
+                              {formatMonthDay(member.joinedAt)}
+                            </span>
+                            <span className="min-w-0 break-words font-medium leading-5 text-[var(--color-text-primary)]">
+                              {member.nickname}
+                            </span>
                           </Link>
                         </li>
                       ))}

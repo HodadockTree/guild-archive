@@ -63,19 +63,12 @@ function getAnniversaryMilestoneLabel(anniversary: UpcomingAnniversary) {
     : `${anniversary.milestone}일`;
 }
 
-function getAnniversaryMessage(anniversary: UpcomingAnniversary) {
+function getAnniversaryRecordLabel(anniversary: UpcomingAnniversary) {
   const milestone = getAnniversaryMilestoneLabel(anniversary);
-  const date = formatMonthDay(anniversary.date);
-
-  if (anniversary.daysUntil === 0) {
-    return anniversary.nickname
-      ? `${date} · ${anniversary.nickname}님이 냥춘과 함께한 지 ${milestone}이 되었어요`
-      : `${date} · 냥춘과 함께한 지 ${milestone}이 되었어요`;
-  }
 
   return anniversary.nickname
-    ? `${date} · ${anniversary.nickname}님 가입 ${milestone} · ${anniversary.daysUntil}일 뒤`
-    : `${date} · 냥춘과 함께한 지 ${milestone} · ${anniversary.daysUntil}일 뒤`;
+    ? `${anniversary.nickname}님 · 함께한 지 ${milestone}`
+    : `냥춘 · 함께한 지 ${milestone}`;
 }
 
 function getGuildAgeDays(today: Date) {
@@ -705,17 +698,33 @@ export default function DashboardPage() {
               <h2 className="ui-section-title">다가오는 기록</h2>
               <ul className="mt-2 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-3">
                 {dashboard.upcomingAnniversaries.map((anniversary) => (
-                  <li className="py-1" key={anniversary.id}>
+                  <li key={anniversary.id}>
                     {anniversary.memberId ? (
                       <Link
-                        className="ui-focus-ring inline-flex min-h-11 max-w-full items-center rounded-md px-1 text-sm font-medium leading-5 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-accent)]"
+                        className="ui-focus-ring grid min-h-11 w-full grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-1 py-1.5 transition hover:text-[var(--color-text-accent)]"
                         href={`/members/${encodeURIComponent(anniversary.memberId)}`}
                       >
-                        {getAnniversaryMessage(anniversary)}
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {formatMonthDay(anniversary.date)}
+                        </span>
+                        <span className="min-w-0 break-words text-sm font-semibold leading-5 text-[var(--color-text-primary)]">
+                          {getAnniversaryRecordLabel(anniversary)}
+                        </span>
+                        <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">
+                          {anniversary.daysUntil === 0 ? "오늘" : `${anniversary.daysUntil}일 뒤`}
+                        </span>
                       </Link>
                     ) : (
-                      <p className="flex min-h-11 items-center px-1 text-sm font-medium leading-5 text-[var(--color-text-primary)]">
-                        {getAnniversaryMessage(anniversary)}
+                      <p className="grid min-h-11 grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-1 py-1.5">
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {formatMonthDay(anniversary.date)}
+                        </span>
+                        <span className="min-w-0 break-words text-sm font-semibold leading-5 text-[var(--color-text-primary)]">
+                          {getAnniversaryRecordLabel(anniversary)}
+                        </span>
+                        <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">
+                          {anniversary.daysUntil === 0 ? "오늘" : `${anniversary.daysUntil}일 뒤`}
+                        </span>
                       </p>
                     )}
                   </li>
