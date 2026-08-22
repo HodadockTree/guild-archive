@@ -40,9 +40,6 @@ export function MonthlyHighlightsSection({
         <h2 className="ui-section-title">
           이달의 주요 기록
         </h2>
-        <p className="ui-supporting-text mt-1">
-          게임 업데이트, 이벤트와 길드 소식을 모았습니다.
-        </p>
       </div>
       <ul className="mt-4 grid gap-3 md:grid-cols-2">
         {visibleHighlights.map((highlight) => (

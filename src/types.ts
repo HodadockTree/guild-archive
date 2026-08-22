@@ -14,7 +14,6 @@ export interface GuildMember {
 }
 
 export type MonthlyHighlightCategory =
-  | "game_update"
   | "game_event"
   | "guild_news"
   | "other";

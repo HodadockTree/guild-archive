@@ -47,7 +47,7 @@ export function MonthlyHighlightsAdmin({
   onSourceActivityIdsChange: (ids: string[]) => void;
 }) {
   const [month, setMonth] = useState(draft?.startDate.slice(0, 7) ?? currentMonth);
-  const [category, setCategory] = useState<MonthlyHighlightCategory>(draft ? "game_event" : "game_update");
+  const [category, setCategory] = useState<MonthlyHighlightCategory>("game_event");
   const [title, setTitle] = useState(draft?.title ?? "");
   const [startDate, setStartDate] = useState(draft?.startDate ?? "");
   const [endDate, setEndDate] = useState(draft?.endDate ?? "");
@@ -63,7 +63,7 @@ export function MonthlyHighlightsAdmin({
   const isBusy = status.type === "loading";
 
   const resetForm = useCallback(() => {
-    setCategory("game_update");
+    setCategory("game_event");
     setTitle("");
     setStartDate("");
     setEndDate("");
