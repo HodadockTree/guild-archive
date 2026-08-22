@@ -108,18 +108,18 @@ export function MonthlyActivityCalendar({
                           const showsLabel = !connectsLeft;
 
                           return (
-                            <li className={`${connectsLeft ? "-ml-2" : ""} ${connectsRight ? "-mr-2" : ""}`} key={activity.id}>
+                            <li className={`${connectsLeft ? "-ml-2" : ""} ${connectsRight ? "-mr-2" : ""} ${showsLabel ? "relative z-10" : ""}`} key={activity.id}>
                               <button
                                 aria-label={`${getCalendarActivityLabel(activity)} · ${activity.participantIds.length}명`}
-                                className={`ui-focus-ring flex min-h-6 w-full items-center justify-between gap-1 px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none" : "rounded-l"} ${connectsRight ? "rounded-r-none" : "rounded-r"}`}
+                                className={`ui-focus-ring relative flex min-h-6 w-full items-center px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none" : "rounded-l"} ${connectsRight ? "rounded-r-none" : "rounded-r"}`}
                                 onClick={() => onSelectActivity(activity)}
                                 type="button"
                               >
                                 {showsLabel ? (
-                                  <>
-                                    <span className="min-w-0 truncate font-medium">{getCalendarActivityLabel(activity)}</span>
-                                    <span className="shrink-0 text-[10px] opacity-70">{activity.participantIds.length}명</span>
-                                  </>
+                                  <span className="pointer-events-none absolute left-1.5 z-20 flex items-center gap-1.5 whitespace-nowrap font-medium">
+                                    {getCalendarActivityLabel(activity)}
+                                    <span className="text-[10px] font-normal opacity-70">{activity.participantIds.length}명</span>
+                                  </span>
                                 ) : null}
                               </button>
                             </li>

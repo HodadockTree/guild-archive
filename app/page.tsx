@@ -13,7 +13,6 @@ import {
 } from "@/src/components/ActivityDetailModal";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { RecentMonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import { AirshipParticipationChart } from "@/src/components/AirshipParticipationChart";
 import {
@@ -612,12 +611,9 @@ export default function DashboardPage() {
             </dl>
           </section>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)] lg:items-stretch">
-            <RecentMonthlyTrendChart trends={dashboard.monthlyTrends} />
-
-            <section className="flex min-w-0 flex-col rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50 lg:h-full">
+          <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
               <h2 className="text-lg font-semibold text-slate-900">이번 달 활동 요약</h2>
-              <dl className="mt-4 grid flex-1 grid-cols-2 content-between gap-4">
+              <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="flex min-h-16 flex-col justify-center rounded-md bg-sky-50 px-3 py-2.5">
                   <dt className="text-xs font-medium text-slate-600">비공정</dt>
                   <dd className="font-bold text-slate-900">{currentMonthTypeCounts?.airship ?? 0}회</dd>
@@ -640,7 +636,7 @@ export default function DashboardPage() {
                       : "0명"}
                   </dd>
                 </div>
-                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3">
+                <div className="col-span-2 min-w-0 rounded-md bg-sky-50 px-3 py-3 sm:col-span-4">
                   <dt className="text-xs font-medium text-slate-600">최다 참여 활동</dt>
                   <dd className="mt-1 min-w-0">
                     {currentMonthMostParticipated ? (
@@ -677,8 +673,7 @@ export default function DashboardPage() {
                   </dd>
                 </div>
               </dl>
-            </section>
-          </div>
+          </section>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
