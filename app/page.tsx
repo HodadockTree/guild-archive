@@ -35,6 +35,15 @@ type SummaryModalKey =
   | "allActivities"
   | "allMembers";
 
+type RecentActivityFilter = "all" | "aurora" | "ocean" | "other";
+
+const recentActivityFilterLabels: Record<RecentActivityFilter, string> = {
+  all: "전체",
+  aurora: "아우로라",
+  ocean: "오션헤븐",
+  other: "점령전·기타",
+};
+
 function getMonthLabel(month: string) {
   return formatMonth(month);
 }
@@ -381,6 +390,8 @@ export default function DashboardPage() {
     useState<string | null>(null);
   const [memberReturnModal, setMemberReturnModal] =
     useState<SummaryModalKey>("currentMonthParticipants");
+  const [recentActivityFilter, setRecentActivityFilter] =
+    useState<RecentActivityFilter>("all");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -473,6 +484,19 @@ export default function DashboardPage() {
         return participantOrder || b.date.localeCompare(a.date) || b.id.localeCompare(a.id);
       })[0] ?? null
     : null;
+  const visibleRecentActivities =
+    dashboard?.allActivities
+      .filter((activity) => {
+        if (recentActivityFilter === "all") return true;
+        if (recentActivityFilter === "other") {
+          return activity.statsType !== "airship";
+        }
+        return (
+          activity.statsType === "airship" &&
+          activity.label === recentActivityFilterLabels[recentActivityFilter]
+        );
+      })
+      .slice(0, 6) ?? [];
 
   return (
     <main className="app-shell">
@@ -621,7 +645,7 @@ export default function DashboardPage() {
           </div>
 
           <section className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
                   최근 활동
@@ -635,13 +659,37 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {dashboard.recentActivities.length === 0 ? (
+            <div
+              aria-label="최근 활동 종류"
+              className="flex w-full gap-1 overflow-x-auto rounded-md bg-sky-50 p-1 sm:w-fit"
+              role="group"
+            >
+              {(Object.entries(recentActivityFilterLabels) as [RecentActivityFilter, string][]).map(
+                ([value, label]) => (
+                  <button
+                    aria-pressed={recentActivityFilter === value}
+                    className={`ui-focus-ring min-h-10 shrink-0 rounded-md px-3 text-sm font-medium transition ${
+                      recentActivityFilter === value
+                        ? "bg-white text-[var(--brand-strong)] shadow-sm"
+                        : "text-slate-600 hover:bg-white/70"
+                    }`}
+                    key={value}
+                    onClick={() => setRecentActivityFilter(value)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
+            </div>
+
+            {visibleRecentActivities.length === 0 ? (
               <p className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-                아직 기록된 활동이 없습니다.
+                선택한 종류의 활동 기록이 없습니다.
               </p>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {dashboard.recentActivities.map((activity) => (
+                {visibleRecentActivities.map((activity) => (
                   <ActivityCard
                     activity={activity}
                     key={activity.id}

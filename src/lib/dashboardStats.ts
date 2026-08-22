@@ -1,6 +1,10 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType } from "@/src/lib/activityStats";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import {
+  getActivityDisplayTitle,
+  getMonthlyActivityLabel,
+} from "@/src/lib/activityLabels";
+import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
 import type { ActivityParticipant } from "@/src/lib/memberActivity";
 
 export type DashboardMonthlyTrend = {
@@ -57,10 +61,6 @@ function getPreviousMonth(month: string, offset: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function getActivityTitle(activity: ActivityLog) {
-  return activity.title?.trim() || getMonthlyActivityLabel(activity);
-}
-
 function getUnknownMemberName(memberId: string) {
   const shortId = memberId.trim().slice(0, 6);
   return shortId ? `알 수 없는 길드원 ${shortId}` : "알 수 없는 길드원";
@@ -83,22 +83,27 @@ function toActivitySummary(
   activity: ActivityLog,
   membersById: Map<string, GuildMember>,
 ): DashboardActivitySummary {
+  const participantIds = getCountedActivityParticipantIds(
+    activity.participantIds,
+    membersById,
+  );
+
   return {
     id: activity.id,
     date: activity.date,
     endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     statsType: getActivityStatsType(activity.type),
-    title: getActivityTitle(activity),
-    participantIds: activity.participantIds,
-    participantCount: activity.participantIds.length,
-    participantNames: activity.participantIds
+    title: getActivityDisplayTitle(activity),
+    participantIds,
+    participantCount: participantIds.length,
+    participantNames: participantIds
       .map(
         (memberId) =>
           membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
       )
       .sort((a, b) => a.localeCompare(b, "ko")),
-    participants: activity.participantIds.map((memberId) => {
+    participants: participantIds.map((memberId) => {
       const member = membersById.get(memberId);
 
       return {
@@ -161,10 +166,12 @@ export function getGuildDashboardStats(
   const currentMonthActivities = activities.filter(
     (activity) => getMonthKey(activity.date) === currentMonth,
   );
-  const currentMonthParticipantIds = new Set(
-    currentMonthActivities.flatMap((activity) => activity.participantIds),
-  );
   const membersById = new Map(members.map((member) => [member.id, member]));
+  const currentMonthParticipantIds = new Set(
+    currentMonthActivities.flatMap((activity) =>
+      getCountedActivityParticipantIds(activity.participantIds, membersById),
+    ),
+  );
   const monthlySummaries = new Map<
     string,
     {
@@ -188,7 +195,10 @@ export function getGuildDashboardStats(
     };
 
     summary.activityCount += 1;
-    activity.participantIds.forEach((memberId) => {
+    getCountedActivityParticipantIds(
+      activity.participantIds,
+      membersById,
+    ).forEach((memberId) => {
       summary.participantMemberIds.add(memberId);
     });
     monthlySummaries.set(month, summary);

@@ -6,6 +6,10 @@ import {
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
 import { formatDateRange } from "@/src/lib/displayFormat";
+import {
+  getCountedActivityParticipantIds,
+  isCountedActivityMember,
+} from "@/src/lib/activityParticipants";
 
 export type MonthlyActivitySummary = {
   id: string;
@@ -136,6 +140,12 @@ export function getMonthlyReport(
       const dateOrder = a.date.localeCompare(b.date);
       return dateOrder === 0 ? a.id.localeCompare(b.id) : dateOrder;
     });
+  const countedParticipantIdsByActivityId = new Map(
+    monthlyActivities.map((activity) => [
+      activity.id,
+      getCountedActivityParticipantIds(activity.participantIds, membersById),
+    ]),
+  );
   const participationCountsByMemberId: Record<string, number> = {};
   const conquestCounts = Object.fromEntries(
     conquestTypes.map((conquestType) => [conquestType, 0]),
@@ -145,6 +155,7 @@ export function getMonthlyReport(
     members
       .filter(
         (member) =>
+          isCountedActivityMember(member) &&
           member.joinedAt <= periodEnd &&
           (!member.leftAt || member.leftAt >= monthStart),
       )
@@ -156,7 +167,9 @@ export function getMonthlyReport(
       const statsType = getActivityStatsType(activity.type);
 
       summary.totalActivities += 1;
-      summary.totalParticipationCount += activity.participantIds.length;
+      const participantIds =
+        countedParticipantIdsByActivityId.get(activity.id) ?? [];
+      summary.totalParticipationCount += participantIds.length;
 
       if (statsType === "siege") {
         summary.siegeCount += 1;
@@ -179,7 +192,7 @@ export function getMonthlyReport(
         summary.otherCount += 1;
       }
 
-      activity.participantIds.forEach((memberId) => {
+      participantIds.forEach((memberId) => {
         participantMemberIds.add(memberId);
         participationCountsByMemberId[memberId] =
           (participationCountsByMemberId[memberId] ?? 0) + 1;
@@ -204,7 +217,10 @@ export function getMonthlyReport(
     12,
   );
   const maxActivityParticipantCount = monthlyActivities.reduce(
-    (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
+    (maxCount, activity) => Math.max(
+      maxCount,
+      countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
+    ),
     0,
   );
   const topParticipants = Object.entries(participationCountsByMemberId)
@@ -233,18 +249,26 @@ export function getMonthlyReport(
       displayDate: formatDateRange(activity.date, activity.endDate),
       shareDate: formatDateRange(activity.date, activity.endDate),
       title: activity.title?.trim() || "이벤트",
-      participantCount: activity.participantIds.length,
+      participantCount:
+        countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
       memo: activity.memo?.trim() || undefined,
     }));
-  const activityDetails = monthlyActivities.map((activity) => ({
-    ...activity,
-    participantNames: activity.participantIds.map(
-      (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    ),
-    participantKnownMemberIds: activity.participantIds.filter((memberId) =>
-      membersById.has(memberId),
-    ),
-  }));
+  const activityDetails = monthlyActivities.map((activity) => {
+    const participantIds =
+      countedParticipantIdsByActivityId.get(activity.id) ?? [];
+
+    return {
+      ...activity,
+      participantIds,
+      participantNames: participantIds.map(
+        (memberId) =>
+          membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+      ),
+      participantKnownMemberIds: participantIds.filter((memberId) =>
+        membersById.has(memberId),
+      ),
+    };
+  });
 
   return {
     month,
@@ -268,10 +292,12 @@ export function getMonthlyReport(
         ? formatDateRange(activity.date, activity.endDate)
         : getDisplayDate(activity.date),
       label: getMonthlyActivityLabel(activity),
-      participantCount: activity.participantIds.length,
+      participantCount:
+        countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
       isMostParticipated:
         maxActivityParticipantCount > 0 &&
-        activity.participantIds.length === maxActivityParticipantCount,
+        (countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0) ===
+          maxActivityParticipantCount,
     })),
   };
 }

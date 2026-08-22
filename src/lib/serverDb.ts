@@ -436,7 +436,7 @@ export async function getServerArchiveMonths() {
     getServerMonthlyHighlights(),
   ]);
   const summariesByMonth = new Map(
-    getMonthlyArchiveSummaries(activities).map((summary) => [
+    getMonthlyArchiveSummaries(activities, members).map((summary) => [
       summary.month,
       summary,
     ]),

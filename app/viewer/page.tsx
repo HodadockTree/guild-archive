@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog, MonthlyHighlight } from "@/src/types";
 import {
   conquestTypes,
+  getActivityDisplayTitle,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
 import {
@@ -54,10 +55,6 @@ function getDisplayDate(date: string) {
   return formatMonthDay(date);
 }
 
-function getActivityTitle(activity: ActivityLog) {
-  return activity.title?.trim() || getMonthlyActivityLabel(activity);
-}
-
 function toActivityDetail(
   activity: ActivityLog & {
     participantNames?: string[];
@@ -69,7 +66,7 @@ function toActivityDetail(
     date: activity.date,
     endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
-    title: getActivityTitle(activity),
+    title: getActivityDisplayTitle(activity),
     participantCount: activity.participantIds.length,
     participants: activity.participantIds.map((memberId, index) => ({
       id: memberId,
@@ -403,7 +400,7 @@ export default function ViewerPage() {
                   {mostParticipatedActivity ? (
                     <>
                       <span className="block line-clamp-2 text-base font-bold leading-6">
-                        {getActivityTitle(mostParticipatedActivity)}
+                        {getActivityDisplayTitle(mostParticipatedActivity)}
                       </span>
                       <span className="block text-sm font-semibold text-[var(--brand-strong)]">
                         {mostParticipatedActivity.participantIds.length}명
@@ -582,7 +579,7 @@ export default function ViewerPage() {
                         </span>
                       </div>
                       <h3 className="mt-3 min-h-12 line-clamp-2 text-base font-semibold leading-6 text-slate-900">
-                        {getActivityTitle(activity)}
+                        {getActivityDisplayTitle(activity)}
                       </h3>
                       {activity.memo?.trim() ? (
                         <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">

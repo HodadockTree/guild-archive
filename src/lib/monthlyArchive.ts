@@ -1,5 +1,6 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType } from "@/src/lib/activityStats";
+import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
 
 export type MonthlyArchiveEventSummary = {
   id: string;
@@ -35,7 +36,9 @@ export function getMonthlyArchiveParticipants(
   activities
     .filter((activity) => getMonthKey(activity.date) === month)
     .forEach((activity) => {
-      new Set(activity.participantIds).forEach((memberId) => {
+      new Set(
+        getCountedActivityParticipantIds(activity.participantIds, membersById),
+      ).forEach((memberId) => {
         counts.set(memberId, (counts.get(memberId) ?? 0) + 1);
       });
     });
@@ -63,7 +66,9 @@ export function getMonthDisplayLabel(month: string) {
 
 export function getMonthlyArchiveSummaries(
   activities: ActivityLog[],
+  members: GuildMember[],
 ): MonthlyArchiveSummary[] {
+  const membersById = new Map(members.map((member) => [member.id, member]));
   const summariesByMonth = new Map<
     string,
     Omit<MonthlyArchiveSummary, "representativeEvents"> & {
@@ -90,9 +95,13 @@ export function getMonthlyArchiveSummaries(
     };
 
     summary.activityCount += 1;
-    summary.totalParticipationCount += activity.participantIds.length;
+    const participantIds = getCountedActivityParticipantIds(
+      activity.participantIds,
+      membersById,
+    );
+    summary.totalParticipationCount += participantIds.length;
 
-    activity.participantIds.forEach((memberId) => {
+    participantIds.forEach((memberId) => {
       summary.participantMemberIds.add(memberId);
     });
 

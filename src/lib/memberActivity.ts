@@ -1,5 +1,6 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
+import { getActivityDisplayTitle, getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 
 export type ActivityParticipant = {
   id: string;
@@ -32,14 +33,18 @@ export function toMemberActivityRecord(
   activity: ActivityLog,
   membersById: Map<string, GuildMember>,
 ): MemberActivityRecord {
+  const participantIds = getCountedActivityParticipantIds(
+    activity.participantIds,
+    membersById,
+  );
   return {
     id: activity.id,
     date: activity.date,
     endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
-    title: activity.title?.trim() || getMonthlyActivityLabel(activity),
-    participantCount: activity.participantIds.length,
-    participants: activity.participantIds.map((memberId) => {
+    title: getActivityDisplayTitle(activity),
+    participantCount: participantIds.length,
+    participants: participantIds.map((memberId) => {
       const member = membersById.get(memberId);
 
       return {
