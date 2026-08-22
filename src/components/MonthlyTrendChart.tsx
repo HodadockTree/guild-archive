@@ -18,66 +18,66 @@ export type MonthlyTrend = {
 };
 
 export function MonthlyAirshipAverageChart({ trends }: { trends: MonthlyTrend[] }) {
-  const chartWidth = Math.max(720, trends.length * 88);
-  const chartHeight = 190;
-  const plotLeft = 38;
-  const plotRight = chartWidth - 32;
-  const plotTop = 30;
-  const plotBottom = 142;
-  const maxValue = Math.max(
-    ...trends.flatMap((trend) => [
-      trend.auroraAverageParticipantCount ?? 0,
-      trend.oceanAverageParticipantCount ?? 0,
-    ]),
-    1,
-  );
-  const getX = (index: number) =>
-    trends.length <= 1
-      ? chartWidth / 2
-      : plotLeft + ((plotRight - plotLeft) * index) / (trends.length - 1);
-  const getY = (value: number) =>
-    plotBottom - (value / maxValue) * (plotBottom - plotTop);
-  const getPoints = (key: "auroraAverageParticipantCount" | "oceanAverageParticipantCount") =>
-    trends.map((trend, index) => `${getX(index)},${getY(trend[key] ?? 0)}`).join(" ");
-
   return (
     <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <h2 className="text-lg font-semibold text-slate-900">월별 비공정 평균 참여 인원</h2>
-      <p className="mt-1 text-sm text-slate-500">월마다 아우로라와 오션헤븐에 평균 몇 명이 함께했는지 살펴봅니다.</p>
-      <div aria-label="비공정 종류 범례" className="mt-3 flex gap-4 text-xs text-slate-600">
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-violet-400" />아우로라</span>
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-cyan-500" />오션헤븐</span>
-      </div>
+      <p className="mt-1 text-sm text-slate-500">비공정별 월간 평균 참여 인원을 각각 살펴봅니다.</p>
       {trends.length === 0 ? (
         <p className="mt-4 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">표시할 비공정 기록이 없습니다.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <svg className="h-auto min-w-[45rem]" role="img" style={{ width: chartWidth }} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-            {[0.25, 0.5, 0.75, 1].map((ratio) => {
-              const y = plotBottom - (plotBottom - plotTop) * ratio;
-              return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
-            })}
-            <polyline fill="none" points={getPoints("auroraAverageParticipantCount")} stroke="#a78bfa" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            <polyline fill="none" points={getPoints("oceanAverageParticipantCount")} stroke="#06b6d4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            {trends.map((trend, index) => {
-              const x = getX(index);
-              const auroraValue = trend.auroraAverageParticipantCount ?? 0;
-              const oceanValue = trend.oceanAverageParticipantCount ?? 0;
-              return (
-                <a href={`/viewer?month=${trend.month}`} key={trend.month}>
-                  <title>{`${formatMonth(trend.month)} · 아우로라 평균 ${auroraValue}명 · 오션헤븐 평균 ${oceanValue}명`}</title>
-                  <circle cx={x} cy={getY(auroraValue)} fill="#a78bfa" r="5" />
-                  <circle cx={x} cy={getY(oceanValue)} fill="#06b6d4" r="5" />
-                  <text className="fill-violet-700 text-[10px] font-semibold" textAnchor="middle" x={x - 14} y={getY(auroraValue) - 10}>{auroraValue}명</text>
-                  <text className="fill-cyan-700 text-[10px] font-semibold" textAnchor="middle" x={x + 14} y={getY(oceanValue) + 18}>{oceanValue}명</text>
-                  <text className="fill-slate-500 text-[11px]" textAnchor="middle" x={x} y="178">{getShortMonthLabel(trend.month)}</text>
-                </a>
-              );
-            })}
-          </svg>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <AirshipAverageSeriesChart color="#a78bfa" keyName="auroraAverageParticipantCount" label="아우로라" trends={trends} />
+          <AirshipAverageSeriesChart color="#06b6d4" keyName="oceanAverageParticipantCount" label="오션헤븐" trends={trends} />
         </div>
       )}
     </section>
+  );
+}
+
+function AirshipAverageSeriesChart({ color, keyName, label, trends }: {
+  color: string;
+  keyName: "auroraAverageParticipantCount" | "oceanAverageParticipantCount";
+  label: string;
+  trends: MonthlyTrend[];
+}) {
+  const chartWidth = Math.max(520, trends.length * 70);
+  const chartHeight = 190;
+  const plotLeft = 34;
+  const plotRight = chartWidth - 28;
+  const plotTop = 30;
+  const plotBottom = 142;
+  const maxValue = Math.max(...trends.map((trend) => trend[keyName] ?? 0), 1);
+  const getX = (index: number) => trends.length <= 1
+    ? chartWidth / 2
+    : plotLeft + ((plotRight - plotLeft) * index) / (trends.length - 1);
+  const getY = (value: number) => plotBottom - (value / maxValue) * (plotBottom - plotTop);
+  const points = trends.map((trend, index) => `${getX(index)},${getY(trend[keyName] ?? 0)}`).join(" ");
+
+  return (
+    <div className="min-w-0 rounded-md bg-sky-50/60 p-4">
+      <h3 className="text-sm font-semibold text-slate-800">{label}</h3>
+      <div className="mt-2 overflow-x-auto">
+        <svg aria-label={`${label} 월별 평균 참여 인원`} className="h-auto min-w-[32.5rem]" role="img" style={{ width: chartWidth }} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+          {[0.25, 0.5, 0.75, 1].map((ratio) => {
+            const y = plotBottom - (plotBottom - plotTop) * ratio;
+            return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
+          })}
+          <polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+          {trends.map((trend, index) => {
+            const value = trend[keyName] ?? 0;
+            const x = getX(index);
+            return (
+              <a href={`/viewer?month=${trend.month}`} key={trend.month}>
+                <title>{`${formatMonth(trend.month)} · ${label} 평균 ${value}명`}</title>
+                <circle cx={x} cy={getY(value)} fill={color} r="5" />
+                <text className="fill-slate-700 text-[10px] font-semibold" textAnchor="middle" x={x} y={Math.max(16, getY(value) - 10)}>{value}명</text>
+                <text className="fill-slate-500 text-[11px]" textAnchor="middle" x={x} y="178">{getShortMonthLabel(trend.month)}</text>
+              </a>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
   );
 }
 

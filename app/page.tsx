@@ -333,10 +333,12 @@ function CumulativeSummaryCard({
 
 function ActivityCard({
   activity,
+  className = "",
   onSelect,
   showTitle = true,
 }: {
   activity: DashboardActivitySummary;
+  className?: string;
   onSelect: (activity: ActivityDetail) => void;
   showTitle?: boolean;
 }) {
@@ -349,7 +351,7 @@ function ActivityCard({
     .join(" · ");
 
   return (
-    <li>
+    <li className={className}>
       <button
       className="ui-focus-ring flex w-full cursor-pointer flex-col rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm shadow-sky-100/50 transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
         onClick={() => onSelect(activity)}
@@ -785,10 +787,19 @@ export default function DashboardPage() {
                   })}
                 </div>
               ) : (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleRecentActivities.map((activity) => (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                  {visibleRecentActivities.map((activity, index) => (
                     <ActivityCard
                       activity={activity}
+                      className={
+                        visibleRecentActivities.length === 1
+                          ? "lg:col-span-6"
+                          : visibleRecentActivities.length === 2 || visibleRecentActivities.length === 4
+                            ? "lg:col-span-3"
+                            : visibleRecentActivities.length === 5 && index >= 3
+                              ? "lg:col-span-3"
+                              : "lg:col-span-2"
+                      }
                       key={activity.id}
                       onSelect={(selected) => {
                         restoreMostActivityFocusRef.current = false;

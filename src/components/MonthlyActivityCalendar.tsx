@@ -3,6 +3,11 @@ import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 import { getActivityStatsType } from "@/src/lib/activityStats";
 
 type MonthlyActivity = MonthlyReport["activities"][number];
+type CalendarActivity = {
+  activity: MonthlyActivity;
+  isRangeStart: boolean;
+  isRangeEnd: boolean;
+};
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -20,6 +25,18 @@ function getCalendarActivityLabel(activity: MonthlyActivity) {
   return activity.title?.trim() || "이벤트";
 }
 
+function getCalendarActivityColors(activity: MonthlyActivity) {
+  const statsType = getActivityStatsType(activity.type);
+
+  if (statsType === "siege") return "bg-amber-100 text-amber-900 hover:bg-amber-200";
+  if (statsType === "airship") {
+    return getMonthlyActivityLabel(activity) === "아우로라"
+      ? "bg-violet-100 text-violet-900 hover:bg-violet-200"
+      : "bg-cyan-100 text-cyan-900 hover:bg-cyan-200";
+  }
+  return "bg-rose-100 text-rose-900 hover:bg-rose-200";
+}
+
 export function MonthlyActivityCalendar({
   activities,
   month,
@@ -35,11 +52,24 @@ export function MonthlyActivityCalendar({
 
   const firstWeekday = new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay();
   const dayCount = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-  const activitiesByDay = new Map<number, MonthlyActivity[]>();
+  const activitiesByDay = new Map<number, CalendarActivity[]>();
+  const monthStart = `${month}-01`;
+  const monthEnd = `${month}-${String(dayCount).padStart(2, "0")}`;
 
   activities.forEach((activity) => {
-    const day = Number(activity.date.slice(8, 10));
-    activitiesByDay.set(day, [...(activitiesByDay.get(day) ?? []), activity]);
+    const visibleStart = activity.date < monthStart ? monthStart : activity.date;
+    const activityEnd = activity.endDate ?? activity.date;
+    const visibleEnd = activityEnd > monthEnd ? monthEnd : activityEnd;
+    if (visibleStart > visibleEnd) return;
+
+    const startDay = Number(visibleStart.slice(8, 10));
+    const endDay = Number(visibleEnd.slice(8, 10));
+    for (let day = startDay; day <= endDay; day += 1) {
+      activitiesByDay.set(day, [
+        ...(activitiesByDay.get(day) ?? []),
+        { activity, isRangeStart: day === startDay, isRangeEnd: day === endDay },
+      ]);
+    }
   });
 
   const cells = [
@@ -72,18 +102,23 @@ export function MonthlyActivityCalendar({
                     <>
                       <span className={`text-xs font-semibold ${index % 7 === 0 ? "text-rose-500" : index % 7 === 6 ? "text-sky-600" : "text-slate-600"}`}>{day}</span>
                       <ul className="mt-1.5 space-y-1">
-                        {dayActivities.map((activity) => (
-                          <li key={activity.id}>
-                            <button
-                              className="ui-focus-ring flex w-full items-center justify-between gap-1 rounded bg-sky-50 px-1.5 py-1 text-left text-[11px] text-slate-700 transition hover:bg-sky-100"
-                              onClick={() => onSelectActivity(activity)}
-                              type="button"
-                            >
-                              <span className="min-w-0 truncate font-medium">{getCalendarActivityLabel(activity)}</span>
-                              <span className="shrink-0 text-[10px] text-slate-500">{activity.participantIds.length}명</span>
-                            </button>
-                          </li>
-                        ))}
+                        {dayActivities.map(({ activity, isRangeStart, isRangeEnd }) => {
+                          const connectsLeft = !isRangeStart && index % 7 !== 0;
+                          const connectsRight = !isRangeEnd && index % 7 !== 6;
+
+                          return (
+                            <li className={`${connectsLeft ? "-ml-2" : ""} ${connectsRight ? "-mr-2" : ""}`} key={activity.id}>
+                              <button
+                                className={`ui-focus-ring flex w-full items-center justify-between gap-1 px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none pl-3.5" : "rounded-l"} ${connectsRight ? "rounded-r-none pr-3.5" : "rounded-r"}`}
+                                onClick={() => onSelectActivity(activity)}
+                                type="button"
+                              >
+                                <span className="min-w-0 truncate font-medium">{getCalendarActivityLabel(activity)}</span>
+                                <span className="shrink-0 text-[10px] opacity-70">{activity.participantIds.length}명</span>
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </>
                   ) : null}
