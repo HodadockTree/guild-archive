@@ -105,16 +105,22 @@ export function MonthlyActivityCalendar({
                         {dayActivities.map(({ activity, isRangeStart, isRangeEnd }) => {
                           const connectsLeft = !isRangeStart && index % 7 !== 0;
                           const connectsRight = !isRangeEnd && index % 7 !== 6;
+                          const showsLabel = !connectsLeft;
 
                           return (
                             <li className={`${connectsLeft ? "-ml-2" : ""} ${connectsRight ? "-mr-2" : ""}`} key={activity.id}>
                               <button
-                                className={`ui-focus-ring flex w-full items-center justify-between gap-1 px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none pl-3.5" : "rounded-l"} ${connectsRight ? "rounded-r-none pr-3.5" : "rounded-r"}`}
+                                aria-label={`${getCalendarActivityLabel(activity)} · ${activity.participantIds.length}명`}
+                                className={`ui-focus-ring flex min-h-6 w-full items-center justify-between gap-1 px-1.5 py-1 text-left text-[11px] transition ${getCalendarActivityColors(activity)} ${connectsLeft ? "rounded-l-none" : "rounded-l"} ${connectsRight ? "rounded-r-none" : "rounded-r"}`}
                                 onClick={() => onSelectActivity(activity)}
                                 type="button"
                               >
-                                <span className="min-w-0 truncate font-medium">{getCalendarActivityLabel(activity)}</span>
-                                <span className="shrink-0 text-[10px] opacity-70">{activity.participantIds.length}명</span>
+                                {showsLabel ? (
+                                  <>
+                                    <span className="min-w-0 truncate font-medium">{getCalendarActivityLabel(activity)}</span>
+                                    <span className="shrink-0 text-[10px] opacity-70">{activity.participantIds.length}명</span>
+                                  </>
+                                ) : null}
                               </button>
                             </li>
                           );
