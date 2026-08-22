@@ -474,9 +474,14 @@ export async function getServerArchiveMonths() {
     ]),
   );
   const highlightsByMonth = new Map<string, MonthlyHighlight[]>();
+  const currentMonth = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 7);
 
   highlights.forEach((highlight) => {
     getMonthlyHighlightMonths(highlight).forEach((highlightMonth) => {
+      if (highlightMonth > currentMonth) return;
+
       highlightsByMonth.set(highlightMonth, [
         ...(highlightsByMonth.get(highlightMonth) ?? []),
         highlight,
@@ -498,6 +503,7 @@ export async function getServerArchiveMonths() {
   });
 
   return Array.from(summariesByMonth.values())
+    .filter((summary) => summary.month <= currentMonth)
     .sort((a, b) => b.month.localeCompare(a.month))
     .map((summary) => {
       const monthHighlights = highlightsByMonth.get(summary.month) ?? [];

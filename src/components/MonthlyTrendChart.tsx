@@ -104,9 +104,10 @@ function getShortMonthLabel(month: string) {
 export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
   const [metric, setMetric] = useState<FlowMetric>("activityCount");
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonthNumber = currentDate.getMonth() + 1;
+  const [currentMonth] = useState(() =>
+    new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7),
+  );
+  const [currentYear, currentMonthNumber] = currentMonth.split("-").map(Number);
   const trendsByMonth = new Map(trends.map((trend) => [trend.month, trend]));
   const visibleTrends = Array.from(
     { length: currentMonthNumber },

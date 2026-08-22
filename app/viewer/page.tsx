@@ -69,7 +69,7 @@ const monthlyActivityFilterLabels: Record<MonthlyActivityFilter, string> = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function getMonthLabel(month: string) {
@@ -283,11 +283,19 @@ export default function ViewerPage() {
     [monthsState],
   );
   const currentMonth = today().slice(0, 7);
-  const reportMonth = selectedMonth || queryMonth || serverMonths[0] || currentMonth;
+  const requestedMonth = selectedMonth || queryMonth;
+  const reportMonth =
+    (requestedMonth && requestedMonth <= currentMonth ? requestedMonth : "") ||
+    serverMonths.find((month) => month <= currentMonth) ||
+    currentMonth;
   const monthOptions = useMemo(
     () =>
       Array.from(
-        new Set([reportMonth, currentMonth, ...serverMonths].filter(Boolean)),
+        new Set(
+          [reportMonth, currentMonth, ...serverMonths]
+            .filter(Boolean)
+            .filter((month) => month <= currentMonth),
+        ),
       ).sort((a, b) => b.localeCompare(a)),
     [currentMonth, reportMonth, serverMonths],
   );
