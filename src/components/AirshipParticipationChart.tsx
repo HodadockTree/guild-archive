@@ -31,7 +31,9 @@ export function AirshipParticipationChart({
     <GamePanel className="min-w-0">
       <GamePanelHeader
         description="아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다."
+        icon="airship"
         title="이번 달 비공정 참여 인원"
+        variant="strip"
       />
       <div className="game-panel-body">
       <div aria-label="비공정 종류 범례" className="ui-caption mt-3 flex gap-4 text-[var(--color-text-secondary)]">

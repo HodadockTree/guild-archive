@@ -17,6 +17,7 @@ import { AirshipParticipationChart } from "@/src/components/AirshipParticipation
 import { Surface } from "@/src/components/ui/Surface";
 import {
   GameButton,
+  GameIcon,
   GamePanel,
   GamePanelHeader,
   GameStat,
@@ -294,17 +295,24 @@ function ActivityCard({
     ?.split(",")
     .map((label) => label.trim())
     .join(" · ");
+  const activityIcon = isSiege
+    ? "siege"
+    : activity.statsType === "airship"
+      ? "airship"
+      : "event";
 
   return (
     <li className={`game-list-row game-list-row-${activity.statsType} ${className}`}>
       <button
-      className="game-activity-row ui-focus-ring flex w-full cursor-pointer flex-col px-3 py-2 text-left transition"
+      className="game-activity-row ui-focus-ring grid w-full cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-left transition"
         onClick={() => onSelect(activity)}
         type="button"
       >
-      <div className="flex flex-1 flex-col">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <span className="game-activity-icon" aria-hidden="true">
+        <GameIcon name={activityIcon} />
+      </span>
+      <span className="min-w-0">
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="ui-caption">
               {activity.endDate
                 ? formatDateRange(activity.date, activity.endDate)
@@ -316,27 +324,26 @@ function ActivityCard({
                 <strong className="ui-caption text-[var(--color-text-secondary)]">{siegeRound}</strong>
               </>
             ) : null}
-          </div>
-          <span className="ui-caption shrink-0 whitespace-nowrap text-[var(--color-text-secondary)]">
-            참여 {activity.participantCount}명
           </span>
-        </div>
 
         {isSiege ? (
-          <h3 className="ui-card-title mt-2">
+          <span className="ui-card-title mt-0.5 block truncate">
             {siegeTypes || "점령전 종류 미기록"}
-          </h3>
-        ) : showTitle ? (
-          <h3 className="ui-card-title mt-2">
-            {activity.title}
-          </h3>
-        ) : null}
+          </span>
+        ) : (
+          <span className="ui-card-title mt-0.5 block truncate">
+            {showTitle ? activity.title : activity.label}
+          </span>
+        )}
         {activity.memo ? (
-          <p className="ui-body-text mt-2 line-clamp-4 whitespace-pre-wrap">
+          <span className="ui-body-text mt-0.5 block line-clamp-1 whitespace-pre-wrap">
             {activity.memo}
-          </p>
+          </span>
         ) : null}
-      </div>
+      </span>
+      <span className="game-activity-count shrink-0 whitespace-nowrap">
+        {activity.participantCount}명
+      </span>
       </button>
     </li>
   );
@@ -509,18 +516,21 @@ export default function DashboardPage() {
           <section aria-label="길드 핵심 수치">
             <dl className="game-stat-panel">
               <GameStat
+                icon="member"
                 label="현재 길드원 수"
                 tone="green"
                 value={`${dashboard.activeMemberCount}명`}
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <GameStat
+                icon="activity"
                 label="이번 달 활동"
                 tone="yellow"
                 value={`${dashboard.currentMonthActivityCount}회`}
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <GameStat
+                icon="participants"
                 label="이번 달 참여 인원"
                 tone="cyan"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
@@ -531,17 +541,20 @@ export default function DashboardPage() {
               />
               <GameStat
                 description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
+                icon="special"
                 label="길드 시작일"
                 tone="pink"
                 value="2026년 1월 22일"
               />
               <GameStat
+                icon="report"
                 label="전체 활동"
                 tone="purple"
                 onClick={() => setSelectedSummaryModal("allActivities")}
                 value={`${dashboard.totalActivityCount}회`}
               />
               <GameStat
+                icon="participants"
                 label="함께했던 길드원"
                 tone="gray"
                 onClick={() => setSelectedSummaryModal("allMembers")}
@@ -551,7 +564,7 @@ export default function DashboardPage() {
           </section>
 
           <GamePanel>
-            <GamePanelHeader title="이번 달 활동 요약" />
+            <GamePanelHeader icon="activity" title="이번 달 활동 요약" variant="strip" />
             <div className="game-panel-body">
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-4">
                 <div className="flex min-h-14 flex-col justify-center">
@@ -618,7 +631,7 @@ export default function DashboardPage() {
 
           {dashboard.upcomingAnniversaries.length > 0 ? (
             <GamePanel>
-              <GamePanelHeader title="다가오는 기록" />
+              <GamePanelHeader icon="special" title="다가오는 기록" variant="strip" />
               <div className="game-panel-body">
               <ul className="game-row-list game-row-list-pink">
                 {dashboard.upcomingAnniversaries.map((anniversary) => (
@@ -661,7 +674,7 @@ export default function DashboardPage() {
           <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
             <GamePanel className="min-w-0">
-              <GamePanelHeader description="길마를 제외한 활동별 참여 기록입니다." title="이번 달 자주 함께한 길드원" />
+              <GamePanelHeader description="길마를 제외한 활동별 참여 기록입니다." title="이번 달 자주 함께한 길드원" variant="tab" />
               <div className="game-panel-body">
               <div className="game-participant-lists mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {(["airship", "siege"] as const).map((type) => {
@@ -669,6 +682,7 @@ export default function DashboardPage() {
                   return (
                     <div className="game-sublist" key={type}>
                       <h3 className="game-sublist-title">
+                        <GameIcon name={type === "airship" ? "airship" : "siege"} />
                         {type === "airship" ? "비공정" : "점령전"}
                       </h3>
                       {participants.length > 0 ? (
@@ -694,6 +708,7 @@ export default function DashboardPage() {
           <GamePanel>
             <GamePanelHeader
               action={<GameButton href={`/viewer?month=${currentMonth}`}>이번 달 전체 보기</GameButton>}
+              icon="activity"
               title="최근 활동"
             />
             <div className="game-panel-body space-y-4">
@@ -730,7 +745,7 @@ export default function DashboardPage() {
                     );
                     return (
                       <section className="game-sublist" key={track}>
-                        <h3 className="game-sublist-title">{track}</h3>
+                        <h3 className="game-sublist-title"><GameIcon name="airship" />{track}</h3>
                         {trackActivities.length > 0 ? (
                           <ul className="game-row-list">
                             {trackActivities.map((activity) => (
