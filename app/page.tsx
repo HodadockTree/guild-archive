@@ -49,6 +49,7 @@ type SummaryModalKey =
   | "allMembers";
 
 type RecentActivityFilter = "all" | "airship" | "siege" | "other";
+type DashboardDetailTab = "trend" | "participants";
 
 const recentActivityFilterLabels: Record<RecentActivityFilter, string> = {
   all: "전체",
@@ -56,6 +57,11 @@ const recentActivityFilterLabels: Record<RecentActivityFilter, string> = {
   siege: "점령전",
   other: "이벤트",
 };
+
+const dashboardDetailTabs: Array<{ icon: "airship" | "participants"; label: string; value: DashboardDetailTab }> = [
+  { icon: "airship", label: "참여 추이", value: "trend" },
+  { icon: "participants", label: "함께한 길드원", value: "participants" },
+];
 
 function getMonthLabel(month: string) {
   return formatMonth(month);
@@ -369,6 +375,8 @@ export default function DashboardPage() {
     useState<SummaryModalKey>("currentMonthParticipants");
   const [recentActivityFilter, setRecentActivityFilter] =
     useState<RecentActivityFilter>("all");
+  const [dashboardDetailTab, setDashboardDetailTab] =
+    useState<DashboardDetailTab>("trend");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -514,7 +522,7 @@ export default function DashboardPage() {
       {dashboard ? (
         <>
           <section aria-label="길드 핵심 수치">
-            <dl className="game-stat-panel">
+            <dl className="game-stat-panel game-stat-panel-primary">
               <GameStat
                 icon="member"
                 label="현재 길드원 수"
@@ -539,17 +547,21 @@ export default function DashboardPage() {
                   setSelectedSummaryModal("currentMonthParticipants");
                 }}
               />
+            </dl>
+            <dl className="game-stat-panel game-stat-panel-secondary">
               <GameStat
                 description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
                 icon="special"
                 label="길드 시작일"
                 tone="pink"
+                size="secondary"
                 value="2026년 1월 22일"
               />
               <GameStat
                 icon="report"
                 label="전체 활동"
                 tone="purple"
+                size="secondary"
                 onClick={() => setSelectedSummaryModal("allActivities")}
                 value={`${dashboard.totalActivityCount}회`}
               />
@@ -557,80 +569,43 @@ export default function DashboardPage() {
                 icon="participants"
                 label="함께했던 길드원"
                 tone="gray"
+                size="secondary"
                 onClick={() => setSelectedSummaryModal("allMembers")}
                 value={`${dashboard.totalMemberCount}명`}
               />
             </dl>
           </section>
 
-          <GamePanel>
-            <GamePanelHeader icon="activity" title="이번 달 활동 요약" variant="strip" />
-            <div className="game-panel-body">
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-4">
-                <div className="flex min-h-14 flex-col justify-center">
-                  <dt className="ui-caption">비공정</dt>
-                  <dd className="ui-metric-inline mt-1">{currentMonthTypeCounts?.airship ?? 0}회</dd>
-                </div>
-                <div className="flex min-h-14 flex-col justify-center">
-                  <dt className="ui-caption">점령전</dt>
-                  <dd className="ui-metric-inline mt-1">{currentMonthTypeCounts?.siege ?? 0}회</dd>
-                </div>
-                <div className="flex min-h-14 flex-col justify-center">
-                  <dt className="ui-caption">참여 합계</dt>
-                  <dd className="ui-metric-section mt-1 whitespace-nowrap">
-                    {currentMonthTotalParticipation}회
-                  </dd>
-                </div>
-                <div className="flex min-h-14 flex-col justify-center">
-                  <dt className="ui-caption">활동당 평균</dt>
-                  <dd className="ui-metric-section mt-1 whitespace-nowrap">
-                    {currentMonthAverageParticipation
-                      ? `${currentMonthAverageParticipation}명`
-                      : "0명"}
-                  </dd>
-                </div>
-                <div className="col-span-2 min-w-0 border-t border-[var(--color-border-subtle)] pt-3 sm:col-span-4">
-                  <dt className="ui-caption">최다 참여 활동</dt>
-                  <dd className="mt-1 min-w-0">
-                    {currentMonthMostParticipated ? (
-                      <button
-                        aria-label={`${currentMonthMostParticipated.title} 활동 상세 보기`}
-                        className="ui-focus-ring mt-1 flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 text-left transition hover:bg-[var(--color-bg-selected)]"
-                        onClick={() => {
-                          restoreMostActivityFocusRef.current = true;
-                          setSelectedActivity(currentMonthMostParticipated);
-                        }}
-                        ref={mostActivityTriggerRef}
-                        type="button"
-                      >
-                        <span className="min-w-0">
-                          <span className="ui-caption block">
-                            {currentMonthMostParticipated.endDate
-                              ? formatDateRange(
-                                  currentMonthMostParticipated.date,
-                                  currentMonthMostParticipated.endDate,
-                                )
-                              : getDisplayDate(currentMonthMostParticipated.date)}
-                          </span>
-                          <span className="ui-card-title mt-0.5 block break-words">
-                            {currentMonthMostParticipated.title}
-                          </span>
-                        </span>
-                        <span className="ui-caption shrink-0 whitespace-nowrap text-[var(--color-text-secondary)]">
-                          참여 {currentMonthMostParticipated.participantCount}명
-                        </span>
-                      </button>
-                    ) : (
-                      <span className="ui-metric-inline">기록 없음</span>
-                    )}
-                  </dd>
-                </div>
-              </dl>
+          <section className="game-month-strip" aria-label="이번 달 활동 요약">
+            <dl className="game-month-metrics">
+              <div><dt>비공정</dt><dd>{currentMonthTypeCounts?.airship ?? 0}회</dd></div>
+              <div><dt>점령전</dt><dd>{currentMonthTypeCounts?.siege ?? 0}회</dd></div>
+              <div><dt>참여 합계</dt><dd>{currentMonthTotalParticipation}회</dd></div>
+              <div><dt>활동당 평균</dt><dd>{currentMonthAverageParticipation ? `${currentMonthAverageParticipation}명` : "0명"}</dd></div>
+            </dl>
+            <div className="game-month-best">
+              <span className="game-month-best-label">최다 참여 활동</span>
+              {currentMonthMostParticipated ? (
+                <button
+                  aria-label={`${currentMonthMostParticipated.title} 활동 상세 보기`}
+                  className="ui-focus-ring game-month-best-button"
+                  onClick={() => {
+                    restoreMostActivityFocusRef.current = true;
+                    setSelectedActivity(currentMonthMostParticipated);
+                  }}
+                  ref={mostActivityTriggerRef}
+                  type="button"
+                >
+                  <span>{currentMonthMostParticipated.endDate ? formatDateRange(currentMonthMostParticipated.date, currentMonthMostParticipated.endDate) : getDisplayDate(currentMonthMostParticipated.date)}</span>
+                  <strong>{currentMonthMostParticipated.title}</strong>
+                  <span>· {currentMonthMostParticipated.participantCount}명</span>
+                </button>
+              ) : <span className="game-month-best-empty">기록 없음</span>}
             </div>
-          </GamePanel>
+          </section>
 
           {dashboard.upcomingAnniversaries.length > 0 ? (
-            <GamePanel>
+            <GamePanel className="game-panel-light">
               <GamePanelHeader icon="special" title="다가오는 기록" variant="strip" />
               <div className="game-panel-body">
               <ul className="game-row-list game-row-list-pink">
@@ -638,9 +613,10 @@ export default function DashboardPage() {
                   <li key={anniversary.id}>
                     {anniversary.memberId ? (
                       <Link
-                        className="ui-focus-ring game-record-row grid min-h-10 w-full grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 transition"
+                        className="ui-focus-ring game-record-row grid min-h-10 w-full grid-cols-[1.25rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 transition"
                         href={`/members/${encodeURIComponent(anniversary.memberId)}`}
                       >
+                        <GameIcon className="game-record-icon" name="special" />
                         <span className="text-xs text-[var(--color-text-muted)]">
                           {formatMonthDay(anniversary.date)}
                         </span>
@@ -652,7 +628,8 @@ export default function DashboardPage() {
                         </span>
                       </Link>
                     ) : (
-                      <p className="game-record-row grid min-h-10 grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5">
+                      <p className="game-record-row grid min-h-10 grid-cols-[1.25rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5">
+                        <GameIcon className="game-record-icon" name="special" />
                         <span className="text-xs text-[var(--color-text-muted)]">
                           {formatMonthDay(anniversary.date)}
                         </span>
@@ -671,12 +648,38 @@ export default function DashboardPage() {
             </GamePanel>
           ) : null}
 
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
-            <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
-            <GamePanel className="min-w-0">
-              <GamePanelHeader description="길마를 제외한 활동별 참여 기록입니다." title="이번 달 자주 함께한 길드원" variant="tab" />
-              <div className="game-panel-body">
-              <div className="game-participant-lists mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <GamePanel className="game-detail-panel min-w-0">
+            <GamePanelHeader icon="activity" title="이번 달 참여 정보" />
+            <div className="game-detail-tabs" role="tablist" aria-label="이번 달 참여 정보">
+              {dashboardDetailTabs.map((tab, index) => (
+                <GameTab
+                  active={dashboardDetailTab === tab.value}
+                  aria-controls={`dashboard-detail-${tab.value}`}
+                  aria-selected={dashboardDetailTab === tab.value}
+                  id={`dashboard-detail-tab-${tab.value}`}
+                  key={tab.value}
+                  onClick={() => setDashboardDetailTab(tab.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                    event.preventDefault();
+                    const offset = event.key === "ArrowRight" ? 1 : -1;
+                    const next = dashboardDetailTabs[(index + offset + dashboardDetailTabs.length) % dashboardDetailTabs.length];
+                    setDashboardDetailTab(next.value);
+                    requestAnimationFrame(() => document.getElementById(`dashboard-detail-tab-${next.value}`)?.focus());
+                  }}
+                  role="tab"
+                  tabIndex={dashboardDetailTab === tab.value ? 0 : -1}
+                  type="button"
+                >
+                  <GameIcon name={tab.icon} />{tab.label}
+                </GameTab>
+              ))}
+            </div>
+            <div className="game-detail-content" id={`dashboard-detail-${dashboardDetailTab}`} role="tabpanel" aria-labelledby={`dashboard-detail-tab-${dashboardDetailTab}`}>
+              {dashboardDetailTab === "trend" ? (
+                <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
+              ) : (
+              <div className="game-participant-lists grid gap-3 sm:grid-cols-2">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (
@@ -701,9 +704,9 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-              </div>
-            </GamePanel>
-          </div>
+              )}
+            </div>
+          </GamePanel>
 
           <GamePanel>
             <GamePanelHeader

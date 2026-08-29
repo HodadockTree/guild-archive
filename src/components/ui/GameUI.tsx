@@ -24,7 +24,7 @@ export type GameIconName =
 export function GameIcon({ className = "", name }: { className?: string; name: GameIconName }) {
   const paths: Record<GameIconName, ReactNode> = {
     activity: <><path d="M5 12h3l2-6 3 12 2-6h4" /><circle cx="5" cy="12" r="2" /></>,
-    airship: <><path d="M4 11c0-3 3.6-5.5 8-5.5s8 2.5 8 5.5-3.6 4.5-8 4.5S4 14 4 11Z" /><path d="M8 16.5 6.5 20M16 16.5l1.5 3.5M9 9h6" /></>,
+    airship: <><path d="M3 14h18l-2.7 4H6L3 14Z" /><path d="M7 14V9h7l3 5M10 9V5h4l3 4M5 19.5h14" /></>,
     calendar: <><rect x="4" y="5" width="16" height="15" rx="3" /><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2" /></>,
     event: <><path d="m12 3 2.2 5 5.3.5-4 3.6 1.2 5.4-4.7-2.8-4.7 2.8 1.2-5.4-4-3.6L9.8 8 12 3Z" /></>,
     home: <><path d="m3.5 11 8.5-7 8.5 7" /><path d="M6 10v10h12V10M10 20v-6h4v6" /></>,
@@ -151,6 +151,7 @@ export function GameStat({
   label,
   icon,
   onClick,
+  size = "primary",
   tone = "cyan",
   value,
 }: {
@@ -158,6 +159,7 @@ export function GameStat({
   label: string;
   icon: GameIconName;
   onClick?: () => void;
+  size?: "primary" | "secondary";
   tone?: "cyan" | "green" | "pink" | "purple" | "yellow" | "gray";
   value: string;
 }) {
@@ -174,7 +176,7 @@ export function GameStat({
 
   return onClick ? (
     <div
-      className={`game-stat game-stat-${tone} ui-focus-ring`}
+      className={`game-stat game-stat-${size} game-stat-${tone} ui-focus-ring`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -188,6 +190,6 @@ export function GameStat({
       {content}
     </div>
   ) : (
-    <div className={`game-stat game-stat-${tone}`}>{content}</div>
+    <div className={`game-stat game-stat-${size} game-stat-${tone}`}>{content}</div>
   );
 }

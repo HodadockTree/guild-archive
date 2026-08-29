@@ -1,6 +1,5 @@
 import type { DashboardActivitySummary } from "@/src/lib/dashboardStats";
 import { formatMonthDay } from "@/src/lib/displayFormat";
-import { GamePanel, GamePanelHeader } from "@/src/components/ui/GameUI";
 
 export function AirshipParticipationChart({
   activities,
@@ -28,14 +27,8 @@ export function AirshipParticipationChart({
     .join(" ");
 
   return (
-    <GamePanel className="min-w-0">
-      <GamePanelHeader
-        description="아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다."
-        icon="airship"
-        title="이번 달 비공정 참여 인원"
-        variant="strip"
-      />
-      <div className="game-panel-body">
+    <div className="game-chart-content min-w-0">
+      <p className="ui-supporting-text">아우로라와 오션헤븐의 회차별 참여 인원 변화입니다.</p>
       <div aria-label="비공정 종류 범례" className="ui-caption mt-3 flex gap-4 text-[var(--color-text-secondary)]">
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-violet-400" />아우로라</span>
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-cyan-500" />오션헤븐</span>
@@ -45,7 +38,7 @@ export function AirshipParticipationChart({
           이번 달 비공정 기록이 없습니다.
         </p>
       ) : (
-        <div className="mt-3 min-w-0 rounded-md bg-[var(--color-bg-muted)] p-3">
+        <div className="mt-3 min-w-0 bg-white py-2">
           <div className="max-w-full overflow-x-auto overscroll-x-contain">
             <svg
               aria-label="이번 달 비공정 회차별 참여 인원 변화"
@@ -77,7 +70,6 @@ export function AirshipParticipationChart({
           </div>
         </div>
       )}
-      </div>
-    </GamePanel>
+    </div>
   );
 }
