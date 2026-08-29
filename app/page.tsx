@@ -296,7 +296,7 @@ function ActivityCard({
     .join(" · ");
 
   return (
-    <li className={`game-list-row ${className}`}>
+    <li className={`game-list-row game-list-row-${activity.statsType} ${className}`}>
       <button
       className="game-activity-row ui-focus-ring flex w-full cursor-pointer flex-col px-3 py-2 text-left transition"
         onClick={() => onSelect(activity)}
@@ -510,16 +510,19 @@ export default function DashboardPage() {
             <dl className="game-stat-panel">
               <GameStat
                 label="현재 길드원 수"
+                tone="green"
                 value={`${dashboard.activeMemberCount}명`}
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
               <GameStat
                 label="이번 달 활동"
+                tone="yellow"
                 value={`${dashboard.currentMonthActivityCount}회`}
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
               <GameStat
                 label="이번 달 참여 인원"
+                tone="cyan"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
                 onClick={() => {
                   setSelectedMonthMemberId(null);
@@ -529,15 +532,18 @@ export default function DashboardPage() {
               <GameStat
                 description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
                 label="길드 시작일"
+                tone="pink"
                 value="2026년 1월 22일"
               />
               <GameStat
                 label="전체 활동"
+                tone="purple"
                 onClick={() => setSelectedSummaryModal("allActivities")}
                 value={`${dashboard.totalActivityCount}회`}
               />
               <GameStat
                 label="함께했던 길드원"
+                tone="gray"
                 onClick={() => setSelectedSummaryModal("allMembers")}
                 value={`${dashboard.totalMemberCount}명`}
               />
@@ -657,7 +663,7 @@ export default function DashboardPage() {
             <GamePanel className="min-w-0">
               <GamePanelHeader description="길마를 제외한 활동별 참여 기록입니다." title="이번 달 자주 함께한 길드원" />
               <div className="game-panel-body">
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="game-participant-lists mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (

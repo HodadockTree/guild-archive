@@ -70,9 +70,13 @@ export function GameButton({
   children,
   className = "",
   href,
+  variant = "primary",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { href?: string }) {
-  const classes = `game-button ui-focus-ring ${className}`;
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  href?: string;
+  variant?: "primary" | "pink" | "green";
+}) {
+  const classes = `game-button game-button-${variant} ui-focus-ring ${className}`;
 
   if (href) {
     return (
@@ -106,11 +110,13 @@ export function GameStat({
   description,
   label,
   onClick,
+  tone = "cyan",
   value,
 }: {
   description?: string;
   label: string;
   onClick?: () => void;
+  tone?: "cyan" | "green" | "pink" | "purple" | "yellow" | "gray";
   value: string;
 }) {
   const content = (
@@ -123,7 +129,7 @@ export function GameStat({
 
   return onClick ? (
     <div
-      className="game-stat ui-focus-ring"
+      className={`game-stat game-stat-${tone} ui-focus-ring`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -137,6 +143,6 @@ export function GameStat({
       {content}
     </div>
   ) : (
-    <div className="game-stat">{content}</div>
+    <div className={`game-stat game-stat-${tone}`}>{content}</div>
   );
 }
