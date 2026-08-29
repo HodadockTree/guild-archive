@@ -17,6 +17,13 @@ import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import { AirshipParticipationChart } from "@/src/components/AirshipParticipationChart";
 import { Surface } from "@/src/components/ui/Surface";
 import {
+  GameButton,
+  GamePanel,
+  GamePanelHeader,
+  GameStat,
+  GameTab,
+} from "@/src/components/ui/GameUI";
+import {
   formatDateRange,
   formatFullDate,
   formatMonth,
@@ -84,44 +91,6 @@ function getGuildAgeDays(today: Date) {
   const elapsedDays = Math.floor((todayDate - startedDate) / 86_400_000) + 1;
 
   return elapsedDays > 0 ? elapsedDays : null;
-}
-
-function SummaryCard({
-  className = "",
-  label,
-  value,
-  onClick,
-}: {
-  className?: string;
-  label: string;
-  value: string;
-  onClick?: () => void;
-}) {
-  const isClickable = Boolean(onClick);
-
-  return (
-    <div
-      className={`flex min-h-24 flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-4 ${
-        isClickable
-          ? "ui-focus-ring cursor-pointer transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
-          : ""
-      } ${className}`}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
-          return;
-        }
-
-        event.preventDefault();
-        onClick();
-      }}
-      role={isClickable ? "button" : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-    >
-      <dt className="ui-supporting-text font-medium">{label}</dt>
-      <dd className="ui-metric-hero mt-1 whitespace-nowrap">{value}</dd>
-    </div>
-  );
 }
 
 function getDurationLabel(member: DashboardMemberSummary) {
@@ -304,49 +273,6 @@ function ActivitySummaryList({
         </li>
       ))}
     </ul>
-  );
-}
-
-function CumulativeSummaryCard({
-  className = "",
-  description,
-  label,
-  onClick,
-  value,
-}: {
-  className?: string;
-  description?: string;
-  label: string;
-  onClick?: () => void;
-  value: string;
-}) {
-  const isClickable = Boolean(onClick);
-
-  return (
-    <div
-      className={`min-w-0 rounded-[var(--radius-card)] px-3 py-3 ${
-        isClickable
-          ? "ui-focus-ring cursor-pointer transition hover:bg-[var(--color-bg-interactive)]"
-          : ""
-      } ${className}`}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
-          return;
-        }
-
-        event.preventDefault();
-        onClick();
-      }}
-      role={isClickable ? "button" : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-    >
-      <dt className="ui-caption">{label}</dt>
-      <dd className={`mt-1 text-[var(--color-text-primary)] ${label === "길드 시작일" ? "text-lg font-semibold leading-7" : "ui-metric-section"}`}>{value}</dd>
-      {description ? (
-        <p className="ui-caption mt-1">{description}</p>
-      ) : null}
-    </div>
   );
 }
 
@@ -554,7 +480,7 @@ export default function DashboardPage() {
   })();
 
   return (
-    <main className="app-shell">
+    <main className="app-shell home-game-ui">
       <AppHeader
         currentPath="/"
         description="길드의 현재 현황과 쌓여온 활동 기록을 한눈에 살펴보세요."
@@ -583,20 +509,19 @@ export default function DashboardPage() {
 
       {dashboard ? (
         <>
-          <section>
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <SummaryCard
+          <section aria-label="길드 핵심 수치">
+            <dl className="game-stat-panel">
+              <GameStat
                 label="현재 길드원 수"
                 value={`${dashboard.activeMemberCount}명`}
                 onClick={() => setSelectedSummaryModal("activeMembers")}
               />
-              <SummaryCard
+              <GameStat
                 label="이번 달 활동"
                 value={`${dashboard.currentMonthActivityCount}회`}
                 onClick={() => setSelectedSummaryModal("currentMonthActivities")}
               />
-              <SummaryCard
-                className="col-span-2 sm:col-span-1"
+              <GameStat
                 label="이번 달 참여 인원"
                 value={`${dashboard.currentMonthParticipantMemberCount}명`}
                 onClick={() => {
@@ -604,33 +529,27 @@ export default function DashboardPage() {
                   setSelectedSummaryModal("currentMonthParticipants");
                 }}
               />
-            </dl>
-          </section>
-
-          <Surface variant="section">
-            <h2 className="ui-section-title">냥춘 누적 기록</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-1 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-1 sm:grid-cols-3">
-              <CumulativeSummaryCard
-                className="col-span-2 sm:col-span-1"
+              <GameStat
                 description={guildAgeDays ? `길드 운영 ${guildAgeDays}일째` : undefined}
                 label="길드 시작일"
                 value="2026년 1월 22일"
               />
-              <CumulativeSummaryCard
+              <GameStat
                 label="전체 활동"
                 onClick={() => setSelectedSummaryModal("allActivities")}
                 value={`${dashboard.totalActivityCount}회`}
               />
-              <CumulativeSummaryCard
+              <GameStat
                 label="함께했던 길드원"
                 onClick={() => setSelectedSummaryModal("allMembers")}
                 value={`${dashboard.totalMemberCount}명`}
               />
             </dl>
-          </Surface>
+          </section>
 
-          <Surface className="min-w-0" variant="section">
-              <h2 className="ui-section-title">이번 달 활동 요약</h2>
+          <GamePanel>
+            <GamePanelHeader title="이번 달 활동 요약" />
+            <div className="game-panel-body">
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-4">
                 <div className="flex min-h-14 flex-col justify-center">
                   <dt className="ui-caption">비공정</dt>
@@ -691,11 +610,13 @@ export default function DashboardPage() {
                   </dd>
                 </div>
               </dl>
-          </Surface>
+            </div>
+          </GamePanel>
 
           {dashboard.upcomingAnniversaries.length > 0 ? (
-            <Surface variant="section">
-              <h2 className="ui-section-title">다가오는 기록</h2>
+            <GamePanel>
+              <GamePanelHeader title="다가오는 기록" />
+              <div className="game-panel-body">
               <ul className="mt-2 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-3">
                 {dashboard.upcomingAnniversaries.map((anniversary) => (
                   <li key={anniversary.id}>
@@ -730,14 +651,15 @@ export default function DashboardPage() {
                   </li>
                 ))}
               </ul>
-            </Surface>
+              </div>
+            </GamePanel>
           ) : null}
 
           <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
             <AirshipParticipationChart activities={dashboard.currentMonthActivities} />
-            <Surface className="min-w-0" variant="section">
-              <h2 className="ui-section-title">이번 달 자주 함께한 길드원</h2>
-              <p className="ui-supporting-text mt-1">길마를 제외한 활동별 참여 기록입니다.</p>
+            <GamePanel className="min-w-0">
+              <GamePanelHeader description="길마를 제외한 활동별 참여 기록입니다." title="이번 달 자주 함께한 길드원" />
+              <div className="game-panel-body">
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
@@ -762,44 +684,32 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            </Surface>
+              </div>
+            </GamePanel>
           </div>
 
-          <section className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="ui-section-title">
-                  최근 활동
-                </h2>
-              </div>
-              <Link
-                className="ui-focus-ring inline-flex min-h-11 w-fit items-center rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
-                href={`/viewer?month=${currentMonth}`}
-              >
-                이번 달 전체 보기
-              </Link>
-            </div>
-
+          <GamePanel>
+            <GamePanelHeader
+              action={<GameButton href={`/viewer?month=${currentMonth}`}>이번 달 전체 보기</GameButton>}
+              title="최근 활동"
+            />
+            <div className="game-panel-body space-y-4">
             <div
               aria-label="최근 활동 종류"
-              className="flex w-full gap-1 overflow-x-auto rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] p-1 sm:w-fit"
+              className="game-tabs w-full sm:w-fit"
               role="group"
             >
               {(Object.entries(recentActivityFilterLabels) as [RecentActivityFilter, string][]).map(
                 ([value, label]) => (
-                  <button
+                  <GameTab
+                    active={recentActivityFilter === value}
                     aria-pressed={recentActivityFilter === value}
-                    className={`ui-focus-ring min-h-10 shrink-0 rounded-md px-3 text-sm font-medium transition ${
-                      recentActivityFilter === value
-                          ? "border border-[var(--color-border-selected)] bg-[var(--color-bg-surface)] text-[var(--color-text-accent)] shadow-sm"
-                          : "border border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-interactive)]"
-                    }`}
                     key={value}
                     onClick={() => setRecentActivityFilter(value)}
                     type="button"
                   >
                     {label}
-                  </button>
+                  </GameTab>
                 ),
               )}
             </div>
@@ -863,7 +773,8 @@ export default function DashboardPage() {
                 </ul>
               )
             )}
-          </section>
+            </div>
+          </GamePanel>
 
           {selectedSummaryModal === "activeMembers" ? (
             <DashboardSummaryModal

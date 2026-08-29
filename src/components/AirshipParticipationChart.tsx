@@ -1,6 +1,6 @@
 import type { DashboardActivitySummary } from "@/src/lib/dashboardStats";
 import { formatMonthDay } from "@/src/lib/displayFormat";
-import { Surface } from "@/src/components/ui/Surface";
+import { GamePanel, GamePanelHeader } from "@/src/components/ui/GameUI";
 
 export function AirshipParticipationChart({
   activities,
@@ -28,11 +28,12 @@ export function AirshipParticipationChart({
     .join(" ");
 
   return (
-    <Surface className="min-w-0" variant="section">
-      <h2 className="ui-section-title">이번 달 비공정 참여 인원</h2>
-      <p className="ui-supporting-text mt-1">
-        아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다.
-      </p>
+    <GamePanel className="min-w-0">
+      <GamePanelHeader
+        description="아우로라와 오션헤븐의 회차별 참여 인원 변화를 살펴봅니다."
+        title="이번 달 비공정 참여 인원"
+      />
+      <div className="game-panel-body">
       <div aria-label="비공정 종류 범례" className="ui-caption mt-3 flex gap-4 text-[var(--color-text-secondary)]">
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-violet-400" />아우로라</span>
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-cyan-500" />오션헤븐</span>
@@ -74,6 +75,7 @@ export function AirshipParticipationChart({
           </div>
         </div>
       )}
-    </Surface>
+      </div>
+    </GamePanel>
   );
 }
