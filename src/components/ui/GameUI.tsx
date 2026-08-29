@@ -1,6 +1,39 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import Link from "next/link";
 
+const gameNavigation = [
+  { href: "/", label: "홈" },
+  { href: "/archive", label: "월별 기록" },
+  { href: "/viewer", label: "월간 리포트" },
+  { href: "/admin", label: "관리 화면" },
+] as const;
+
+export function GameWindowHeader() {
+  return (
+    <header className="game-window-header">
+      <div className="game-window-titlebar">
+        <span aria-hidden="true" className="game-window-emblem">N</span>
+        <div>
+          <p className="game-window-title">냥춘 길드 아카이브</p>
+          <p className="game-window-subtitle">GUILD ACTIVITY MENU</p>
+        </div>
+      </div>
+      <nav aria-label="주요 화면" className="game-window-nav">
+        {gameNavigation.map((item) => (
+          <Link
+            aria-current={item.href === "/" ? "page" : undefined}
+            className={`game-window-tab ui-focus-ring ${item.href === "/" ? "game-window-tab-active" : ""}`}
+            href={item.href}
+            key={item.href}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+    </header>
+  );
+}
+
 type GamePanelProps = HTMLAttributes<HTMLElement> & {
   children: ReactNode;
 };

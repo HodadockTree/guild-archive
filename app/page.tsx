@@ -12,7 +12,6 @@ import {
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
 import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
-import { AppHeader } from "@/src/components/ui/AppHeader";
 import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
 import { AirshipParticipationChart } from "@/src/components/AirshipParticipationChart";
 import { Surface } from "@/src/components/ui/Surface";
@@ -22,6 +21,7 @@ import {
   GamePanelHeader,
   GameStat,
   GameTab,
+  GameWindowHeader,
 } from "@/src/components/ui/GameUI";
 import {
   formatDateRange,
@@ -296,9 +296,9 @@ function ActivityCard({
     .join(" · ");
 
   return (
-    <li className={className}>
+    <li className={`game-list-row ${className}`}>
       <button
-      className="ui-focus-ring flex w-full cursor-pointer flex-col rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 text-left transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+      className="game-activity-row ui-focus-ring flex w-full cursor-pointer flex-col px-3 py-2 text-left transition"
         onClick={() => onSelect(activity)}
         type="button"
       >
@@ -481,12 +481,9 @@ export default function DashboardPage() {
 
   return (
     <main className="app-shell home-game-ui">
-      <AppHeader
-        currentPath="/"
-        description="길드의 현재 현황과 쌓여온 활동 기록을 한눈에 살펴보세요."
-        eyebrow="냥춘 길드 활동 아카이브"
-        title="냥춘 활동 대시보드"
-      />
+      <div className="game-client-window">
+      <GameWindowHeader />
+      <div className="game-client-content">
 
       {dashboardState.status === "loading" ? (
         <Surface className="py-10 text-center" variant="section">
@@ -617,12 +614,12 @@ export default function DashboardPage() {
             <GamePanel>
               <GamePanelHeader title="다가오는 기록" />
               <div className="game-panel-body">
-              <ul className="mt-2 divide-y divide-[var(--color-border-subtle)] rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] px-3">
+              <ul className="game-row-list game-row-list-pink">
                 {dashboard.upcomingAnniversaries.map((anniversary) => (
                   <li key={anniversary.id}>
                     {anniversary.memberId ? (
                       <Link
-                        className="ui-focus-ring grid min-h-11 w-full grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-1 py-1.5 transition hover:text-[var(--color-text-accent)]"
+                        className="ui-focus-ring game-record-row grid min-h-10 w-full grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 transition"
                         href={`/members/${encodeURIComponent(anniversary.memberId)}`}
                       >
                         <span className="text-xs text-[var(--color-text-muted)]">
@@ -636,7 +633,7 @@ export default function DashboardPage() {
                         </span>
                       </Link>
                     ) : (
-                      <p className="grid min-h-11 grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-1 py-1.5">
+                      <p className="game-record-row grid min-h-10 grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5">
                         <span className="text-xs text-[var(--color-text-muted)]">
                           {formatMonthDay(anniversary.date)}
                         </span>
@@ -664,14 +661,14 @@ export default function DashboardPage() {
                 {(["airship", "siege"] as const).map((type) => {
                   const participants = dashboard.currentMonthTopParticipants[type];
                   return (
-                    <div className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-muted)]" key={type}>
-                      <h3 className="px-4 pt-3 text-sm font-semibold text-[var(--color-text-secondary)]">
+                    <div className="game-sublist" key={type}>
+                      <h3 className="game-sublist-title">
                         {type === "airship" ? "비공정" : "점령전"}
                       </h3>
                       {participants.length > 0 ? (
-                        <ol className="space-y-2 px-4 py-3">
+                        <ol className="divide-y divide-[#b8ddf2]">
                           {participants.map((participant) => (
-                            <li className="flex items-center justify-between gap-3 text-sm" key={participant.id}>
+                            <li className="game-compact-row flex items-center justify-between gap-3 text-sm" key={participant.id}>
                               <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{participant.nickname}</span>
                               <strong className="shrink-0 text-[var(--color-text-primary)]">{participant.count}회</strong>
                             </li>
@@ -720,16 +717,16 @@ export default function DashboardPage() {
               </p>
             ) : (
               recentActivityFilter === "airship" ? (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-2 lg:grid-cols-2">
                   {(["아우로라", "오션헤븐"] as const).map((track) => {
                     const trackActivities = visibleRecentActivities.filter(
                       (activity) => activity.label === track,
                     );
                     return (
-                      <section className="rounded-md bg-[var(--color-bg-muted)] p-3" key={track}>
-                        <h3 className="px-1 pb-3 text-sm font-semibold text-[var(--color-text-secondary)]">{track}</h3>
+                      <section className="game-sublist" key={track}>
+                        <h3 className="game-sublist-title">{track}</h3>
                         {trackActivities.length > 0 ? (
-                          <ul className="grid gap-3">
+                          <ul className="game-row-list">
                             {trackActivities.map((activity) => (
                               <ActivityCard
                                 activity={activity}
@@ -750,19 +747,11 @@ export default function DashboardPage() {
                   })}
                 </div>
               ) : (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                <ul className="game-row-list">
                   {visibleRecentActivities.map((activity, index) => (
                     <ActivityCard
                       activity={activity}
-                      className={
-                        visibleRecentActivities.length === 1
-                          ? "lg:col-span-6"
-                          : visibleRecentActivities.length === 2 || visibleRecentActivities.length === 4
-                            ? "lg:col-span-3"
-                            : visibleRecentActivities.length === 5 && index >= 3
-                              ? "lg:col-span-3"
-                              : "lg:col-span-2"
-                      }
+                      className={index === 0 ? "game-list-row-featured" : ""}
                       key={activity.id}
                       onSelect={(selected) => {
                         restoreMostActivityFocusRef.current = false;
@@ -896,6 +885,8 @@ export default function DashboardPage() {
           />
         </>
       ) : null}
+      </div>
+      </div>
     </main>
   );
 }
