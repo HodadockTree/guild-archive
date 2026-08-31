@@ -1,21 +1,22 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import { getCountedActivityParticipantIds } from "@/src/lib/activityParticipants";
+import { getActivityDisplayTitle, getMonthlyActivityLabel } from "@/src/lib/activityLabels";
 
 export type ActivityParticipant = {
   id: string;
   nickname: string;
+  isKnownMember?: boolean;
 };
 
 export type MemberActivityRecord = {
   id: string;
   date: string;
+  endDate?: string;
   label: string;
   title: string;
   participantCount: number;
   participants: ActivityParticipant[];
   memo?: string;
-  imageUrl?: string;
-  imageDataUrl?: string;
 };
 
 export type MemberActivityDetailData = {
@@ -32,19 +33,27 @@ export function toMemberActivityRecord(
   activity: ActivityLog,
   membersById: Map<string, GuildMember>,
 ): MemberActivityRecord {
+  const participantIds = getCountedActivityParticipantIds(
+    activity.participantIds,
+    membersById,
+  );
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
-    title: activity.title?.trim() || getMonthlyActivityLabel(activity),
-    participantCount: activity.participantIds.length,
-    participants: activity.participantIds.map((memberId) => ({
-      id: memberId,
-      nickname: membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    })),
+    title: getActivityDisplayTitle(activity),
+    participantCount: participantIds.length,
+    participants: participantIds.map((memberId) => {
+      const member = membersById.get(memberId);
+
+      return {
+        id: memberId,
+        nickname: member?.nickname ?? getUnknownMemberName(memberId),
+        isKnownMember: Boolean(member),
+      };
+    }),
     memo: activity.memo?.trim() || undefined,
-    imageUrl: activity.imageUrl,
-    imageDataUrl: activity.imageDataUrl,
   };
 }
 

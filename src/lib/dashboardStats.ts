@@ -1,7 +1,18 @@
 import type { ActivityLog, GuildMember } from "@/src/types";
 import { getActivityStatsType } from "@/src/lib/activityStats";
-import { getMonthlyActivityLabel } from "@/src/lib/activityLabels";
+import {
+  getActivityDisplayTitle,
+  getMonthlyActivityLabel,
+} from "@/src/lib/activityLabels";
+import {
+  getCountedActivityParticipantIds,
+  isRankedActivityMember,
+} from "@/src/lib/activityParticipants";
 import type { ActivityParticipant } from "@/src/lib/memberActivity";
+import {
+  getUpcomingAnniversaries,
+  type UpcomingAnniversary,
+} from "@/src/lib/anniversaries";
 
 export type DashboardMonthlyTrend = {
   month: string;
@@ -12,16 +23,22 @@ export type DashboardMonthlyTrend = {
 export type DashboardActivitySummary = {
   id: string;
   date: string;
+  endDate?: string;
   label: string;
   statsType: "airship" | "siege" | "other";
+  airshipType?: ActivityLog["airshipType"];
   participantIds: string[];
   title: string;
   participantCount: number;
   participantNames: string[];
   participants: ActivityParticipant[];
   memo?: string;
-  imageUrl?: string;
-  imageDataUrl?: string;
+};
+
+export type DashboardTopParticipant = {
+  id: string;
+  nickname: string;
+  count: number;
 };
 
 export type DashboardMemberSummary = {
@@ -46,6 +63,11 @@ export type DashboardStats = {
   recentActivity: DashboardActivitySummary | null;
   recentActivities: DashboardActivitySummary[];
   monthlyTrends: DashboardMonthlyTrend[];
+  currentMonthTopParticipants: {
+    airship: DashboardTopParticipant[];
+    siege: DashboardTopParticipant[];
+  };
+  upcomingAnniversaries: UpcomingAnniversary[];
 };
 
 function getMonthKey(date: string) {
@@ -56,10 +78,6 @@ function getPreviousMonth(month: string, offset: number) {
   const [year, monthNumber] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, monthNumber - 1 - offset, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function getActivityTitle(activity: ActivityLog) {
-  return activity.title?.trim() || getMonthlyActivityLabel(activity);
 }
 
 function getUnknownMemberName(memberId: string) {
@@ -84,28 +102,37 @@ function toActivitySummary(
   activity: ActivityLog,
   membersById: Map<string, GuildMember>,
 ): DashboardActivitySummary {
+  const participantIds = getCountedActivityParticipantIds(
+    activity.participantIds,
+    membersById,
+  );
+
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
     statsType: getActivityStatsType(activity.type),
-    title: getActivityTitle(activity),
-    participantIds: activity.participantIds,
-    participantCount: activity.participantIds.length,
-    participantNames: activity.participantIds
+    airshipType: activity.airshipType,
+    title: getActivityDisplayTitle(activity),
+    participantIds,
+    participantCount: participantIds.length,
+    participantNames: participantIds
       .map(
         (memberId) =>
           membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
       )
       .sort((a, b) => a.localeCompare(b, "ko")),
-    participants: activity.participantIds.map((memberId) => ({
-      id: memberId,
-      nickname:
-        membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    })),
+    participants: participantIds.map((memberId) => {
+      const member = membersById.get(memberId);
+
+      return {
+        id: memberId,
+        nickname: member?.nickname ?? getUnknownMemberName(memberId),
+        isKnownMember: Boolean(member),
+      };
+    }),
     memo: activity.memo?.trim() || undefined,
-    imageUrl: activity.imageUrl,
-    imageDataUrl: activity.imageDataUrl,
   };
 }
 
@@ -159,10 +186,12 @@ export function getGuildDashboardStats(
   const currentMonthActivities = activities.filter(
     (activity) => getMonthKey(activity.date) === currentMonth,
   );
-  const currentMonthParticipantIds = new Set(
-    currentMonthActivities.flatMap((activity) => activity.participantIds),
-  );
   const membersById = new Map(members.map((member) => [member.id, member]));
+  const currentMonthParticipantIds = new Set(
+    currentMonthActivities.flatMap((activity) =>
+      getCountedActivityParticipantIds(activity.participantIds, membersById),
+    ),
+  );
   const monthlySummaries = new Map<
     string,
     {
@@ -171,6 +200,37 @@ export function getGuildDashboardStats(
       participantMemberIds: Set<string>;
     }
   >();
+  const rankingCounts = {
+    airship: new Map<string, number>(),
+    siege: new Map<string, number>(),
+  };
+
+  currentMonthActivities.forEach((activity) => {
+    const statsType = getActivityStatsType(activity.type);
+
+    if (statsType !== "airship" && statsType !== "siege") return;
+
+    getCountedActivityParticipantIds(activity.participantIds, membersById)
+      .filter((memberId) => {
+        const member = membersById.get(memberId);
+        return member ? isRankedActivityMember(member) : false;
+      })
+      .forEach((memberId) => {
+        rankingCounts[statsType].set(
+          memberId,
+          (rankingCounts[statsType].get(memberId) ?? 0) + 1,
+        );
+      });
+  });
+
+  const getTopParticipants = (type: "airship" | "siege") =>
+    Array.from(rankingCounts[type], ([id, count]) => ({
+      id,
+      nickname: membersById.get(id)?.nickname ?? getUnknownMemberName(id),
+      count,
+    }))
+      .sort((a, b) => b.count - a.count || a.nickname.localeCompare(b.nickname, "ko"))
+      .slice(0, 3);
 
   activities.forEach((activity) => {
     const month = getMonthKey(activity.date);
@@ -186,7 +246,10 @@ export function getGuildDashboardStats(
     };
 
     summary.activityCount += 1;
-    activity.participantIds.forEach((memberId) => {
+    getCountedActivityParticipantIds(
+      activity.participantIds,
+      membersById,
+    ).forEach((memberId) => {
       summary.participantMemberIds.add(memberId);
     });
     monthlySummaries.set(month, summary);
@@ -241,5 +304,10 @@ export function getGuildDashboardStats(
       .slice(0, 6)
       .map((activity) => toActivitySummary(activity, membersById)),
     monthlyTrends,
+    currentMonthTopParticipants: {
+      airship: getTopParticipants("airship"),
+      siege: getTopParticipants("siege"),
+    },
+    upcomingAnniversaries: getUpcomingAnniversaries(members, referenceDate),
   };
 }

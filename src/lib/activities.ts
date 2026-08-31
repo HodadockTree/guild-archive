@@ -19,10 +19,15 @@ function createId() {
 
 export function getActivityLogs() {
   return readStorageList<StoredActivityLog>(ACTIVITIES_STORAGE_KEY).map(
-    ({ participantMemberIds, ...activity }) => ({
-      ...activity,
-      participantIds: activity.participantIds ?? participantMemberIds ?? [],
-    }),
+    ({ participantMemberIds, ...activity }) => {
+      delete activity.imageUrl;
+      delete activity.imageDataUrl;
+
+      return {
+        ...activity,
+        participantIds: activity.participantIds ?? participantMemberIds ?? [],
+      };
+    },
   );
 }
 

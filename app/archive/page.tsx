@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { MonthlyArchiveSummary } from "@/src/lib/monthlyArchive";
 import { getMonthDisplayLabel } from "@/src/lib/monthlyArchive";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { MonthlyTrendChart } from "@/src/components/MonthlyTrendChart";
-import { DashboardSummaryModal } from "@/src/components/DashboardSummaryModal";
-import { MemberActivityPanel } from "@/src/components/MemberActivityPanel";
-import { monthlyHighlightCategoryBadgeClasses } from "@/src/lib/monthlyHighlights";
+import {
+  GuildFlowChart,
+  MonthlyAirshipAverageChart,
+} from "@/src/components/MonthlyTrendChart";
+import { Surface } from "@/src/components/ui/Surface";
 import type { MonthlyHighlightCategory } from "@/src/types";
 
 type ServerMonthlyArchiveSummary = MonthlyArchiveSummary & {
@@ -28,34 +29,9 @@ type ArchiveState =
   | { status: "success"; months: ServerMonthlyArchiveSummary[] };
 
 export default function ArchivePage() {
-  const router = useRouter();
   const [archiveState, setArchiveState] = useState<ArchiveState>({
     status: "loading",
   });
-  const [participantMonth, setParticipantMonth] = useState<string | null>(null);
-  const participantTriggerRef = useRef<HTMLElement | null>(null);
-  const memberTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const [selectedArchiveMember, setSelectedArchiveMember] = useState<{
-    id: string;
-    nickname: string;
-  } | null>(null);
-
-  const openParticipantModal = (month: string, trigger: HTMLElement) => {
-    participantTriggerRef.current = trigger;
-    setParticipantMonth(month);
-  };
-
-  const closeParticipantModal = () => {
-    if (selectedArchiveMember) {
-      setSelectedArchiveMember(null);
-      requestAnimationFrame(() => memberTriggerRef.current?.focus());
-      return;
-    }
-
-    setParticipantMonth(null);
-    requestAnimationFrame(() => participantTriggerRef.current?.focus());
-  };
-
   useEffect(() => {
     let isActive = true;
 
@@ -109,10 +85,6 @@ export default function ArchivePage() {
   const monthlyTrends = [...monthlySummaries].sort((a, b) =>
     a.month.localeCompare(b.month),
   );
-  const selectedParticipantMonth = monthlySummaries.find(
-    (summary) => summary.month === participantMonth,
-  );
-
   return (
     <main className="app-shell">
       <AppHeader
@@ -123,11 +95,11 @@ export default function ArchivePage() {
       />
 
       {archiveState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white px-5 py-10 text-center shadow-sm shadow-sky-100/50">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <Surface className="py-10 text-center" variant="section">
+          <h2 className="ui-section-title">
             월별 기록을 불러오는 중입니다.
           </h2>
-        </section>
+        </Surface>
       ) : null}
 
       {archiveState.status === "error" ? (
@@ -141,168 +113,77 @@ export default function ArchivePage() {
         </section>
       ) : null}
 
-      {archiveState.status === "success" ? (
-        <section className="grid gap-4 lg:grid-cols-2">
-          <MonthlyTrendChart
-            description="월별로 기록된 길드 활동 수를 보여줍니다. 막대를 선택하면 해당 월 리포트로 이동합니다."
-            emptyMessage="그래프로 표시할 활동 기록이 아직 없습니다."
-            interaction="report"
-            title="월별 활동 수"
-            trends={monthlyTrends}
-            unit="회"
-            valueKey="activityCount"
-          />
-          <MonthlyTrendChart
-            description="월별로 한 번 이상 함께한 길드원 수를 보여줍니다. 막대를 선택하면 함께한 길드원을 확인할 수 있습니다."
-            emptyMessage="그래프로 표시할 참여 기록이 아직 없습니다."
-            interaction="members"
-            onSelectMembers={openParticipantModal}
-            title="월별 함께한 길드원"
-            trends={monthlyTrends}
-            unit="명"
-            valueKey="participantMemberCount"
-          />
-        </section>
-      ) : null}
-
       {archiveState.status === "success" && monthlySummaries.length === 0 ? (
-        <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <section className="ui-empty-state ui-empty-state-surface px-5 py-10">
+          <h2 className="ui-section-title">
             아직 기록된 활동이 없습니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+          <p className="ui-supporting-text mx-auto mt-2 max-w-xl">
             활동 기록이 생기면 월별 기록이 표시됩니다.
           </p>
         </section>
       ) : null}
 
       {archiveState.status === "success" && monthlySummaries.length > 0 ? (
-        <section className="grid gap-3">
-          {monthlySummaries.map((summary) => (
-            <article
-              aria-label={`${getMonthDisplayLabel(summary.month)} 리포트 보기`}
-              className="ui-focus-ring group block rounded-[var(--radius-card)] border border-[var(--border)] bg-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:bg-[var(--surface-muted)]"
-              key={summary.month}
-              onClick={() => router.push(`/viewer?month=${summary.month}`)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  router.push(`/viewer?month=${summary.month}`);
-                }
-              }}
-              role="link"
-              tabIndex={0}
-            >
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-bold text-slate-900">
-                      {getMonthDisplayLabel(summary.month)}
-                    </h2>
-                    {(summary.representativeHighlights?.length ?? 0) > 0 ? (
-                      <ul
-                        aria-label="주요 기록"
-                        className="flex flex-wrap gap-1.5"
+        <Surface aria-label="월별 기록 목록" variant="section">
+          <div className="grid gap-3">
+            {monthlySummaries.map((summary) => (
+              <Link
+                aria-label={`${getMonthDisplayLabel(summary.month)} 월간 리포트 보기`}
+                className="ui-focus-ring block rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 transition-colors hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]"
+                href={`/viewer?month=${summary.month}`}
+                id={`archive-month-${summary.month}`}
+                key={summary.month}
+              >
+                <h2 className="ui-card-title sm:text-lg">
+                  {getMonthDisplayLabel(summary.month)}
+                </h2>
+                <p className="ui-supporting-text mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>활동 <strong className="ui-metric-inline">{summary.activityCount}회</strong></span>
+                  <span>길드원 <strong className="ui-metric-inline">{summary.participantMemberCount}명</strong></span>
+                  <span>총 참여 <strong className="ui-metric-inline">{summary.totalParticipationCount}회</strong></span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                {(summary.representativeHighlights?.length ?? 0) > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="주요 기록">
+                    {summary.representativeHighlights?.map((highlight, index) => (
+                      <li
+                        className={`max-w-full rounded-full px-2 py-0.5 text-xs leading-5 break-words ${
+                          index === 0
+                            ? "bg-[var(--color-brand-soft)] font-semibold text-[var(--color-text-accent)]"
+                            : "bg-[var(--color-bg-muted)] font-medium text-[var(--color-text-secondary)]"
+                        }`}
+                        key={highlight.id}
                       >
-                        {summary.representativeHighlights?.map((highlight) => (
-                          <li
-                            className={`rounded-full px-2 py-0.5 text-xs ${monthlyHighlightCategoryBadgeClasses[highlight.category]}`}
-                            key={highlight.id}
-                          >
-                            {highlight.title}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {summary.representativeEvents.length > 0 ? (
-                      <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
-                        {summary.representativeEvents.map((event) => (
-                          <li
-                            className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-slate-700"
-                            key={event.id}
-                          >
-                            {event.title}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
+                        {highlight.title}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {summary.representativeEvents.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="대표 이벤트">
+                    {summary.representativeEvents.map((event) => (
+                      <li
+                        className="max-w-full rounded-full bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs leading-5 break-words text-[var(--color-text-secondary)]"
+                        key={event.id}
+                      >
+                        {event.title}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 </div>
-
-                <dl className="grid grid-cols-3 gap-2 text-sm sm:w-[25rem]">
-                  <div className="rounded-md bg-sky-50 px-3 py-2">
-                    <dt className="text-xs text-slate-500">활동</dt>
-                    <dd className="font-semibold text-slate-900">
-                      {summary.activityCount}회
-                    </dd>
-                  </div>
-                  <button
-                    aria-label={`${getMonthDisplayLabel(summary.month)} 함께한 길드원 ${summary.participantMemberCount}명 보기`}
-                    className="ui-focus-ring rounded-md bg-sky-50 px-3 py-2 text-left transition hover:bg-sky-100"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openParticipantModal(summary.month, event.currentTarget);
-                    }}
-                    onKeyDown={(event) => event.stopPropagation()}
-                    type="button"
-                  >
-                    <dt className="text-xs text-slate-500">함께한 길드원</dt>
-                    <dd className="font-semibold text-slate-900">
-                      {summary.participantMemberCount}명
-                    </dd>
-                  </button>
-                  <div className="rounded-md bg-sky-50 px-3 py-2">
-                    <dt className="text-xs text-slate-500">총 참여 횟수</dt>
-                    <dd className="font-semibold text-slate-900">
-                      {summary.totalParticipationCount}회
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </article>
-          ))}
-        </section>
+              </Link>
+            ))}
+          </div>
+        </Surface>
       ) : null}
 
-      {selectedParticipantMonth ? (
-        <DashboardSummaryModal
-          onClose={closeParticipantModal}
-          title={selectedArchiveMember ? `${selectedArchiveMember.nickname}님의 활동 기록` : `${getMonthDisplayLabel(selectedParticipantMonth.month)} 함께한 길드원 ${selectedParticipantMonth.participantMemberCount}명`}
-        >
-          {selectedArchiveMember ? (
-            <div>
-              <button autoFocus className="ui-focus-ring mb-4 rounded-md px-2 py-1 text-sm font-semibold text-[var(--brand-strong)] hover:bg-sky-50" onClick={closeParticipantModal} type="button">
-                ← 함께한 길드원으로 돌아가기
-              </button>
-              <MemberActivityPanel memberId={selectedArchiveMember.id} />
-            </div>
-          ) : (selectedParticipantMonth.participantMembers ?? []).length === 0 ? (
-            <p className="rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
-              이 달에 함께한 길드원이 없습니다.
-            </p>
-          ) : (
-            <ul className="divide-y divide-sky-100">
-              {(selectedParticipantMonth.participantMembers ?? []).map((member) => (
-                <li className="flex items-center justify-between gap-4 py-2" key={member.id}>
-                  <button
-                    aria-label={`${member.nickname} 활동 기록 보기`}
-                    className="ui-focus-ring min-h-11 min-w-0 cursor-pointer truncate rounded-md px-2 py-1 text-left font-semibold text-slate-900 transition hover:bg-sky-100"
-                    onClick={(event) => {
-                      memberTriggerRef.current = event.currentTarget;
-                      setSelectedArchiveMember({ id: member.id, nickname: member.nickname });
-                    }}
-                    type="button"
-                  >
-                    {member.nickname}
-                  </button>
-                  <span className="shrink-0 text-sm text-slate-600">
-                    참여 {member.participationCount}회 · {member.status === "active" ? "활동중" : "탈퇴"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </DashboardSummaryModal>
+      {archiveState.status === "success" ? (
+        <>
+          <GuildFlowChart trends={monthlyTrends} />
+          <MonthlyAirshipAverageChart trends={monthlyTrends} />
+        </>
       ) : null}
     </main>
   );

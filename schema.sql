@@ -6,6 +6,7 @@
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
   nickname TEXT NOT NULL,
+  previousNicknames TEXT,
   status TEXT NOT NULL,
   joinedAt TEXT,
   leftAt TEXT,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS activities (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,
   date TEXT NOT NULL,
+  endDate TEXT,
   title TEXT,
   memo TEXT,
   airshipType TEXT,
@@ -58,6 +60,9 @@ CREATE TABLE IF NOT EXISTS monthly_highlights (
   month TEXT NOT NULL,
   category TEXT NOT NULL,
   title TEXT NOT NULL,
+  startDate TEXT,
+  endDate TEXT,
+  sourceActivityId TEXT,
   dateText TEXT,
   description TEXT,
   imageUrl TEXT,
@@ -72,3 +77,6 @@ CREATE INDEX IF NOT EXISTS idx_activity_participants_memberId ON activity_partic
 CREATE INDEX IF NOT EXISTS idx_activity_conquest_types_activityId ON activity_conquest_types(activityId);
 CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month ON monthly_highlights(month);
 CREATE INDEX IF NOT EXISTS idx_monthly_highlights_month_createdAt ON monthly_highlights(month, createdAt);
+CREATE INDEX IF NOT EXISTS idx_monthly_highlights_start_end ON monthly_highlights(startDate, endDate);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monthly_highlights_source_activity
+  ON monthly_highlights(sourceActivityId) WHERE sourceActivityId IS NOT NULL;

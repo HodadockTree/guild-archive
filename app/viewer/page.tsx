@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ActivityLog, MonthlyHighlight } from "@/src/types";
+import type { AnniversaryMilestone } from "@/src/lib/anniversaries";
 import {
   conquestTypes,
+  getActivityDisplayTitle,
+  getKnownConquestTypes,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
+import { getActivityStatsType } from "@/src/lib/activityStats";
 import {
   getMostParticipatedActivity,
   type MonthlyReport,
@@ -14,11 +19,15 @@ import {
   ActivityDetailModal,
   type ActivityDetail,
 } from "@/src/components/ActivityDetailModal";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { getActivityImageSource } from "@/src/lib/activityImage";
-import { formatMonth, formatMonthDay } from "@/src/lib/displayFormat";
+import {
+  formatDateRange,
+  formatMonth,
+  formatMonthDay,
+} from "@/src/lib/displayFormat";
 import { MonthlyHighlightsSection } from "@/src/components/MonthlyHighlightsSection";
+import { MonthlyActivityCalendar } from "@/src/components/MonthlyActivityCalendar";
+import { Surface } from "@/src/components/ui/Surface";
 
 type MonthSummary = {
   month: string;
@@ -40,8 +49,27 @@ type ReportState =
       highlights: MonthlyHighlight[];
     };
 
+type MonthlyActivityFilter = "all" | "airship" | "siege" | "other";
+
+function getMonthlyAnniversaryLabel(anniversary: AnniversaryMilestone) {
+  const milestone = anniversary.milestoneKind === "years"
+    ? `${anniversary.milestone}주년`
+    : `${anniversary.milestone}일`;
+
+  return anniversary.nickname
+    ? `${formatMonthDay(anniversary.date)} · ${anniversary.nickname}님 · 함께한 지 ${milestone}`
+    : `${formatMonthDay(anniversary.date)} · 냥춘 · ${milestone}`;
+}
+
+const monthlyActivityFilterLabels: Record<MonthlyActivityFilter, string> = {
+  all: "전체",
+  airship: "비공정",
+  siege: "점령전",
+  other: "이벤트",
+};
+
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function getMonthLabel(month: string) {
@@ -52,25 +80,89 @@ function getDisplayDate(date: string) {
   return formatMonthDay(date);
 }
 
-function getActivityTitle(activity: ActivityLog) {
-  return activity.title?.trim() || getMonthlyActivityLabel(activity);
+function getSiegeRoundLabel(activity: ActivityLog) {
+  return activity.title?.trim().match(/^(\d+회차)(?:\s|$)/)?.[1] ?? "점령전";
 }
 
-function toActivityDetail(activity: ActivityLog & { participantNames?: string[] }) {
+function toActivityDetail(
+  activity: ActivityLog & {
+    participantNames?: string[];
+    participantKnownMemberIds?: string[];
+  },
+) {
   return {
     id: activity.id,
     date: activity.date,
+    endDate: activity.endDate,
     label: getMonthlyActivityLabel(activity),
-    title: getActivityTitle(activity),
+    title: getActivityDisplayTitle(activity),
     participantCount: activity.participantIds.length,
     participants: activity.participantIds.map((memberId, index) => ({
       id: memberId,
       nickname: activity.participantNames?.[index] ?? `알 수 없는 길드원 ${memberId.slice(0, 6)}`,
+      isKnownMember: activity.participantKnownMemberIds?.includes(memberId) ?? true,
     })),
     memo: activity.memo?.trim() || undefined,
-    imageUrl: activity.imageUrl,
-    imageDataUrl: activity.imageDataUrl,
   };
+}
+
+function MonthlyActivityCard({
+  activity,
+  compactAirship = false,
+  onSelect,
+}: {
+  activity: MonthlyReport["activities"][number];
+  compactAirship?: boolean;
+  onSelect: () => void;
+}) {
+  const statsType = getActivityStatsType(activity.type);
+  const isSiege = statsType === "siege";
+  const conquestLabel = getKnownConquestTypes(activity.conquestTypes).join(" · ");
+
+  return (
+    <li className="flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] transition hover:border-[var(--color-border-interactive)] hover:bg-[var(--color-bg-interactive)]">
+      <button
+        className="ui-focus-ring flex w-full flex-1 cursor-pointer flex-col text-left"
+        onClick={onSelect}
+        type="button"
+      >
+        <div className="flex flex-1 flex-col px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="ui-caption flex min-w-0 flex-wrap items-center gap-1.5">
+              <span>
+                {activity.endDate
+                  ? formatDateRange(activity.date, activity.endDate)
+                  : getDisplayDate(activity.date)}
+              </span>
+              {isSiege ? (
+                <>
+                  <span aria-hidden="true" className="text-[var(--color-border-default)]">·</span>
+                  <strong className="text-[var(--color-text-secondary)]">{getSiegeRoundLabel(activity)}</strong>
+                </>
+              ) : null}
+            </div>
+            <span className="ui-caption shrink-0 whitespace-nowrap text-[var(--color-text-secondary)]">
+              참여 {activity.participantIds.length}명
+            </span>
+          </div>
+          {isSiege ? (
+            <h3 className="ui-card-title mt-2">
+              {conquestLabel || "점령전 종류 미기록"}
+            </h3>
+          ) : compactAirship ? null : (
+            <h3 className="ui-card-title mt-2">
+              {getActivityDisplayTitle(activity)}
+            </h3>
+          )}
+          {activity.memo?.trim() ? (
+            <p className="ui-body-text mt-2 line-clamp-4 whitespace-pre-wrap">
+              {activity.memo.trim()}
+            </p>
+          ) : null}
+        </div>
+      </button>
+    </li>
+  );
 }
 
 function subscribeLocation(onStoreChange: () => void) {
@@ -89,27 +181,6 @@ function getMonthSnapshot() {
   return new URLSearchParams(window.location.search).get("month") ?? "";
 }
 
-function ViewerImage({
-  alt,
-  className,
-  src,
-}: {
-  alt: string;
-  className?: string;
-  src: string;
-}) {
-  return (
-    <ActivityImage
-      alt={alt}
-      className={
-        className ??
-        "mt-3 max-h-72 w-full rounded-md border border-sky-100 object-contain"
-      }
-      src={src}
-    />
-  );
-}
-
 function ReportMonthSelect({
   monthOptions,
   onChange,
@@ -120,11 +191,11 @@ function ReportMonthSelect({
   value: string;
 }) {
   return (
-    <label className="flex w-full max-w-48 flex-col gap-1 text-sm font-medium text-[var(--text-secondary)]">
+    <label className="flex w-full max-w-48 flex-col gap-1 text-sm font-medium text-[var(--color-text-secondary)]">
       <span className="sr-only">리포트 월</span>
       <select
         aria-label="리포트 월"
-        className="ui-focus-ring min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-white px-3 py-2 text-sm"
+        className="ui-focus-ring min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -148,6 +219,8 @@ export default function ViewerPage() {
   });
   const [selectedActivity, setSelectedActivity] =
     useState<ActivityDetail | null>(null);
+  const [activityFilter, setActivityFilter] =
+    useState<MonthlyActivityFilter>("all");
   const queryMonth = useSyncExternalStore<string>(
     subscribeLocation,
     getMonthSnapshot,
@@ -210,11 +283,19 @@ export default function ViewerPage() {
     [monthsState],
   );
   const currentMonth = today().slice(0, 7);
-  const reportMonth = selectedMonth || queryMonth || serverMonths[0] || currentMonth;
+  const requestedMonth = selectedMonth || queryMonth;
+  const reportMonth =
+    (requestedMonth && requestedMonth <= currentMonth ? requestedMonth : "") ||
+    serverMonths.find((month) => month <= currentMonth) ||
+    currentMonth;
   const monthOptions = useMemo(
     () =>
       Array.from(
-        new Set([reportMonth, currentMonth, ...serverMonths].filter(Boolean)),
+        new Set(
+          [reportMonth, currentMonth, ...serverMonths]
+            .filter(Boolean)
+            .filter((month) => month <= currentMonth),
+        ),
       ).sort((a, b) => b.localeCompare(a)),
     [currentMonth, reportMonth, serverMonths],
   );
@@ -286,14 +367,16 @@ export default function ViewerPage() {
   const mostParticipatedActivity = monthlyReport
     ? getMostParticipatedActivity(monthlyReport.activities)
     : null;
-  const recentActivities = monthlyReport
+  const monthlyActivities = monthlyReport
     ? [...monthlyReport.activities].sort((a, b) => {
         const dateOrder = b.date.localeCompare(a.date);
         return dateOrder === 0 ? b.id.localeCompare(a.id) : dateOrder;
       })
     : [];
-  const activitiesById = new Map(
-    monthlyReport?.activities.map((activity) => [activity.id, activity]) ?? [],
+  const visibleActivities = monthlyActivities.filter((activity) =>
+    activityFilter === "all"
+      ? true
+      : getActivityStatsType(activity.type) === activityFilter,
   );
   const conquestCounts = new Map(
     monthlyReport?.conquestSummaries.map((summary) => [summary.label, summary.count]) ?? [],
@@ -344,11 +427,11 @@ export default function ViewerPage() {
       ) : null}
 
       {reportState.status === "loading" ? (
-        <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <Surface variant="section">
+          <h2 className="ui-section-title">
             월간 리포트를 불러오는 중입니다.
           </h2>
-        </section>
+        </Surface>
       ) : null}
 
       {reportState.status === "error" ? (
@@ -361,7 +444,7 @@ export default function ViewerPage() {
       ) : null}
 
       {monthlyReport && !hasReportData ? (
-        <section className="rounded-md border border-dashed border-sky-200 bg-white px-5 py-10 text-center">
+        <section className="ui-empty-state ui-empty-state-surface px-5 py-10">
           <div className="mb-6 flex justify-center">
             <ReportMonthSelect
               monthOptions={monthOptions}
@@ -369,10 +452,10 @@ export default function ViewerPage() {
               value={reportMonth}
             />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="ui-section-title">
             {getMonthLabel(reportMonth)} 활동 기록이 없습니다.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+          <p className="ui-supporting-text mx-auto mt-2 max-w-xl leading-6">
             다른 월을 선택하면 기록된 활동을 볼 수 있습니다.
           </p>
         </section>
@@ -380,16 +463,12 @@ export default function ViewerPage() {
 
       {monthlyReport && hasReportData ? (
         <>
-          <section className="space-y-5 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
+          <Surface variant="section">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-slate-900">
+              <div>
+                <h2 className="ui-section-title">
                   {getMonthLabel(reportMonth)} 활동 리포트
                 </h2>
-              <p className="text-sm leading-6 text-slate-600">
-                이번 달에는 {monthlyReport.totalActivities}회의 활동이 기록되었고,{" "}
-                {monthlyReport.participantMemberCount}명의 길드원이 한 번 이상 함께했습니다.
-              </p>
               </div>
               <ReportMonthSelect
                 monthOptions={monthOptions}
@@ -398,37 +477,174 @@ export default function ViewerPage() {
               />
             </div>
 
-            <dl className="grid gap-3 sm:grid-cols-3">
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">이번 달 활동</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-3">
+              <div className="flex min-h-20 flex-col justify-center">
+                <dt className="ui-supporting-text font-medium">이번 달 활동</dt>
+                <dd className="ui-metric-hero mt-1 whitespace-nowrap">
                   {monthlyReport.totalActivities}회
                 </dd>
               </div>
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">함께한 길드원</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="flex min-h-20 flex-col justify-center">
+                <dt className="ui-supporting-text font-medium">함께한 길드원</dt>
+                <dd className="ui-metric-hero mt-1 whitespace-nowrap">
                   {monthlyReport.participantMemberCount}명
                 </dd>
               </div>
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">최다 참여 활동</dt>
-                <dd className="mt-1 min-w-0 text-slate-900">
+              <div className="col-span-2 min-w-0 border-t border-[var(--color-border-subtle)] pt-3 sm:col-span-1 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4">
+                <dt className="ui-caption">최다 참여 활동</dt>
+                <dd className="mt-1 min-w-0 text-[var(--color-text-primary)]">
                   {mostParticipatedActivity ? (
                     <>
-                      <span className="block line-clamp-2 text-base font-bold leading-6">
-                        {getActivityTitle(mostParticipatedActivity)}
+                      <span className="ui-card-title block line-clamp-2">
+                        {getActivityDisplayTitle(mostParticipatedActivity)}
                       </span>
-                      <span className="block text-sm font-semibold text-[var(--brand-strong)]">
-                        {mostParticipatedActivity.participantIds.length}명
+                      <span className="ui-caption mt-1 block text-[var(--color-text-secondary)]">
+                        참여 {mostParticipatedActivity.participantIds.length}명
                       </span>
                     </>
                   ) : (
-                    <span className="text-2xl font-bold">없음</span>
+                    <span className="ui-metric-inline">없음</span>
                   )}
                 </dd>
               </div>
             </dl>
+          </Surface>
+
+          {monthlyReport.newMembers.length > 0 || monthlyReport.anniversaries.length > 0 ? (
+            <Surface variant="section">
+              <h2 className="ui-section-title">이번 달 변화</h2>
+              <div className="mt-3 space-y-4">
+                {monthlyReport.newMembers.length > 0 ? (
+                  <section>
+                    <h3 className="text-sm font-semibold text-[var(--color-text-secondary)]">
+                      새로 함께한 길드원 · {monthlyReport.newMembers.length}명
+                    </h3>
+                    <ul className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
+                      {monthlyReport.newMembers.map((member) => (
+                        <li className="min-w-0" key={member.id}>
+                          <Link
+                            aria-label={`${member.nickname} 개인 기록 페이지 보기`}
+                            className="ui-focus-ring flex min-h-11 min-w-0 items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1.5 text-sm transition hover:bg-[var(--color-bg-interactive)]"
+                            href={`/members/${encodeURIComponent(member.id)}`}
+                          >
+                            <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
+                              {formatMonthDay(member.joinedAt)}
+                            </span>
+                            <span className="min-w-0 break-words font-medium leading-5 text-[var(--color-text-primary)]">
+                              {member.nickname}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+                {monthlyReport.anniversaries.length > 0 ? (
+                  <section>
+                    <h3 className="text-sm font-semibold text-[var(--color-text-secondary)]">
+                      기념일 · {monthlyReport.anniversaries.length}건
+                    </h3>
+                    <ul className="mt-2 space-y-1">
+                      {monthlyReport.anniversaries.map((anniversary) => (
+                        <li key={anniversary.id}>
+                          {anniversary.memberId ? (
+                            <Link
+                              aria-label={`${anniversary.nickname} 개인 기록 페이지 보기`}
+                              className="ui-focus-ring inline-flex min-h-11 max-w-full items-center rounded-[var(--radius-control)] px-2 py-1 text-sm font-medium leading-5 text-[var(--color-text-primary)] transition hover:bg-[var(--color-bg-interactive)]"
+                              href={`/members/${encodeURIComponent(anniversary.memberId)}`}
+                            >
+                              {getMonthlyAnniversaryLabel(anniversary)}
+                            </Link>
+                          ) : (
+                            <span className="inline-flex min-h-11 items-center px-2 py-1 text-sm font-medium text-[var(--color-text-primary)]">
+                              {getMonthlyAnniversaryLabel(anniversary)}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </div>
+            </Surface>
+          ) : null}
+
+          <Surface variant="section">
+            <h2 className="ui-section-title">이번 달 참여 분석</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 sm:grid-cols-3">
+              <div className="flex min-h-16 flex-col justify-center">
+                <dt className="ui-caption">참여 합계</dt>
+                <dd className="ui-metric-section mt-1 whitespace-nowrap">
+                  {monthlyReport.totalParticipationCount}회
+                </dd>
+              </div>
+              <div className="flex min-h-16 flex-col justify-center">
+                <dt className="ui-caption">활동당 평균</dt>
+                <dd className="ui-metric-section mt-1 whitespace-nowrap">
+                  {monthlyReport.totalActivities === 0
+                    ? "0명"
+                    : `${averageParticipationLabel}명`}
+                </dd>
+              </div>
+              <div className="col-span-2 flex min-h-16 flex-col justify-center border-t border-[var(--color-border-subtle)] pt-3 sm:col-span-1 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4">
+                <dt className="ui-caption">길드원 참여율</dt>
+                <dd className="ui-metric-section mt-1 whitespace-nowrap">
+                  {memberParticipationRate}%
+                </dd>
+                <p className="ui-caption mt-1">
+                  {monthlyReport.monthParticipantMemberCount}명 /{" "}
+                  {monthlyReport.monthMemberCount}명 · 해당 월 소속 기준
+                </p>
+              </div>
+            </dl>
+          </Surface>
+
+          <section>
+            <Surface variant="section">
+              <h2 className="ui-section-title">
+                활동 구성
+              </h2>
+              <dl className="mt-3 space-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4">
+                {activityComposition.map(({ label, count, percentage }) => (
+                  <div className={count === 0 ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"} key={label}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <dt>{label}</dt>
+                      <dd>
+                        <span className="ui-metric-inline">{count}회</span>
+                        <span className="ui-caption ml-1.5">{percentage}%</span>
+                      </dd>
+                    </div>
+                    {count > 0 ? (
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--color-bg-surface)]" aria-hidden="true">
+                        <div className="h-full rounded-full bg-[var(--color-brand-strong)]" style={{ width: `${percentage}%` }} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </dl>
+
+              <h3 className="mt-5 text-sm font-semibold text-[var(--color-text-primary)]">
+                점령전
+              </h3>
+              {recordedConquestSummaries.length > 0 ? (
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4 text-sm sm:grid-cols-3">
+                  {recordedConquestSummaries.map(({ label, count }) => (
+                    <div
+                      className="text-[var(--color-text-primary)]"
+                      key={label}
+                    >
+                      <dt>{label}</dt>
+                      <dd className="ui-metric-inline mt-1">{count}회</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="ui-empty-state mt-3 py-4">
+                  이번 달 기록 없음
+                </p>
+              )}
+            </Surface>
+
           </section>
 
           <MonthlyHighlightsSection
@@ -436,195 +652,91 @@ export default function ViewerPage() {
             key={reportMonth}
           />
 
-          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-            <h2 className="text-lg font-semibold text-slate-900">이번 달 참여 분석</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">참여 합계</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {monthlyReport.totalParticipationCount}회
-                </dd>
+          <MonthlyActivityCalendar
+            activities={monthlyReport.activities}
+            anniversaries={monthlyReport.calendarAnniversaries}
+            month={reportMonth}
+            onSelectActivity={(activity) =>
+              setSelectedActivity(toActivityDetail(activity))
+            }
+          />
+
+          <Surface variant="section">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="ui-section-title">
+                  {getMonthLabel(reportMonth)} 활동
+                </h2>
+                <p className="ui-supporting-text mt-1">선택한 달에 기록된 활동만 표시합니다.</p>
               </div>
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">활동당 평균</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {monthlyReport.totalActivities === 0
-                    ? "0명"
-                    : `${averageParticipationLabel}명`}
-                </dd>
-              </div>
-              <div className="flex min-h-24 flex-col justify-center rounded-md bg-sky-50 px-4 py-4">
-                <dt className="text-xs font-medium text-slate-500">길드원 참여율</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">
-                  {memberParticipationRate}%
-                </dd>
-                <p className="mt-1 text-xs text-slate-500">
-                  {monthlyReport.monthParticipantMemberCount}명 /{" "}
-                  {monthlyReport.monthMemberCount}명 · 해당 월 소속 기준
-                </p>
-              </div>
-            </dl>
-          </section>
-
-          <section>
-            <div className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">
-                활동 구성
-              </h2>
-              <dl className="mt-4 space-y-3">
-                {activityComposition.map(({ label, count, percentage }) => (
-                  <div className={count === 0 ? "text-slate-400" : "text-slate-900"} key={label}>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <dt>{label}</dt>
-                      <dd className={count === 0 ? "font-medium" : "font-bold"}>
-                        {count}회 · {percentage}%
-                      </dd>
-                    </div>
-                    {count > 0 ? (
-                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sky-50" aria-hidden="true">
-                        <div className="h-full rounded-full bg-[var(--brand-strong)]" style={{ width: `${percentage}%` }} />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </dl>
-
-              <h3 className="mt-5 text-sm font-semibold text-slate-900">
-                점령전
-              </h3>
-              {recordedConquestSummaries.length > 0 ? (
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
-                  {recordedConquestSummaries.map(({ label, count }) => (
-                    <div
-                      className="rounded-md bg-[var(--surface-muted)] px-3 py-2.5 text-slate-900"
-                      key={label}
-                    >
-                      <dt>{label}</dt>
-                      <dd className="font-semibold">{count}회</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="mt-3 rounded-md bg-slate-50 px-3 py-4 text-sm text-slate-500">
-                  이번 달 기록 없음
-                </p>
-              )}
-            </div>
-
-          </section>
-
-          {monthlyReport.eventSummaries.length > 0 ? (
-            <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-              <h2 className="text-lg font-semibold text-slate-900">
-                이번 달 이벤트
-              </h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {monthlyReport.eventSummaries.map((activity) => (
-                  <li
-                    className="rounded-md border border-sky-100 bg-white px-3 py-3 text-sm shadow-sm shadow-sky-100/40 transition hover:border-sky-200 hover:bg-sky-50/40"
-                    key={activity.id}
-                  >
+              <div
+                aria-label="월간 활동 종류"
+                className="flex w-full gap-1 overflow-x-auto rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] p-1 sm:w-fit"
+                role="group"
+              >
+                {(Object.entries(monthlyActivityFilterLabels) as [MonthlyActivityFilter, string][]).map(
+                  ([value, label]) => (
                     <button
-                      className="ui-focus-ring w-full cursor-pointer text-left"
-                      onClick={() => {
-                        const detailActivity = activitiesById.get(activity.id);
-
-                        if (detailActivity) {
-                          setSelectedActivity(toActivityDetail(detailActivity));
-                        }
-                      }}
+                      aria-pressed={activityFilter === value}
+                      className={`ui-focus-ring min-h-10 shrink-0 rounded-md px-3 text-sm font-medium transition ${
+                        activityFilter === value
+                          ? "border border-[var(--color-border-selected)] bg-[var(--color-bg-surface)] text-[var(--color-text-accent)] shadow-sm"
+                          : "border border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-interactive)]"
+                      }`}
+                      key={value}
+                      onClick={() => setActivityFilter(value)}
                       type="button"
                     >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-xs text-slate-500">
-                          {getDisplayDate(activity.date)}
-                        </p>
-                        <h3 className="truncate font-semibold text-slate-900">
-                          {activity.title}
-                        </h3>
-                      </div>
-                      <span className="w-fit shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                        참여 {activity.participantCount}명
-                      </span>
-                    </div>
-                    {activity.memo ? (
-                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-slate-600">
-                        {activity.memo}
-                      </p>
-                    ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ViewerImage
-                        alt="이벤트 첨부 이미지"
-                        src={getActivityImageSource(activity) ?? ""}
-                      />
-                    ) : null}
+                      {label}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <section className="rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-            <h2 className="text-lg font-semibold text-slate-900">
-              이번 달 전체 활동
-            </h2>
-            {recentActivities.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-sky-200 bg-sky-50 px-3 py-5 text-center text-sm text-slate-500">
-                선택한 월에 저장된 활동 기록이 없습니다.
+                  ),
+                )}
+              </div>
+            </div>
+            {visibleActivities.length === 0 ? (
+              <p className="ui-empty-state mt-3 py-5">
+                선택한 종류의 활동 기록이 없습니다.
               </p>
+            ) : activityFilter === "airship" ? (
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                {(["아우로라", "오션헤븐"] as const).map((airshipLabel) => {
+                  const airshipActivities = visibleActivities.filter(
+                    (activity) => getMonthlyActivityLabel(activity) === airshipLabel,
+                  );
+
+                  return (
+                    <section className="rounded-md bg-[var(--color-bg-muted)] p-3" key={airshipLabel}>
+                      <h3 className="px-1 pb-3 text-sm font-semibold text-[var(--color-text-secondary)]">{airshipLabel}</h3>
+                      {airshipActivities.length > 0 ? (
+                        <ul className="grid gap-3">
+                          {airshipActivities.map((activity) => (
+                            <MonthlyActivityCard
+                              activity={activity}
+                              compactAirship
+                              key={activity.id}
+                              onSelect={() => setSelectedActivity(toActivityDetail(activity))}
+                            />
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="ui-empty-state ui-empty-state-surface py-6">기록 없음</p>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
             ) : (
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {recentActivities.map((activity) => (
-                  <li
-                    className="flex flex-col overflow-hidden rounded-md border border-sky-100 bg-white shadow-sm shadow-sky-100/50 transition hover:border-sky-200 hover:bg-sky-50/40"
+                {visibleActivities.map((activity) => (
+                  <MonthlyActivityCard
+                    activity={activity}
                     key={activity.id}
-                  >
-                    <button
-                      className="ui-focus-ring flex w-full flex-1 cursor-pointer flex-col text-left"
-                      onClick={() => setSelectedActivity(toActivityDetail(activity))}
-                      type="button"
-                    >
-                    <div className="aspect-video w-full overflow-hidden border-b border-sky-100 bg-sky-50">
-                      {getActivityImageSource(activity) ? (
-                        <ViewerImage
-                          alt="활동 첨부 이미지"
-                          className="h-full w-full object-cover"
-                          src={getActivityImageSource(activity) ?? ""}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center px-4 text-center text-sm font-medium text-sky-700/70">
-                          첨부 이미지 없음
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <span className="text-xs text-slate-500">
-                            {getDisplayDate(activity.date)}
-                          </span>
-                        </div>
-                        <span className="shrink-0 rounded-md bg-sky-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          {activity.participantIds.length}명
-                        </span>
-                      </div>
-                      <h3 className="mt-3 min-h-12 line-clamp-2 text-base font-semibold leading-6 text-slate-900">
-                        {getActivityTitle(activity)}
-                      </h3>
-                      {activity.memo?.trim() ? (
-                        <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                          {activity.memo.trim()}
-                        </p>
-                      ) : null}
-                    </div>
-                    </button>
-                  </li>
+                    onSelect={() => setSelectedActivity(toActivityDetail(activity))}
+                  />
                 ))}
               </ul>
             )}
-          </section>
+          </Surface>
         </>
       ) : null}
 

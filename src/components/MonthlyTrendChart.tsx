@@ -1,123 +1,322 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { formatMonth } from "@/src/lib/displayFormat";
+import type { MonthlyHighlightCategory } from "@/src/types";
+import { Surface } from "@/src/components/ui/Surface";
 
 export type MonthlyTrend = {
   month: string;
   activityCount: number;
   participantMemberCount: number;
+  auroraAverageParticipantCount?: number;
+  oceanAverageParticipantCount?: number;
+  representativeHighlights?: Array<{
+    id: string;
+    category: MonthlyHighlightCategory;
+    title: string;
+  }>;
 };
 
-type TrendInteraction = "none" | "report" | "members";
+export function MonthlyAirshipAverageChart({ trends }: { trends: MonthlyTrend[] }) {
+  return (
+    <Surface variant="section">
+      <h2 className="ui-section-title">월별 비공정 평균 참여 인원</h2>
+      <p className="ui-supporting-text mt-1">비공정별 월간 평균 참여 인원을 각각 살펴봅니다.</p>
+      {trends.length === 0 ? (
+        <p className="ui-empty-state mt-4">표시할 비공정 기록이 없습니다.</p>
+      ) : (
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <AirshipAverageSeriesChart color="#a78bfa" keyName="auroraAverageParticipantCount" label="아우로라" trends={trends} />
+          <AirshipAverageSeriesChart color="#06b6d4" keyName="oceanAverageParticipantCount" label="오션헤븐" trends={trends} />
+        </div>
+      )}
+    </Surface>
+  );
+}
+
+function AirshipAverageSeriesChart({ color, keyName, label, trends }: {
+  color: string;
+  keyName: "auroraAverageParticipantCount" | "oceanAverageParticipantCount";
+  label: string;
+  trends: MonthlyTrend[];
+}) {
+  const chartWidth = Math.max(520, trends.length * 70);
+  const chartHeight = 190;
+  const plotLeft = 34;
+  const plotRight = chartWidth - 28;
+  const plotTop = 30;
+  const plotBottom = 142;
+  const maxValue = Math.max(...trends.map((trend) => trend[keyName] ?? 0), 1);
+  const getX = (index: number) => trends.length <= 1
+    ? chartWidth / 2
+    : plotLeft + ((plotRight - plotLeft) * index) / (trends.length - 1);
+  const getY = (value: number) => plotBottom - (value / maxValue) * (plotBottom - plotTop);
+  const points = trends.map((trend, index) => `${getX(index)},${getY(trend[keyName] ?? 0)}`).join(" ");
+
+  return (
+    <div className="min-w-0 rounded-[var(--radius-card)] bg-[var(--color-bg-muted)] p-4">
+      <h3 className="ui-card-title text-sm">{label}</h3>
+      <div className="mt-2 overflow-x-auto">
+        <svg aria-label={`${label} 월별 평균 참여 인원`} className="h-auto min-w-[32.5rem]" role="img" style={{ width: chartWidth }} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+          {[0.25, 0.5, 0.75, 1].map((ratio) => {
+            const y = plotBottom - (plotBottom - plotTop) * ratio;
+            return <line className="stroke-sky-100" key={ratio} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
+          })}
+          <polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+          {trends.map((trend, index) => {
+            const value = trend[keyName] ?? 0;
+            const x = getX(index);
+            return (
+              <a href={`/viewer?month=${trend.month}`} key={trend.month}>
+                <title>{`${formatMonth(trend.month)} · ${label} 평균 ${value}명`}</title>
+                <circle cx={x} cy={getY(value)} fill={color} r="5" />
+                <text className="fill-slate-700 text-[10px] font-semibold" textAnchor="middle" x={x} y={Math.max(16, getY(value) - 10)}>{value}명</text>
+                <text className="fill-slate-500 text-[11px]" textAnchor="middle" x={x} y="178">{getShortMonthLabel(trend.month)}</text>
+              </a>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+type FlowMetric = "activityCount" | "participantMemberCount";
+
+const flowMetricConfig: Record<
+  FlowMetric,
+  { label: string; shortLabel: string; unit: string }
+> = {
+  activityCount: { label: "활동 수", shortLabel: "활동", unit: "회" },
+  participantMemberCount: {
+    label: "함께한 길드원",
+    shortLabel: "길드원",
+    unit: "명",
+  },
+};
 
 function getShortMonthLabel(month: string) {
   const [, monthNumber] = month.split("-");
   return monthNumber ? `${Number(monthNumber)}월` : month;
 }
 
-export function MonthlyTrendChart({
-  description,
-  emptyMessage,
-  interaction = "none",
-  onSelectMembers,
-  title,
-  trends,
-  unit,
-  valueKey,
-}: {
-  description: string;
-  emptyMessage: string;
-  interaction?: TrendInteraction;
-  onSelectMembers?: (month: string, trigger: HTMLButtonElement) => void;
-  title: string;
-  trends: MonthlyTrend[];
-  unit: string;
-  valueKey: "activityCount" | "participantMemberCount";
-}) {
-  const maxValue = Math.max(...trends.map((trend) => trend[valueKey]), 0);
+export function GuildFlowChart({ trends }: { trends: MonthlyTrend[] }) {
+  const [metric, setMetric] = useState<FlowMetric>("activityCount");
+  const [activeMonth, setActiveMonth] = useState<string | null>(null);
+  const [currentMonth] = useState(() =>
+    new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7),
+  );
+  const [currentYear, currentMonthNumber] = currentMonth.split("-").map(Number);
+  const trendsByMonth = new Map(trends.map((trend) => [trend.month, trend]));
+  const visibleTrends = Array.from(
+    { length: currentMonthNumber },
+    (_, index) => {
+      const month = `${currentYear}-${String(index + 1).padStart(2, "0")}`;
+      return (
+        trendsByMonth.get(month) ?? {
+          month,
+          activityCount: 0,
+          participantMemberCount: 0,
+        }
+      );
+    },
+  );
+  const config = flowMetricConfig[metric];
+  const maxValue = Math.max(...visibleTrends.map((trend) => trend[metric]), 0);
+  const chartWidth = 720;
+  const chartHeight = 180;
+  const plotLeft = 28;
+  const plotRight = 692;
+  const plotTop = 24;
+  const plotBottom = 154;
+  const plotHeight = plotBottom - plotTop;
+  const getX = (index: number) =>
+    visibleTrends.length === 1
+      ? chartWidth / 2
+      : plotLeft +
+        ((plotRight - plotLeft) * index) / (visibleTrends.length - 1);
+  const getY = (value: number) =>
+    plotBottom - (value / Math.max(maxValue, 1)) * plotHeight;
+  const points = visibleTrends
+    .map((trend, index) => `${getX(index)},${getY(trend[metric])}`)
+    .join(" ");
+  const activeIndex = visibleTrends.findIndex(
+    (trend) => trend.month === activeMonth,
+  );
+  const activeTrend = activeIndex >= 0 ? visibleTrends[activeIndex] : null;
 
   return (
-    <section className="min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+    <Surface className="min-w-0" variant="section">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="ui-section-title">길드 활동 기록</h2>
+          <p className="ui-supporting-text mt-1">
+            월별 변화를 지표별로 확인할 수 있습니다.
+          </p>
+        </div>
+        <div
+          aria-label="길드 활동 지표"
+          className="inline-flex w-fit rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] p-1"
+          role="tablist"
+        >
+          {(Object.keys(flowMetricConfig) as FlowMetric[]).map((key) => (
+            <button
+              aria-controls="guild-flow-panel"
+              aria-selected={metric === key}
+              className={`ui-focus-ring min-h-10 rounded px-3 text-sm font-semibold transition ${
+                metric === key
+                  ? "border border-[var(--color-border-selected)] bg-[var(--color-bg-selected)] text-[var(--color-text-accent)]"
+                  : "border border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-interactive)] hover:text-[var(--color-text-primary)]"
+              }`}
+              id={`guild-flow-tab-${key}`}
+              key={key}
+              onClick={() => {
+                setMetric(key);
+                setActiveMonth(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                  return;
+                }
 
-      {trends.length === 0 || maxValue === 0 ? (
-        <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="mt-6 overflow-x-auto pb-1">
-          <div className={`flex h-64 items-end gap-3 border-b border-sky-100 pb-3 sm:min-w-0 ${trends.length > 4 ? "min-w-[32rem]" : "min-w-0"}`}>
-            {trends.map((trend) => {
-              const value = trend[valueKey];
-              const height = Math.max(8, Math.round((value / maxValue) * 100));
-              const content = (
-                <>
+                event.preventDefault();
+                const keys = Object.keys(flowMetricConfig) as FlowMetric[];
+                const offset = event.key === "ArrowRight" ? 1 : -1;
+                const nextKey = keys[(keys.indexOf(key) + offset + keys.length) % keys.length];
+                setMetric(nextKey);
+                setActiveMonth(null);
+                requestAnimationFrame(() =>
+                  document.getElementById(`guild-flow-tab-${nextKey}`)?.focus(),
+                );
+              }}
+              role="tab"
+              tabIndex={metric === key ? 0 : -1}
+              type="button"
+            >
+              {flowMetricConfig[key].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        aria-labelledby={`guild-flow-tab-${metric}`}
+        aria-label={`${config.label} 월별 선 그래프`}
+        className="mt-4"
+        id="guild-flow-panel"
+        role="tabpanel"
+      >
+        {maxValue === 0 ? (
+          <p className="ui-empty-state ui-empty-state-surface px-4 py-10">
+            표시할 {config.label} 기록이 아직 없습니다.
+          </p>
+        ) : (
+          <div className="min-w-0">
+            <div className="relative h-44">
+              <svg
+                aria-hidden="true"
+                className="absolute inset-0 size-full"
+                preserveAspectRatio="none"
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+              >
+                {[0, 0.5, 1].map((ratio) => {
+                  const y = plotBottom - plotHeight * ratio;
+                  return (
+                    <line
+                      className="stroke-sky-100"
+                      key={ratio}
+                      strokeWidth="1"
+                      x1={plotLeft}
+                      x2={plotRight}
+                      y1={y}
+                      y2={y}
+                    />
+                  );
+                })}
+                <polyline
+                  className="stroke-sky-400"
+                  fill="none"
+                  points={points}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+
+              {visibleTrends.map((trend, index) => {
+                const isActive = trend.month === activeMonth;
+
+                return (
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1 rounded-md bg-slate-900 px-2 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus:opacity-100"
-                    role="tooltip"
-                  >
-                    {formatMonth(trend.month)} · {valueKey === "activityCount" ? "활동" : "함께한 길드원"} {value}{unit}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-600">
-                    {value}{unit}
-                  </span>
-                  <span className="flex h-44 w-full items-end justify-center">
-                    <span
-                      aria-hidden="true"
-                      className="w-7 max-w-[70%] rounded-sm bg-sky-300 transition-colors group-hover:bg-[var(--brand-strong)] group-focus:bg-[var(--brand-strong)]"
-                      style={{ height: `${height}%` }}
-                    />
-                  </span>
-                  <span className="w-full truncate text-center text-xs text-slate-500">
-                    {getShortMonthLabel(trend.month)}
-                  </span>
-                </>
-              );
-
-              if (interaction === "report") {
-                return (
-                  <Link
-                    aria-label={`${formatMonth(trend.month)} 활동 ${value}회, 월간 리포트 보기`}
-                    className="ui-focus-ring group relative flex min-w-12 flex-1 cursor-pointer flex-col items-center gap-2 rounded-sm"
-                    href={`/viewer?month=${trend.month}`}
+                    className={`pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-400 transition-transform ${isActive ? "scale-150" : ""}`}
                     key={trend.month}
-                  >
-                    {content}
-                  </Link>
+                    style={{
+                      left: `${(getX(index) / chartWidth) * 100}%`,
+                      top: `${(getY(trend[metric]) / chartHeight) * 100}%`,
+                    }}
+                  />
                 );
-              }
+              })}
 
-              if (interaction === "members") {
-                return (
+              <div className="absolute inset-0">
+                {visibleTrends.map((trend, index) => (
                   <button
-                    aria-label={`${formatMonth(trend.month)} 함께한 길드원 ${value}명 보기`}
-                    className="ui-focus-ring group relative flex min-w-12 flex-1 cursor-pointer flex-col items-center gap-2 rounded-sm"
+                    aria-label={`${getShortMonthLabel(trend.month)} · ${config.shortLabel} ${trend[metric]}${config.unit}`}
+                    className="ui-focus-ring absolute inset-y-0 rounded-sm"
                     key={trend.month}
-                    onClick={(event) => onSelectMembers?.(trend.month, event.currentTarget)}
+                    onBlur={() => setActiveMonth(null)}
+                    onClick={() => setActiveMonth(trend.month)}
+                    onFocus={() => setActiveMonth(trend.month)}
+                    onMouseEnter={() => setActiveMonth(trend.month)}
+                    onMouseLeave={() => setActiveMonth(null)}
+                    style={{
+                      left: `${(index * 100) / visibleTrends.length}%`,
+                      width: `${100 / visibleTrends.length}%`,
+                    }}
                     type="button"
-                  >
-                    {content}
-                  </button>
-                );
-              }
+                  />
+                ))}
+              </div>
 
-              return (
+              {activeTrend ? (
                 <div
-                  aria-label={`${formatMonth(trend.month)} ${value}${unit}`}
-                  className="flex min-w-12 flex-1 flex-col items-center gap-2"
-                  key={trend.month}
+                  className={`pointer-events-none absolute z-10 -translate-y-[calc(100%+0.5rem)] rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-white shadow-sm ${
+                    activeIndex === 0
+                      ? "translate-x-0"
+                      : activeIndex === visibleTrends.length - 1
+                        ? "-translate-x-full"
+                        : "-translate-x-1/2"
+                  }`}
+                  role="tooltip"
+                  style={{
+                    left: `${(getX(activeIndex) / chartWidth) * 100}%`,
+                    top: `${(Math.max(getY(activeTrend[metric]), 42) / chartHeight) * 100}%`,
+                  }}
                 >
-                  {content}
+                  {getShortMonthLabel(activeTrend.month)} · {config.shortLabel}{" "}
+                  {activeTrend[metric]}
+                  {config.unit}
                 </div>
-              );
-            })}
+              ) : null}
+            </div>
+            <div
+              aria-hidden="true"
+              className="mt-1 grid text-center text-[11px] text-slate-500 sm:text-xs"
+              style={{
+                gridTemplateColumns: `repeat(${visibleTrends.length}, minmax(0, 1fr))`,
+              }}
+            >
+              {visibleTrends.map((trend) => (
+                <span key={trend.month}>{getShortMonthLabel(trend.month)}</span>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+
+    </Surface>
   );
 }
 
@@ -149,8 +348,8 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
   return (
     <section className="h-full min-w-0 rounded-md border border-sky-100 bg-white p-5 shadow-sm shadow-sky-100/50">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 흐름</h2>
-        <p className="mt-1 text-sm text-slate-500">월별 활동 횟수와 활동 참여 인원을 비교합니다.</p>
+        <h2 className="text-lg font-semibold text-slate-900">최근 6개월 활동 기록</h2>
+        <p className="mt-1 text-sm text-slate-500">월별 활동 횟수와 활동 참여 인원의 변화를 살펴봅니다.</p>
       </div>
 
       <div aria-label="그래프 범례" className="mt-4 flex flex-wrap gap-5 text-xs text-slate-700">
@@ -159,7 +358,7 @@ export function RecentMonthlyTrendChart({ trends }: { trends: MonthlyTrend[] }) 
       </div>
 
       {trends.length === 0 ? (
-        <p className="mt-5 rounded-md border border-dashed border-sky-200 bg-sky-50 px-4 py-8 text-center text-sm text-slate-500">최근 활동 기록이 아직 없습니다.</p>
+        <p className="ui-empty-state mt-5">최근 활동 기록이 아직 없습니다.</p>
       ) : (
         <div className="mt-3 min-w-0 overflow-hidden">
           <svg

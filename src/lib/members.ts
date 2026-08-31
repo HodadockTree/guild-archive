@@ -5,6 +5,7 @@ const MEMBERS_STORAGE_KEY = "guild-archive:members";
 
 type NewGuildMember = {
   nickname: string;
+  previousNicknames?: string[];
   joinedAt?: string;
   memo?: string;
   gender?: GuildMemberGender;
@@ -15,6 +16,7 @@ type GuildMemberUpdate = Partial<
   Pick<
     GuildMember,
     | "nickname"
+    | "previousNicknames"
     | "joinedAt"
     | "leftAt"
     | "memo"
@@ -41,6 +43,7 @@ export function addMember(member: NewGuildMember) {
   const newMember: GuildMember = {
     id: createId(),
     nickname: member.nickname.trim(),
+    previousNicknames: member.previousNicknames,
     status: "active",
     joinedAt: member.joinedAt ?? today(),
     leftAt: null,

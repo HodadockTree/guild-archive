@@ -1,12 +1,11 @@
 import { ButtonLink } from "@/src/components/ui/ButtonLink";
 
-type AppPath = "/" | "/archive" | "/viewer" | "/admin";
+type AppPath = "/" | "/archive" | "/viewer" | "/admin" | "/members";
 
 const navigation: Array<{ href: AppPath; label: string }> = [
   { href: "/", label: "홈" },
   { href: "/archive", label: "월별 기록" },
   { href: "/viewer", label: "월간 리포트" },
-  { href: "/admin", label: "관리 화면" },
 ];
 
 export function AppHeader({
@@ -27,7 +26,7 @@ export function AppHeader({
           <p className="text-sm font-medium text-[var(--text-secondary)]">
             {eyebrow}
           </p>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">
+          <h1 className="ui-page-title">
             {title}
           </h1>
           {description ? (

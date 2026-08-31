@@ -1,11 +1,26 @@
 import type { ReactNode } from "react";
 
-type BadgeTone = "brand" | "muted" | "strong";
+type BadgeTone =
+  | "neutral"
+  | "accent"
+  | "status"
+  | "brand"
+  | "muted"
+  | "strong";
 
 const toneClasses: Record<BadgeTone, string> = {
-  brand: "bg-[var(--brand)] text-[var(--text-primary)]",
-  muted: "bg-[var(--surface-muted)] text-[var(--text-secondary)]",
-  strong: "bg-[var(--brand-strong)] text-white",
+  neutral:
+    "bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)]",
+  accent:
+    "bg-[var(--color-brand-primary)] text-[var(--color-text-primary)]",
+  status:
+    "bg-[var(--color-brand-soft)] text-[var(--color-brand-strong)]",
+  brand:
+    "bg-[var(--color-brand-primary)] text-[var(--color-text-primary)]",
+  muted:
+    "bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)]",
+  strong:
+    "bg-[var(--color-brand-strong)] text-[var(--color-text-inverse)]",
 };
 
 export function Badge({

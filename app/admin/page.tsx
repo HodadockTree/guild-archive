@@ -2,7 +2,6 @@
 
 import {
   ChangeEvent,
-  ClipboardEvent,
   FormEvent,
   MouseEvent as ReactMouseEvent,
   useEffect,
@@ -41,35 +40,28 @@ import {
 } from "@/src/lib/backup";
 import { getMemberActivityStats } from "@/src/lib/activityStats";
 import { AppHeader } from "@/src/components/ui/AppHeader";
-import { ActivityImage } from "@/src/components/ActivityImage";
 import { Pagination } from "@/src/components/ui/Pagination";
 import {
   AdminSectionNav,
   type AdminSection,
 } from "@/src/components/admin/AdminSectionNav";
-import { MonthlyHighlightsAdmin } from "@/src/components/admin/MonthlyHighlightsAdmin";
 import {
-  getActivityImageSource,
-  validateActivityImageUrl,
-} from "@/src/lib/activityImage";
+  MonthlyHighlightsAdmin,
+  type MonthlyHighlightDraft,
+} from "@/src/components/admin/MonthlyHighlightsAdmin";
 import {
   conquestTypes,
   getKnownConquestTypes,
   getSiegeActivityLabel,
 } from "@/src/lib/activityLabels";
 import { matchesMemberKeyword } from "@/src/lib/koreanSearch";
+import { formatDateRange } from "@/src/lib/displayFormat";
 import {
   getAvailableActivityMonths,
   getDefaultReportMonth,
   getMonthlyReport,
   getMonthlyShareText,
 } from "@/src/lib/monthlyReport";
-import {
-  createImageDataMigrationBatches,
-  MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
-  type ImageDataMigrationItem,
-  type ImageDataMigrationMode,
-} from "@/src/lib/imageDataMigration";
 import {
   getMemberDemographicsLabel,
   guildMemberGenderLabels,
@@ -101,22 +93,6 @@ type ServerImportState =
       conquestTypeCount: number;
     }
   | { status: "error"; message: string };
-type ImageMigrationSummary = {
-  sourceCount: number;
-  validCount: number;
-  eligibleCount: number;
-  missingCount: number;
-  alreadyStoredCount: number;
-  oversizedCount: number;
-  invalidCount: number;
-  updatedCount: number;
-};
-type ImageMigrationState =
-  | { status: "idle" }
-  | { status: "loading"; mode: ImageDataMigrationMode }
-  | { status: "preview"; summary: ImageMigrationSummary }
-  | { status: "success"; summary: ImageMigrationSummary }
-  | { status: "error"; message: string };
 
 const MEMBERS_CHANGED_EVENT = "guild-archive:members-changed";
 const ACTIVITIES_CHANGED_EVENT = "guild-archive:activities-changed";
@@ -124,10 +100,6 @@ const MEMBERS_STORAGE_KEY = "guild-archive:members";
 const ACTIVITIES_STORAGE_KEY = "guild-archive:activities";
 const EMPTY_MEMBERS: GuildMember[] = [];
 const EMPTY_ACTIVITIES: ActivityLog[] = [];
-const MAX_IMAGE_WIDTH = 800;
-const IMAGE_JPEG_QUALITY = 0.68;
-const MAX_IMAGE_DATA_URL_LENGTH = 180_000;
-const MIN_IMAGE_JPEG_QUALITY = 0.36;
 
 const activityTypeLabels: Record<ActivityType, string> = {
   airship: "비공정",
@@ -224,6 +196,22 @@ function getAirshipTypeLabel(airshipType: unknown) {
 
 function getAirshipAutoTitle(airshipType: AirshipType) {
   return airshipAutoTitles[airshipType];
+}
+
+function openNativePicker(event: ReactMouseEvent<HTMLInputElement>) {
+  try {
+    event.currentTarget.showPicker?.();
+  } catch {
+    // Unsupported browsers keep the native date input behavior.
+  }
+}
+
+function isSystemGeneratedActivityTitle(activity: ActivityLog) {
+  const title = activity.title?.trim() ?? "";
+  if (getVisibleActivityType(activity.type) === "airship") {
+    return Object.values(airshipAutoTitles).includes(title);
+  }
+  return getVisibleActivityType(activity.type) === "siege" && /^\d+회차 점령전$/.test(title);
 }
 
 function getMemberActivityStatsSummary(
@@ -356,32 +344,37 @@ function findMemberByNickname(
   );
 }
 
+function getMatchingPreviousNickname(member: GuildMember, keyword: string) {
+  const trimmedKeyword = keyword.trim();
+  if (!trimmedKeyword) return undefined;
+  return member.previousNicknames?.find((nickname) =>
+    matchesMemberKeyword(nickname, trimmedKeyword),
+  );
+}
+
+function matchesMemberSearch(member: GuildMember, keyword: string) {
+  return matchesMemberKeyword(member.nickname, keyword) ||
+    Boolean(getMatchingPreviousNickname(member, keyword));
+}
+
 function memberHasActivityRecords(activities: ActivityLog[], memberId: string) {
   return activities.some((activity) => activity.participantIds.includes(memberId));
 }
 
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
-    image.src = src;
-  });
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("이미지를 읽지 못했습니다."));
-      }
-    };
-    reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
-    reader.readAsDataURL(file);
-  });
+function parsePreviousNicknames(value: string, currentNickname: string) {
+  const current = currentNickname.trim().toLocaleLowerCase("ko");
+  return Array.from(
+    new Map(
+      value
+        .split(",")
+        .map((nickname) => nickname.trim())
+        .filter(
+          (nickname) =>
+            nickname && nickname.toLocaleLowerCase("ko") !== current,
+        )
+        .map((nickname) => [nickname.toLocaleLowerCase("ko"), nickname]),
+    ).values(),
+  );
 }
 
 function readFileAsText(file: File) {
@@ -399,57 +392,15 @@ function readFileAsText(file: File) {
   });
 }
 
-async function resizeImageFile(file: File) {
-  const dataUrl = await readFileAsDataUrl(file);
-  const image = await loadImage(dataUrl);
-  const scale = Math.min(1, MAX_IMAGE_WIDTH / image.width);
-  const width = Math.round(image.width * scale);
-  const height = Math.round(image.height * scale);
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    throw new Error("이미지를 처리하지 못했습니다.");
-  }
-
-  let targetWidth = width;
-  let targetHeight = height;
-
-  while (true) {
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, targetWidth, targetHeight);
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-    for (
-      let quality = IMAGE_JPEG_QUALITY;
-      quality >= MIN_IMAGE_JPEG_QUALITY;
-      quality -= 0.08
-    ) {
-      const result = canvas.toDataURL("image/jpeg", quality);
-
-      if (result.length <= MAX_IMAGE_DATA_URL_LENGTH) {
-        return result;
-      }
-    }
-
-    if (targetWidth <= 320) {
-      throw new Error("이미지 용량을 저장 가능한 크기로 줄이지 못했습니다.");
-    }
-
-    targetWidth = Math.max(320, Math.round(targetWidth * 0.8));
-    targetHeight = Math.max(1, Math.round(targetHeight * 0.8));
-  }
-}
-
 export default function Home() {
   const [nickname, setNickname] = useState("");
+  const [newMemberJoinedAt, setNewMemberJoinedAt] = useState(today);
   const [newMemberGender, setNewMemberGender] = useState<
     GuildMemberGender | ""
   >("");
   const [newMemberBirthYearInput, setNewMemberBirthYearInput] = useState("");
   const [activityDate, setActivityDate] = useState(today);
+  const [activityEndDate, setActivityEndDate] = useState("");
   const [activityType, setActivityType] = useState<VisibleActivityType>("airship");
   const [activityAirshipType, setActivityAirshipType] =
     useState<AirshipType>("ocean");
@@ -462,9 +413,6 @@ export default function Home() {
   const [hasManuallyEditedActivityTitle, setHasManuallyEditedActivityTitle] =
     useState(false);
   const [activityMemo, setActivityMemo] = useState("");
-  const [activityImageUrl, setActivityImageUrl] = useState("");
-  const [activityImageDataUrl, setActivityImageDataUrl] = useState("");
-  const [activityImageError, setActivityImageError] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [participantSearch, setParticipantSearch] = useState("");
   const [isParticipantActiveOpen, setIsParticipantActiveOpen] = useState(true);
@@ -473,7 +421,7 @@ export default function Home() {
   const [activitySortOrder, setActivitySortOrder] =
     useState<ActivitySortOrder>("latest");
   const [activityMonthFilter, setActivityMonthFilter] = useState("all");
-  const [activitySearch, setActivitySearch] = useState("");
+  const [activityDateFilter, setActivityDateFilter] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const [activityFeedbackMessage, setActivityFeedbackMessage] = useState("");
   const [editingActivityId, setEditingActivityId] = useState<string | null>(
@@ -482,6 +430,8 @@ export default function Home() {
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEditNickname, setMemberEditNickname] = useState("");
+  const [memberEditPreviousNicknamesInput, setMemberEditPreviousNicknamesInput] =
+    useState("");
   const [memberEditStatus, setMemberEditStatus] =
     useState<GuildMemberStatus>("active");
   const [memberEditJoinedAt, setMemberEditJoinedAt] = useState("");
@@ -507,13 +457,19 @@ export default function Home() {
   const [serverImportState, setServerImportState] = useState<ServerImportState>({
     status: "idle",
   });
-  const [imageMigrationState, setImageMigrationState] =
-    useState<ImageMigrationState>({ status: "idle" });
-  const [serverImportToken, setServerImportToken] = useState("");
   const [restoreResultMessage, setRestoreResultMessage] = useState("");
   const [isDataToolsOpen, setIsDataToolsOpen] = useState(false);
+  const [isAdvancedDataToolsOpen, setIsAdvancedDataToolsOpen] =
+    useState(false);
+  const [isDangerDataToolsOpen, setIsDangerDataToolsOpen] = useState(false);
   const [activeAdminSection, setActiveAdminSection] =
     useState<AdminSection>("activity");
+  const [monthlyHighlightDraft, setMonthlyHighlightDraft] =
+    useState<MonthlyHighlightDraft | null>(null);
+  const [highlightSourceActivityIds, setHighlightSourceActivityIds] =
+    useState<string[]>([]);
+  const highlightDraftRequestIdRef = useRef(0);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
   const [isActiveMembersOpen, setIsActiveMembersOpen] = useState(true);
   const [isLeftMembersOpen, setIsLeftMembersOpen] = useState(false);
   const [activeMemberSearch, setActiveMemberSearch] = useState("");
@@ -526,7 +482,6 @@ export default function Home() {
   const [leaveDate, setLeaveDate] = useState(today());
   const activityFormRef = useRef<HTMLElement>(null);
   const memberFormRef = useRef<HTMLElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
   const members = useSyncExternalStore<GuildMember[]>(
     subscribeMembers,
@@ -552,13 +507,6 @@ export default function Home() {
     memberEditBirthYearInput,
     currentYear,
   );
-  const activityImageUrlValidation = validateActivityImageUrl(activityImageUrl);
-  const activityImagePreviewSource = getActivityImageSource({
-    imageUrl: activityImageUrlValidation.valid
-      ? activityImageUrlValidation.value
-      : undefined,
-    imageDataUrl: activityImageDataUrl,
-  });
   const isEditingMember = editingMemberId !== null;
   const editingMember = members.find((member) => member.id === editingMemberId);
   const menuMember = memberMenuPosition
@@ -571,12 +519,12 @@ export default function Home() {
   const leftMembers = members.filter((member) => member.status === "left");
   const filteredActiveMembers = activeMemberSearch.trim()
     ? activeMembers.filter((member) =>
-        matchesMemberKeyword(member.nickname, activeMemberSearch.trim()),
+        matchesMemberSearch(member, activeMemberSearch.trim()),
       )
     : activeMembers;
   const filteredLeftMembers = leftMemberSearch.trim()
     ? leftMembers.filter((member) =>
-        matchesMemberKeyword(member.nickname, leftMemberSearch.trim()),
+        matchesMemberSearch(member, leftMemberSearch.trim()),
       )
     : leftMembers;
   const activeMemberTotalPages = Math.max(
@@ -673,25 +621,16 @@ export default function Home() {
       : sortedActivities.filter(
           (activity) => getVisibleActivityType(activity.type) === activityFilter,
         );
-  const activitySearchKeyword = activitySearch.trim().toLocaleLowerCase("ko");
-  const shortDateSearchMatch = /^(\d{2})\/(\d{2})$/.exec(
-    activitySearchKeyword,
-  );
-  const activityDateSearchKeyword = shortDateSearchMatch
-    ? `-${shortDateSearchMatch[1]}-${shortDateSearchMatch[2]}`
-    : activitySearchKeyword;
   const filteredActivities = typeFilteredActivities.filter((activity) => {
     const matchesMonth =
       activityMonthFilter === "all" ||
       activity.date.startsWith(activityMonthFilter);
-    const matchesSearch =
-      !activitySearchKeyword ||
-      activity.date.includes(activityDateSearchKeyword) ||
-      (activity.title ?? "")
-        .toLocaleLowerCase("ko")
-        .includes(activitySearchKeyword);
+    const matchesDate =
+      !activityDateFilter ||
+      (activity.date <= activityDateFilter &&
+        (activity.endDate ?? activity.date) >= activityDateFilter);
 
-    return matchesMonth && matchesSearch;
+    return matchesMonth && matchesDate;
   });
   const maxFilteredParticipantCount = filteredActivities.reduce(
     (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
@@ -700,6 +639,17 @@ export default function Home() {
   const activityMonthOptions = Array.from(
     new Set(activities.map((activity) => activity.date.slice(0, 7))),
   ).sort((a, b) => b.localeCompare(a));
+  const selectedActivityMonthParts = activityMonthFilter
+    .split("-")
+    .map(Number);
+  const activityDateFilterMin = activityMonthFilter === "all"
+    ? undefined
+    : `${activityMonthFilter}-01`;
+  const activityDateFilterMax = activityMonthFilter === "all"
+    ? undefined
+    : new Date(
+        Date.UTC(selectedActivityMonthParts[0], selectedActivityMonthParts[1], 0),
+      ).toISOString().slice(0, 10);
   const activityTotalPages = Math.max(
     1,
     Math.ceil(filteredActivities.length / ACTIVITY_PAGE_SIZE),
@@ -718,7 +668,7 @@ export default function Home() {
   );
   const hasActiveActivityFilters =
     activityMonthFilter !== "all" ||
-    activitySearch.trim() !== "" ||
+    activityDateFilter !== "" ||
     activitySortOrder !== "latest" ||
     activityFilter !== "all";
   const selectedMemberActivities = selectedHistoryMember
@@ -802,14 +752,9 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [historyMemberId]);
 
-  const clearImageInput = () => {
-    if (imageInputRef.current) {
-      imageInputRef.current.value = "";
-    }
-  };
-
   const resetActivityForm = () => {
     setActivityDate(today());
+    setActivityEndDate("");
     setActivityType("airship");
     setActivityAirshipType("ocean");
     setActivityConquestTypes([]);
@@ -817,20 +762,34 @@ export default function Home() {
     setIsSiegeTitleAutoSuggested(false);
     setHasManuallyEditedActivityTitle(false);
     setActivityMemo("");
-    setActivityImageUrl("");
-    setActivityImageDataUrl("");
-    setActivityImageError("");
     setSelectedMemberIds([]);
     setParticipantSearch("");
     setIsParticipantActiveOpen(true);
     setIsParticipantLeftOpen(false);
     setEditingActivityId(null);
-    clearImageInput();
+  };
+
+  const returnToActivityCard = (activityId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`admin-activity-${activityId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    });
+  };
+
+  const handleCancelActivityEdit = () => {
+    const activityId = editingActivityId;
+    resetActivityForm();
+    if (activityId) returnToActivityCard(activityId);
   };
 
   const resetMemberForm = () => {
     setEditingMemberId(null);
     setMemberEditNickname("");
+    setMemberEditPreviousNicknamesInput("");
     setMemberEditStatus("active");
     setMemberEditJoinedAt("");
     setMemberEditLeftAt("");
@@ -862,10 +821,12 @@ export default function Home() {
 
     addMember({
       nickname: trimmedNickname,
+      joinedAt: newMemberJoinedAt,
       gender: newMemberGender || undefined,
       birthYear: newMemberBirthYearResult.birthYear,
     });
     setNickname("");
+    setNewMemberJoinedAt(today());
     setNewMemberGender("");
     setNewMemberBirthYearInput("");
     setMemberFeedbackMessage("");
@@ -971,7 +932,7 @@ export default function Home() {
 
     const scopeLabel = memberMemoClearScopeLabels[memberMemoClearScope];
     const shouldClear = window.confirm(
-      `${scopeLabel} 메모를 모두 삭제하시겠습니까?`,
+      `${scopeLabel} 메모를 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
     );
 
     if (!shouldClear) {
@@ -1019,7 +980,6 @@ export default function Home() {
 
     setRestoreResultMessage("");
     setServerImportState({ status: "idle" });
-    setImageMigrationState({ status: "idle" });
 
     try {
       const fileText = await readFileAsText(file);
@@ -1064,7 +1024,6 @@ export default function Home() {
 
   const handleCancelBackupImport = () => {
     setBackupImportState({ status: "idle" });
-    setImageMigrationState({ status: "idle" });
   };
 
   const handleRestoreBackup = () => {
@@ -1104,16 +1063,6 @@ export default function Home() {
       return;
     }
 
-    const trimmedServerImportToken = serverImportToken.trim();
-
-    if (!trimmedServerImportToken) {
-      setServerImportState({
-        status: "error",
-        message: "서버 반영 토큰을 입력해주세요.",
-      });
-      return;
-    }
-
     const shouldImport = window.confirm(
       "선택한 JSON 백업을 서버 DB로 가져올까요?\n기존 서버 DB 데이터는 백업 파일 내용으로 덮어씁니다.",
     );
@@ -1129,7 +1078,6 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${trimmedServerImportToken}`,
         },
         body: JSON.stringify(backupImportState.backup),
       });
@@ -1164,137 +1112,13 @@ export default function Home() {
     }
   };
 
-  const handleMigrateBackupImages = async (mode: ImageDataMigrationMode) => {
-    if (backupImportState.status !== "valid") {
-      return;
-    }
-
-    const trimmedServerImportToken = serverImportToken.trim();
-
-    if (!trimmedServerImportToken) {
-      setImageMigrationState({
-        status: "error",
-        message: "과거 이미지 보충을 위해 서버 반영 토큰을 입력해 주세요.",
-      });
-      return;
-    }
-
-    const sourceImages = backupImportState.backup.activityLogs.flatMap(
-      (activity) =>
-        typeof activity.imageDataUrl === "string" &&
-        activity.imageDataUrl.trim()
-          ? [{ id: activity.id, imageDataUrl: activity.imageDataUrl.trim() }]
-          : [],
-    );
-    const oversizedCount = sourceImages.filter(
-      (image) =>
-        image.imageDataUrl.length > MAX_MIGRATION_IMAGE_DATA_URL_LENGTH,
-    ).length;
-    const validImages = sourceImages.filter(
-      (image) =>
-        image.imageDataUrl.length <= MAX_MIGRATION_IMAGE_DATA_URL_LENGTH &&
-        /^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(image.imageDataUrl),
-    );
-    const invalidCount = sourceImages.length - oversizedCount - validImages.length;
-
-    if (sourceImages.length === 0) {
-      setImageMigrationState({
-        status: "error",
-        message: "선택한 백업에는 보충할 imageDataUrl이 없습니다.",
-      });
-      return;
-    }
-
-    if (validImages.length === 0) {
-      setImageMigrationState({
-        status: "error",
-        message:
-          "안전하게 보충할 수 있는 이미지가 없습니다. 크기 또는 데이터 형식을 확인해 주세요.",
-      });
-      return;
-    }
-
-    if (
-      mode === "apply" &&
-      !window.confirm(
-        "사전 점검에서 확인한 활동에 과거 이미지를 보충할까요?\n기존 imageUrl과 이미 저장된 imageDataUrl은 변경하지 않습니다.",
-      )
-    ) {
-      return;
-    }
-
-    setImageMigrationState({ status: "loading", mode });
-
-    try {
-      const batches = createImageDataMigrationBatches(
-        validImages as ImageDataMigrationItem[],
-      );
-      let eligibleCount = 0;
-      let missingCount = 0;
-      let alreadyStoredCount = 0;
-      let updatedCount = 0;
-
-      for (const images of batches) {
-        const response = await fetch("/api/import/images", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${trimmedServerImportToken}`,
-          },
-          body: JSON.stringify({ mode, images }),
-        });
-        const result = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          eligibleCount?: number;
-          updatedCount?: number;
-          missingIds?: string[];
-          alreadyStoredIds?: string[];
-        };
-
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "과거 이미지 보충 요청에 실패했습니다.",
-          );
-        }
-
-        eligibleCount += result.eligibleCount ?? 0;
-        updatedCount += result.updatedCount ?? 0;
-        missingCount += result.missingIds?.length ?? 0;
-        alreadyStoredCount += result.alreadyStoredIds?.length ?? 0;
-      }
-
-      const summary: ImageMigrationSummary = {
-        sourceCount: sourceImages.length,
-        validCount: validImages.length,
-        eligibleCount,
-        missingCount,
-        alreadyStoredCount,
-        oversizedCount,
-        invalidCount,
-        updatedCount,
-      };
-
-      setImageMigrationState(
-        mode === "preview"
-          ? { status: "preview", summary }
-          : { status: "success", summary },
-      );
-    } catch (error) {
-      setImageMigrationState({
-        status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "과거 이미지 보충 중 오류가 발생했습니다.",
-      });
-    }
-  };
-
   const handleEditMember = (member: GuildMember) => {
     setActiveAdminSection("members");
     setEditingMemberId(member.id);
     setMemberEditNickname(member.nickname);
+    setMemberEditPreviousNicknamesInput(
+      member.previousNicknames?.join(", ") ?? "",
+    );
     setMemberEditStatus(member.status);
     setMemberEditJoinedAt(member.joinedAt);
     setMemberEditLeftAt(member.leftAt ?? "");
@@ -1309,6 +1133,23 @@ export default function Home() {
         block: "start",
       });
     });
+  };
+
+  const returnToMemberRow = (memberId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`admin-member-${memberId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    });
+  };
+
+  const handleCancelMemberEdit = () => {
+    const memberId = editingMemberId;
+    resetMemberForm();
+    if (memberId) returnToMemberRow(memberId);
   };
 
   const handleSubmitMemberEdit = (event: FormEvent<HTMLFormElement>) => {
@@ -1336,8 +1177,19 @@ export default function Home() {
       return;
     }
 
-    updateMember(editingMemberId, {
+    const editedMemberId = editingMemberId;
+    const originalNickname = editingMember?.nickname.trim() ?? "";
+    const nicknameHistoryInput =
+      originalNickname && originalNickname !== trimmedNickname
+        ? `${memberEditPreviousNicknamesInput}, ${originalNickname}`
+        : memberEditPreviousNicknamesInput;
+
+    updateMember(editedMemberId, {
       nickname: trimmedNickname,
+      previousNicknames: parsePreviousNicknames(
+        nicknameHistoryInput,
+        trimmedNickname,
+      ),
       status: memberEditStatus,
       joinedAt: memberEditJoinedAt,
       leftAt: memberEditStatus === "left" ? memberEditLeftAt || null : null,
@@ -1349,6 +1201,7 @@ export default function Home() {
     resetMemberForm();
     setMemberFeedbackMessage("");
     notifyMembersChanged();
+    returnToMemberRow(editedMemberId);
   };
 
   const clearMemberReferences = (memberId: string) => {
@@ -1358,6 +1211,10 @@ export default function Home() {
 
     if (historyMemberId === memberId) {
       setHistoryMemberId(null);
+    }
+
+    if (expandedMemberId === memberId) {
+      setExpandedMemberId(null);
     }
 
     setSelectedMemberIds((currentIds) =>
@@ -1399,7 +1256,7 @@ export default function Home() {
     setActivityAirshipType(airshipType);
     setActivityTitle(getAirshipAutoTitle(airshipType));
     setIsSiegeTitleAutoSuggested(false);
-    setHasManuallyEditedActivityTitle(true);
+    setHasManuallyEditedActivityTitle(false);
   };
 
   const handleToggleConquestType = (conquestType: ConquestType) => {
@@ -1410,78 +1267,26 @@ export default function Home() {
     );
   };
 
-  const handleActivityImageChange = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setActivityImageError("이미지 파일만 첨부할 수 있습니다.");
-      clearImageInput();
-      return;
-    }
-
-    try {
-      setActivityImageError("");
-      const resizedImage = await resizeImageFile(file);
-      setActivityImageDataUrl(resizedImage);
-    } catch {
-      setActivityImageError("이미지를 압축하는 중 문제가 발생했습니다.");
-      clearImageInput();
-    }
-  };
-
-  const handleActivityImagePaste = async (
-    event: ClipboardEvent<HTMLFormElement>,
-  ) => {
-    const imageItem = Array.from(event.clipboardData.items).find((item) =>
-      item.type.startsWith("image/"),
-    );
-
-    if (!imageItem) {
-      return;
-    }
-
-    const file = imageItem.getAsFile();
-
-    if (!file) {
-      return;
-    }
-
-    event.preventDefault();
-
-    try {
-      setActivityImageError("");
-      const resizedImage = await resizeImageFile(file);
-      setActivityImageDataUrl(resizedImage);
-      clearImageInput();
-    } catch {
-      setActivityImageError("붙여넣은 이미지를 압축하는 중 문제가 발생했습니다.");
-    }
-  };
-
-  const handleRemoveActivityImage = () => {
-    setActivityImageDataUrl("");
-    setActivityImageError("");
-    clearImageInput();
-  };
-
   const handleSubmitActivity = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const imageUrlResult = validateActivityImageUrl(activityImageUrl);
-
-    if (!imageUrlResult.valid) {
-      setActivityImageError(imageUrlResult.error);
+    if (
+      activityType === "other" &&
+      activityEndDate &&
+      activityEndDate < activityDate
+    ) {
+      setActivityFeedbackMessage("종료일은 시작일과 같거나 이후여야 합니다.");
       return;
     }
 
     const activityData = {
       date: activityDate,
+      endDate:
+        activityType === "other" &&
+        activityEndDate &&
+        activityEndDate !== activityDate
+          ? activityEndDate
+          : undefined,
       type: activityType,
       airshipType: activityType === "airship" ? activityAirshipType : undefined,
       conquestTypes:
@@ -1491,11 +1296,10 @@ export default function Home() {
       title: activityTitle.trim() || undefined,
       participantIds: selectedMemberIds,
       memo: activityMemo.trim() || undefined,
-      imageUrl: imageUrlResult.value,
-      imageDataUrl: activityImageDataUrl || undefined,
     };
 
-    const wasEditingActivity = Boolean(editingActivityId);
+    const editedActivityId = editingActivityId;
+    const wasEditingActivity = Boolean(editedActivityId);
 
     try {
       if (editingActivityId) {
@@ -1503,15 +1307,9 @@ export default function Home() {
       } else {
         addActivityLog(activityData);
       }
-    } catch (error) {
-      const isStorageQuotaError =
-        error instanceof DOMException &&
-        (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
-
+    } catch {
       setActivityFeedbackMessage(
-        isStorageQuotaError
-          ? "브라우저 저장 공간이 가득 차 활동을 저장하지 못했습니다. 기존 기록의 큰 이미지를 삭제한 뒤 다시 시도해 주세요."
-          : "활동 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        "활동 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
       return;
     }
@@ -1523,22 +1321,21 @@ export default function Home() {
         : "활동 기록을 추가했습니다.",
     );
     notifyActivitiesChanged();
+    if (editedActivityId) returnToActivityCard(editedActivityId);
   };
 
   const handleEditActivity = (activity: ActivityLog) => {
     setActiveAdminSection("activity");
     setEditingActivityId(activity.id);
     setActivityDate(activity.date);
+    setActivityEndDate(activity.endDate ?? "");
     setActivityType(getVisibleActivityType(activity.type));
     setActivityAirshipType(getKnownAirshipType(activity.airshipType) ?? "ocean");
     setActivityConquestTypes(getKnownConquestTypes(activity.conquestTypes));
     setActivityTitle(activity.title ?? "");
     setIsSiegeTitleAutoSuggested(false);
-    setHasManuallyEditedActivityTitle(true);
+    setHasManuallyEditedActivityTitle(!isSystemGeneratedActivityTitle(activity));
     setActivityMemo(activity.memo ?? "");
-    setActivityImageUrl(activity.imageUrl ?? "");
-    setActivityImageDataUrl(activity.imageDataUrl ?? "");
-    setActivityImageError("");
     setSelectedMemberIds(activity.participantIds);
     setParticipantSearch("");
     setIsParticipantActiveOpen(true);
@@ -1548,13 +1345,25 @@ export default function Home() {
           member.status === "left" && activity.participantIds.includes(member.id),
       ),
     );
-    clearImageInput();
     requestAnimationFrame(() => {
       activityFormRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
     });
+  };
+
+  const handleAddEventToMonthlyHighlights = (activity: ActivityLog) => {
+    highlightDraftRequestIdRef.current += 1;
+    setMonthlyHighlightDraft({
+      requestId: highlightDraftRequestIdRef.current,
+      sourceActivityId: activity.id,
+      startDate: activity.date,
+      endDate: activity.endDate,
+      title: activity.title?.trim() || "이벤트",
+      description: activity.memo?.trim() || undefined,
+    });
+    setActiveAdminSection("highlights");
   };
 
   const handleDeleteActivity = (activityId: string) => {
@@ -1591,6 +1400,30 @@ export default function Home() {
     ? getMemberActivityStats(activities, selectedHistoryMember.id)
     : null;
 
+  const renderMemberDetails = (member: GuildMember) => {
+    const stats = getMemberActivityStats(activities, member.id);
+    const demographics = [
+      member.gender ? guildMemberGenderLabels[member.gender] : null,
+      getMemberDemographicsLabel(member.birthYear, currentYear),
+    ].filter(Boolean).join(" · ");
+
+    return (
+      <div className="mt-3 rounded-md border border-sky-100 bg-sky-50/60 p-3" id={`admin-member-details-${member.id}`}>
+        <dl className="grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+          <div><dt className="text-xs font-medium text-neutral-500">현재 닉네임</dt><dd className="mt-0.5 font-semibold text-neutral-950">{member.nickname}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">이전 닉네임</dt><dd className="mt-0.5 text-neutral-700">{member.previousNicknames?.length ? member.previousNicknames.join(", ") : "기록 없음"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">가입일 / 상태</dt><dd className="mt-0.5 text-neutral-700">{member.joinedAt} · {member.status === "active" ? "활동중" : "탈퇴"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">성별 / 출생 정보</dt><dd className="mt-0.5 text-neutral-700">{demographics || "미입력"}</dd></div>
+          <div><dt className="text-xs font-medium text-neutral-500">총 활동 수</dt><dd className="mt-0.5 font-semibold text-neutral-900">{stats.total}회</dd></div>
+        </dl>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button className="ui-button-secondary" onClick={() => handleViewMemberHistory(member.id)} type="button">개인 기록 보기</button>
+          <button className="ui-button-secondary" onClick={() => handleEditMember(member)} type="button">수정</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
     <main className="app-shell gap-8" data-admin-section={activeAdminSection}>
@@ -1611,7 +1444,7 @@ export default function Home() {
         }}
       />
 
-      <section className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4" data-admin-panel="activity">
+      <section className="hidden" data-admin-panel="activity">
         <h2 className="text-lg font-semibold text-neutral-900">
           월별 정산 설정
         </h2>
@@ -1646,7 +1479,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="space-y-5 rounded-md border border-neutral-200 bg-white p-5 shadow-sm" data-admin-panel="activity">
+      <section className="hidden" data-admin-panel="activity">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-neutral-950">
             냥춘 {getMonthLabel(reportMonth)} 활동 정산
@@ -1803,13 +1636,6 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ActivityImage
-                        alt="이벤트 첨부 이미지"
-                        className="mt-3 max-h-40 rounded-md border border-neutral-200 object-contain"
-                        src={getActivityImageSource(activity)}
-                      />
-                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -1849,31 +1675,28 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="space-y-3" data-admin-panel="data">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
-            데이터 관리 도구
-          </h2>
-          <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
-            type="button"
-            onClick={() => setIsDataToolsOpen((value) => !value)}
-          >
-            {isDataToolsOpen ? "접기" : "펼치기"}
-          </button>
+      <section className="space-y-4" data-admin-panel="data">
+        <div>
+          <h2 className="ui-section-title">데이터 관리</h2>
+          <p className="ui-supporting-text">
+            길드 데이터를 백업하거나 복원하고, 필요한 경우 유지보수 도구를 사용할 수 있습니다.
+          </p>
         </div>
 
         {isDataToolsOpen ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3 rounded-md border border-amber-200 bg-white p-4">
-              <h3 className="text-base font-semibold text-neutral-900">
+            <div className={`${isDangerDataToolsOpen ? "" : "hidden"} order-5 space-y-3 rounded-md border border-red-200 bg-white p-4 md:col-span-2`} id="danger-data-tools">
+              <h3 className="ui-card-title text-[var(--danger)]">
                 메모 일괄 삭제
               </h3>
+              <p className="ui-supporting-text">
+                선택한 범위의 메모가 일괄 삭제됩니다. 삭제 후 되돌릴 수 없습니다.
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                   <span>메모 삭제 범위</span>
                   <select
-                    className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none transition focus:border-neutral-900"
+                    className="ui-form-control sm:w-auto"
                     value={memberMemoClearScope}
                     onChange={(event) => {
                       setMemberMemoClearScope(
@@ -1888,7 +1711,7 @@ export default function Home() {
                   </select>
                 </label>
                 <button
-                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
+                  className="ui-button-danger"
                   type="button"
                   onClick={handleClearMemberMemos}
                 >
@@ -1904,13 +1727,16 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-              <h3 className="text-base font-semibold text-neutral-900">
+            <div className={`${isAdvancedDataToolsOpen ? "" : "hidden"} order-3 space-y-3 rounded-md border border-neutral-200 bg-white p-4 md:col-span-2`} id="advanced-data-tools">
+              <h3 className="ui-card-title">
                 탈퇴 길드원 복구
               </h3>
+              <p className="ui-supporting-text">
+                탈퇴 상태인 길드원을 기존 활동 기록 연결을 유지한 채 활동중으로 복구합니다.
+              </p>
               {leftMembers.length > 0 ? (
                 <button
-                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+                  className="ui-button-secondary"
                   type="button"
                   onClick={handleRestoreLeftMembers}
                 >
@@ -1932,9 +1758,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+            <div className="order-1 space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                백업 / 복원
+                  백업 및 복원
               </p>
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
@@ -1945,7 +1771,7 @@ export default function Home() {
                 </p>
               </div>
               <button
-                className="rounded-md border border-[var(--brand-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)]"
+                className="ui-button-secondary w-full sm:w-auto"
                 type="button"
                 onClick={handleExportBackup}
               >
@@ -1958,7 +1784,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+            <div className="order-1 space-y-3 rounded-md border border-neutral-200 bg-white p-4">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900">
                   JSON 백업 가져오기
@@ -1970,7 +1796,7 @@ export default function Home() {
               </div>
               <input
                 ref={backupFileInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                className="block w-full min-w-0 rounded-md border border-[var(--border)] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
                 type="file"
                 accept="application/json,.json"
                 onChange={handleBackupFileChange}
@@ -2011,82 +1837,6 @@ export default function Home() {
                     교체됩니다. 복원 전 현재 데이터를 다시 백업해두는 것을
                     권장합니다.
                   </p>
-                  <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-                    <span>서버 반영 토큰 (서버 DB로 가져오기에만 필요)</span>
-                    <input
-                      className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                      type="password"
-                      autoComplete="off"
-                      placeholder="ADMIN_IMPORT_TOKEN 값 입력"
-                      value={serverImportToken}
-                      onChange={(event) => setServerImportToken(event.target.value)}
-                    />
-                  </label>
-                  <p className="text-xs text-neutral-500">
-                    입력한 토큰은 저장되지 않고 이 화면에서만 사용되며, 서버 DB로
-                    가져오기를 요청할 때만 서버로 전송됩니다.
-                  </p>
-                  <div className="space-y-3 rounded-md border border-sky-200 bg-sky-50 p-3">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">
-                        과거 첨부 이미지 안전 보충
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">
-                        백업의 비어 있지 않은 imageDataUrl만 같은 활동 ID에
-                        보충합니다. 기존 imageUrl, 이미 저장된 이미지와 다른 활동
-                        데이터는 변경하지 않습니다.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        type="button"
-                        disabled={imageMigrationState.status === "loading"}
-                        onClick={() => handleMigrateBackupImages("preview")}
-                      >
-                        {imageMigrationState.status === "loading" &&
-                        imageMigrationState.mode === "preview"
-                          ? "사전 점검 중"
-                          : "과거 이미지 사전 점검"}
-                      </button>
-                      <button
-                        className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                        type="button"
-                        disabled={
-                          imageMigrationState.status !== "preview" ||
-                          imageMigrationState.summary.eligibleCount === 0
-                        }
-                        onClick={() => handleMigrateBackupImages("apply")}
-                      >
-                        누락 이미지 보충 실행
-                      </button>
-                    </div>
-                    {imageMigrationState.status === "preview" ||
-                    imageMigrationState.status === "success" ? (
-                      <div className="grid gap-1 rounded-md bg-white px-3 py-2 text-xs text-neutral-700 sm:grid-cols-2">
-                        <p>백업 이미지: {imageMigrationState.summary.sourceCount}개</p>
-                        <p>형식·크기 통과: {imageMigrationState.summary.validCount}개</p>
-                        <p>보충 대상: {imageMigrationState.summary.eligibleCount}개</p>
-                        <p>서버에 없는 활동: {imageMigrationState.summary.missingCount}개</p>
-                        <p>
-                          이미 저장됨:{" "}
-                          {imageMigrationState.summary.alreadyStoredCount}개
-                        </p>
-                        <p>크기 초과: {imageMigrationState.summary.oversizedCount}개</p>
-                        <p>잘못된 형식: {imageMigrationState.summary.invalidCount}개</p>
-                        {imageMigrationState.status === "success" ? (
-                          <p className="font-semibold text-emerald-700">
-                            실제 보충: {imageMigrationState.summary.updatedCount}개
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {imageMigrationState.status === "error" ? (
-                      <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                        {imageMigrationState.message}
-                      </p>
-                    ) : null}
-                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
@@ -2135,7 +1885,7 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-2 rounded-md border border-red-200 bg-white p-4 md:col-span-2">
+            <div className="order-1 space-y-2 rounded-md border border-[var(--border)] bg-white p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 주의사항
               </p>
@@ -2148,15 +1898,42 @@ export default function Home() {
                 <li>복원 시 현재 데이터가 백업 파일 내용으로 덮어써집니다.</li>
               </ul>
             </div>
+
+            <button
+              aria-controls="advanced-data-tools"
+              aria-expanded={isAdvancedDataToolsOpen}
+              className="ui-focus-ring order-2 flex min-h-11 w-full items-center justify-between rounded-md border border-[var(--border)] bg-white px-4 text-left text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)] md:col-span-2"
+              onClick={() => setIsAdvancedDataToolsOpen((value) => !value)}
+              type="button"
+            >
+              <span>고급 관리 도구</span>
+              <span aria-hidden>{isAdvancedDataToolsOpen ? "▾" : "▸"}</span>
+            </button>
+
+            <button
+              aria-controls="danger-data-tools"
+              aria-expanded={isDangerDataToolsOpen}
+              className="ui-focus-ring order-4 flex min-h-11 w-full items-center justify-between rounded-md border border-red-200 bg-white px-4 text-left text-sm font-semibold text-[var(--danger)] hover:bg-red-50 md:col-span-2"
+              onClick={() => setIsDangerDataToolsOpen((value) => !value)}
+              type="button"
+            >
+              <span>위험 작업</span>
+              <span aria-hidden>{isDangerDataToolsOpen ? "▾" : "▸"}</span>
+            </button>
           </div>
         ) : null}
       </section>
 
-      <MonthlyHighlightsAdmin />
+      <MonthlyHighlightsAdmin
+        draft={monthlyHighlightDraft}
+        isActive={activeAdminSection === "highlights"}
+        key={monthlyHighlightDraft?.requestId ?? "monthly-highlights"}
+        onSourceActivityIdsChange={setHighlightSourceActivityIds}
+      />
 
       <section className="space-y-4" data-admin-panel="members">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
+          <h2 className="ui-section-title">
             &#44600;&#46300;&#50896; &#44288;&#47532;
           </h2>
           <span className="text-sm text-neutral-500">
@@ -2170,31 +1947,42 @@ export default function Home() {
           </p>
         ) : null}
 
-        <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+        <div className="ui-surface ui-surface-section space-y-4">
           <div>
-            <h3 className="text-base font-semibold text-neutral-900">
+            <h3 className="ui-card-title">
               새 길드원 등록
             </h3>
-            <p className="text-sm text-neutral-500">
-              닉네임과 선택 정보를 입력해 새 길드원을 등록합니다.
+            <p className="ui-supporting-text">
+              가입일은 오늘로 설정되며, 필요한 경우 과거 날짜로 변경할 수 있습니다.
             </p>
           </div>
-          <form className="space-y-3" onSubmit={handleAddMember}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+          <form className="space-y-4" onSubmit={handleAddMember}>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="ui-form-field">
                 <span>닉네임</span>
                 <input
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   type="text"
                   placeholder="닉네임 입력"
                   value={nickname}
                   onChange={(event) => setNickname(event.target.value)}
                 />
               </label>
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <label className="ui-form-field">
+                <span>가입일</span>
+                <input
+                  className="ui-form-control"
+                  onChange={(event) => setNewMemberJoinedAt(event.target.value)}
+                  required
+                  type="date"
+                  onClick={openNativePicker}
+                  value={newMemberJoinedAt}
+                />
+              </label>
+              <label className="ui-form-field">
                 <span>성별 (선택)</span>
                 <select
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   value={newMemberGender}
                   onChange={(event) =>
                     setNewMemberGender(
@@ -2212,10 +2000,10 @@ export default function Home() {
                   )}
                 </select>
               </label>
-              <label className="space-y-1 text-sm font-medium text-neutral-700">
+              <label className="ui-form-field">
                 <span>출생연도 (선택)</span>
                 <input
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                  className="ui-form-control"
                   inputMode="numeric"
                   maxLength={4}
                   placeholder="예: 98 또는 1998"
@@ -2243,7 +2031,7 @@ export default function Home() {
               </p>
             ) : null}
             <button
-              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95 sm:w-fit"
+              className="ui-button-primary sm:w-fit"
               type="submit"
             >
               등록
@@ -2294,14 +2082,26 @@ export default function Home() {
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200">
               {paginatedActiveMembers.map((member) => (
                   <li
-                    className="flex gap-3 bg-white px-3 py-2.5"
+                    className="bg-white px-3 py-2.5"
+                    id={`admin-member-${member.id}`}
                     key={member.id}
                   >
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                       <div className="min-w-0 sm:flex sm:items-center sm:gap-3">
-                        <p className="truncate font-semibold text-neutral-950 sm:min-w-28">
+                        <button
+                          aria-controls={`admin-member-details-${member.id}`}
+                          aria-expanded={expandedMemberId === member.id}
+                          className="ui-focus-ring block min-h-11 truncate rounded-md px-1 text-left font-semibold text-[var(--brand-strong)] hover:underline sm:min-w-28"
+                          onClick={() => setExpandedMemberId((currentId) => currentId === member.id ? null : member.id)}
+                          type="button"
+                        >
                           {member.nickname}
-                        </p>
+                        </button>
+                        {getMatchingPreviousNickname(member, activeMemberSearch) ? (
+                          <p className="truncate text-xs font-medium text-sky-700">
+                            이전 닉네임: {getMatchingPreviousNickname(member, activeMemberSearch)}
+                          </p>
+                        ) : null}
                         {member.joinedAt ? (
                           <p className="whitespace-nowrap text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
@@ -2335,6 +2135,7 @@ export default function Home() {
                           <span aria-hidden>⋯</span>
                       </button>
                     </div>
+                    {expandedMemberId === member.id ? renderMemberDetails(member) : null}
                   </li>
               ))}
             </ul>
@@ -2392,19 +2193,31 @@ export default function Home() {
             <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
               {paginatedLeftMembers.map((member) => (
                   <li
-                    className="flex gap-3 px-3 py-2.5"
+                    className="px-3 py-2.5"
+                    id={`admin-member-${member.id}`}
                     key={member.id}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-medium text-neutral-700">
+                          <button
+                            aria-controls={`admin-member-details-${member.id}`}
+                            aria-expanded={expandedMemberId === member.id}
+                            className="ui-focus-ring min-h-11 truncate rounded-md px-1 text-left font-semibold text-[var(--brand-strong)] hover:underline"
+                            onClick={() => setExpandedMemberId((currentId) => currentId === member.id ? null : member.id)}
+                            type="button"
+                          >
                             {member.nickname}
-                          </p>
+                          </button>
                           <span className="rounded-sm bg-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
                             &#53448;&#53748;
                           </span>
                         </div>
+                        {getMatchingPreviousNickname(member, leftMemberSearch) ? (
+                          <p className="text-xs font-medium text-sky-700">
+                            이전 닉네임: {getMatchingPreviousNickname(member, leftMemberSearch)}
+                          </p>
+                        ) : null}
                         {member.joinedAt ? (
                           <p className="text-xs text-neutral-500">
                             &#44032;&#51077;&#51068; {member.joinedAt}
@@ -2443,6 +2256,7 @@ export default function Home() {
                           <span aria-hidden>⋯</span>
                       </button>
                     </div>
+                    {expandedMemberId === member.id ? renderMemberDetails(member) : null}
                   </li>
               ))}
             </ul>
@@ -2461,23 +2275,23 @@ export default function Home() {
       {isEditingMember ? (
         <section className="space-y-4" data-admin-panel="members" ref={memberFormRef}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-neutral-900">
+            <h2 className="ui-section-title">
               길드원 정보 수정
             </h2>
             <button
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
+              className="ui-button-ghost"
               type="button"
-              onClick={resetMemberForm}
+              onClick={handleCancelMemberEdit}
             >
               수정 취소
             </button>
           </div>
           <form
-            className="space-y-4 rounded-md border border-neutral-200 p-4"
+            className="admin-member-form ui-surface ui-surface-section space-y-4"
             onSubmit={handleSubmitMemberEdit}
           >
-            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-              {editingMember?.nickname || "선택한 길드원"} 정보를 수정 중입니다.
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800">
+              {editingMember?.nickname || "선택한 길드원"} 수정 중 · 저장하거나 취소하면 원래 행으로 돌아갑니다.
             </p>
 
             {memberFeedbackMessage ? (
@@ -2524,6 +2338,18 @@ export default function Home() {
                 />
               </label>
             </div>
+
+            <label className="block space-y-1 text-sm font-medium text-neutral-700">
+              <span>이전 닉네임 (선택)</span>
+              <input
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
+                placeholder="여러 개면 쉼표로 구분"
+                type="text"
+                value={memberEditPreviousNicknamesInput}
+                onChange={(event) => setMemberEditPreviousNicknamesInput(event.target.value)}
+              />
+              <span className="block text-xs font-normal text-neutral-500">현재 닉네임을 변경하면 변경 전 닉네임은 자동으로 추가됩니다.</span>
+            </label>
             {memberEditBirthYearInput ? (
               <p
                 className={`text-sm ${
@@ -2573,6 +2399,7 @@ export default function Home() {
                 <input
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
                   type="date"
+                  onClick={openNativePicker}
                   value={memberEditJoinedAt}
                   onChange={(event) => setMemberEditJoinedAt(event.target.value)}
                 />
@@ -2583,6 +2410,7 @@ export default function Home() {
                 <input
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900 disabled:bg-neutral-100 disabled:text-neutral-400"
                   type="date"
+                  onClick={openNativePicker}
                   value={memberEditLeftAt}
                   onChange={(event) => setMemberEditLeftAt(event.target.value)}
                   disabled={memberEditStatus === "active"}
@@ -2594,18 +2422,16 @@ export default function Home() {
               <span>메모</span>
               <textarea
                 className="min-h-24 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-900"
-                placeholder="가입 경로, 닉네임 변경 이력, 참고할 내용을 남겨주세요."
+                placeholder="가입 경로나 참고할 내용을 남겨주세요."
                 value={memberEditMemo}
                 onChange={(event) => setMemberEditMemo(event.target.value)}
               />
             </label>
 
-            <button
-              className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
-              type="submit"
-            >
-              길드원 정보 저장
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button className="ui-button-primary" type="submit">길드원 정보 저장</button>
+              <button className="ui-button-secondary" onClick={handleCancelMemberEdit} type="button">취소하고 원래 행으로 돌아가기</button>
+            </div>
           </form>
         </section>
       ) : null}
@@ -2619,7 +2445,7 @@ export default function Home() {
             <button
               className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
               type="button"
-              onClick={resetActivityForm}
+              onClick={handleCancelActivityEdit}
             >
               수정 취소
             </button>
@@ -2632,25 +2458,39 @@ export default function Home() {
         ) : null}
         <form
           className="space-y-5 rounded-md border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
-          onPaste={handleActivityImagePaste}
           onSubmit={handleSubmitActivity}
         >
           {isEditingActivity ? (
-            <p className="rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
-              {editingActivity?.title || "선택한 활동 기록"}을 수정 중입니다.
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800">
+              {editingActivity?.title || "선택한 활동 기록"} 수정 중 · 저장하거나 취소하면 원래 카드로 돌아갑니다.
             </p>
           ) : null}
           <div className="grid gap-4 rounded-md border border-neutral-200 bg-white p-4 md:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-neutral-700">
-              <span>활동 날짜</span>
+              <span>시작일</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
                 type="date"
+                onClick={openNativePicker}
                 value={activityDate}
                 onChange={(event) => setActivityDate(event.target.value)}
                 required
               />
             </label>
+
+            {activityType === "other" ? (
+              <label className="space-y-1 text-sm font-medium text-neutral-700">
+                <span>종료일 <span className="font-normal text-neutral-500">(선택)</span></span>
+                <input
+                  className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--brand-strong)]"
+                  min={activityDate}
+                  type="date"
+                  onClick={openNativePicker}
+                  value={activityEndDate}
+                  onChange={(event) => setActivityEndDate(event.target.value)}
+                />
+              </label>
+            ) : null}
 
             <label className="space-y-1 text-sm font-medium text-neutral-700">
               <span>활동 종류</span>
@@ -2661,14 +2501,14 @@ export default function Home() {
                   const nextType = event.target.value as VisibleActivityType;
                   setActivityType(nextType);
 
-                  if (
-                    nextType === "siege" &&
-                    !editingActivityId &&
-                    !activityTitle.trim() &&
-                    !hasManuallyEditedActivityTitle
-                  ) {
-                    setActivityTitle(getNextSiegeTitle(activities));
-                    setIsSiegeTitleAutoSuggested(true);
+                  if (!hasManuallyEditedActivityTitle) {
+                    const nextTitle = nextType === "siege"
+                      ? getNextSiegeTitle(activities)
+                      : nextType === "airship"
+                        ? getAirshipAutoTitle(activityAirshipType)
+                        : "";
+                    setActivityTitle(nextTitle);
+                    setIsSiegeTitleAutoSuggested(nextType === "siege");
                   }
 
                   if (nextType !== "airship") {
@@ -2677,6 +2517,10 @@ export default function Home() {
 
                   if (nextType !== "siege") {
                     setActivityConquestTypes([]);
+                  }
+
+                  if (nextType !== "other") {
+                    setActivityEndDate("");
                   }
                 }}
               >
@@ -2903,77 +2747,28 @@ export default function Home() {
             />
           </label>
 
-          <div className="space-y-2">
-            <label className="block space-y-1 text-sm font-medium text-neutral-700">
-              <span>이미지 URL</span>
-              <input
-                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
-                inputMode="url"
-                placeholder="https://example.com/image.jpg"
-                type="text"
-                value={activityImageUrl}
-                onChange={(event) => {
-                  setActivityImageUrl(event.target.value);
-                  setActivityImageError("");
-                }}
-              />
-            </label>
-            <p className="text-xs text-neutral-500">
-              R2 전환 전까지 외부 HTTPS 이미지 주소를 사용할 수 있습니다. URL 이미지가
-              첨부 이미지보다 우선 표시됩니다.
-            </p>
-            <label className="block space-y-1 text-sm font-medium text-neutral-700">
-              <span>참고 스크린샷</span>
-              <input
-                ref={imageInputRef}
-                className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand-strong)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
-                type="file"
-                accept="image/*"
-                onChange={handleActivityImageChange}
-              />
-            </label>
-            <p className="text-xs text-neutral-500">
-              선택한 이미지는 최대 너비 {MAX_IMAGE_WIDTH}px 이하의 JPEG로 압축해
-              저장합니다.
-            </p>
-            <p className="text-xs text-neutral-500">
-              디스코드 이미지 복사 후 이 활동 기록 폼 안에서 Ctrl+V로 첨부할 수
-              있습니다.
-            </p>
-            {activityImageError ? (
-              <p className="text-sm text-red-600">{activityImageError}</p>
-            ) : null}
-            {activityImagePreviewSource ? (
-              <div className="space-y-2 rounded-md border border-neutral-200 p-3">
-                <ActivityImage
-                  alt="활동 이미지 미리보기"
-                  className="max-h-64 rounded-md border border-neutral-200 object-contain"
-                  src={activityImagePreviewSource}
-                />
-                {activityImageDataUrl ? (
-                  <button
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-[var(--danger)] hover:text-[var(--danger)]"
-                    type="button"
-                    onClick={handleRemoveActivityImage}
-                  >
-                    첨부 이미지 제거
-                  </button>
-                ) : null}
-              </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
+              type="submit"
+            >
+              {isEditingActivity ? "변경 사항 저장" : "활동 기록 저장"}
+            </button>
+            {isEditingActivity ? (
+              <button
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 sm:w-auto"
+                onClick={handleCancelActivityEdit}
+                type="button"
+              >
+                취소하고 카드로 돌아가기
+              </button>
             ) : null}
           </div>
-
-          <button
-            className="ui-focus-ring min-h-11 w-full rounded-md bg-[var(--brand-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-48"
-            type="submit"
-          >
-            {isEditingActivity ? "활동 기록 수정" : "활동 기록 저장"}
-          </button>
         </form>
       </section>
 
       <section className="space-y-3" data-admin-panel="activity">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">
               전체 활동 기록
@@ -2983,14 +2778,15 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[10rem_minmax(16rem,1fr)_9rem_10rem_auto] lg:items-end">
-            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[10rem_minmax(16rem,1fr)_9rem_10rem_auto] xl:items-end">
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:col-span-2 lg:col-span-1">
               <span className="h-5">월 선택</span>
               <select
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
                 value={activityMonthFilter}
                 onChange={(event) => {
                   setActivityMonthFilter(event.target.value);
+                  setActivityDateFilter("");
                   setActivityPage(1);
                 }}
               >
@@ -3002,15 +2798,17 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
-              <span className="h-5">제목·날짜 검색</span>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 sm:col-span-2 lg:col-span-3 xl:col-span-1">
+              <span className="h-5">날짜 선택</span>
               <input
                 className="ui-focus-ring min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-                type="search"
-                placeholder="제목, YYYY-MM-DD, MM/DD"
-                value={activitySearch}
+                min={activityDateFilterMin}
+                max={activityDateFilterMax}
+                onClick={openNativePicker}
+                type="date"
+                value={activityDateFilter}
                 onChange={(event) => {
-                  setActivitySearch(event.target.value);
+                  setActivityDateFilter(event.target.value);
                   setActivityPage(1);
                 }}
               />
@@ -3054,10 +2852,10 @@ export default function Home() {
             {hasActiveActivityFilters ? (
               <button
                 aria-label="활동 기록 필터 초기화"
-                className="ui-focus-ring min-h-11 justify-self-end rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] md:col-span-2 lg:col-span-1"
+                className="ui-focus-ring min-h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] sm:col-span-2 lg:col-span-2 lg:w-auto lg:justify-self-end xl:col-span-1"
                 onClick={() => {
                   setActivityMonthFilter("all");
-                  setActivitySearch("");
+                  setActivityDateFilter("");
                   setActivitySortOrder("latest");
                   setActivityFilter("all");
                   setActivityPage(1);
@@ -3088,16 +2886,15 @@ export default function Home() {
 
               return (
                 <li
-                  className={`flex flex-col rounded-md border border-neutral-200 bg-white shadow-sm ${
-                    getActivityImageSource(activity) ? "overflow-hidden" : "px-4 py-3"
-                  }`}
+                  className="flex flex-col rounded-md border border-neutral-200 bg-white px-4 py-3 shadow-sm"
+                  id={`admin-activity-${activity.id}`}
                   key={activity.id}
                 >
-                  <div className={getActivityImageSource(activity) ? "px-4 pt-3" : ""}>
+                  <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="text-xs text-neutral-500">
-                        {activity.date}
+                        {formatDateRange(activity.date, activity.endDate)}
                       </span>
                       <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                         {getActivityTypeLabel(activity)}
@@ -3108,18 +2905,13 @@ export default function Home() {
                           {getAirshipTypeLabel(activity.airshipType)}
                         </span>
                       ) : null}
-                      {getActivityImageSource(activity) ? (
-                        <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                          이미지
-                        </span>
-                      ) : null}
                     </div>
                     <span className={`shrink-0 rounded-sm border px-2 py-0.5 text-xs font-medium text-slate-700 ${maxFilteredParticipantCount > 0 && activity.participantIds.length === maxFilteredParticipantCount ? "border-sky-300 bg-sky-200" : "border-sky-100 bg-sky-50"}`}>
                       참여 {activity.participantIds.length}명
                     </span>
                   </div>
                   </div>
-                  <div className={`mt-3 flex flex-1 flex-col gap-2 ${getActivityImageSource(activity) ? "px-4" : ""}`}>
+                  <div className="mt-3 flex flex-1 flex-col gap-2">
                     <h3 className="text-base font-semibold leading-6 text-neutral-950">
                       {activity.title || getActivityTypeLabel(activity)}
                     </h3>
@@ -3134,15 +2926,23 @@ export default function Home() {
                         {activity.memo}
                       </p>
                     ) : null}
-                    {getActivityImageSource(activity) ? (
-                      <ActivityImage
-                        alt="첨부 스크린샷"
-                        className="mt-2 max-h-48 w-full border-y border-neutral-200 object-contain"
-                        src={getActivityImageSource(activity)}
-                      />
-                    ) : null}
                   </div>
-                  <div className={`mt-4 flex flex-wrap gap-2 ${getActivityImageSource(activity) ? "px-4 pb-3" : ""}`}>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {getVisibleActivityType(activity.type) === "other" ? (
+                      highlightSourceActivityIds.includes(activity.id) ? (
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                          주요 기록 등록됨
+                        </span>
+                      ) : (
+                        <button
+                          className="rounded-md border border-[var(--brand-strong)] px-3 py-1.5 text-sm font-semibold text-[var(--brand-strong)] transition hover:bg-[var(--surface-muted)]"
+                          type="button"
+                          onClick={() => handleAddEventToMonthlyHighlights(activity)}
+                        >
+                          주요 기록으로 추가
+                        </button>
+                      )
+                    ) : null}
                     <button
                       className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-950"
                       type="button"
@@ -3192,28 +2992,6 @@ export default function Home() {
           <p className="truncate border-b border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
             {menuMember.nickname}
           </p>
-          <button
-            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-            onClick={() => {
-              setMemberMenuPosition(null);
-              handleEditMember(menuMember);
-            }}
-            role="menuitem"
-            type="button"
-          >
-            수정
-          </button>
-          <button
-            className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-            onClick={() => {
-              setMemberMenuPosition(null);
-              handleViewMemberHistory(menuMember.id);
-            }}
-            role="menuitem"
-            type="button"
-          >
-            활동 이력 보기
-          </button>
           {menuMember.status === "active" ? (
             <button
               className="ui-focus-ring min-h-11 rounded-md px-3 text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
@@ -3275,6 +3053,7 @@ export default function Home() {
               onChange={(event) => setLeaveDate(event.target.value)}
               required
               type="date"
+              onClick={openNativePicker}
               value={leaveDate}
             />
           </label>
@@ -3402,7 +3181,7 @@ export default function Home() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="text-xs text-neutral-500">
-                            {activity.date}
+                            {formatDateRange(activity.date, activity.endDate)}
                           </span>
                           <span className="rounded-sm bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
                             {getActivityTypeLabel(activity)}
@@ -3425,13 +3204,6 @@ export default function Home() {
                         <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-neutral-500">
                           {activity.memo}
                         </p>
-                      ) : null}
-                      {getActivityImageSource(activity) ? (
-                        <ActivityImage
-                          alt="첨부 스크린샷"
-                          className="mt-3 max-h-40 w-full rounded-md border border-neutral-200 object-contain"
-                          src={getActivityImageSource(activity)}
-                        />
                       ) : null}
                     </li>
                   ))}

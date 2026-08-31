@@ -5,10 +5,20 @@ import {
   getKnownConquestTypes,
   getMonthlyActivityLabel,
 } from "@/src/lib/activityLabels";
+import { formatDateRange } from "@/src/lib/displayFormat";
+import {
+  getCountedActivityParticipantIds,
+  isCountedActivityMember,
+} from "@/src/lib/activityParticipants";
+import {
+  getMonthlyAnniversaries,
+  type AnniversaryMilestone,
+} from "@/src/lib/anniversaries";
 
 export type MonthlyActivitySummary = {
   id: string;
   date: string;
+  endDate?: string;
   displayDate: string;
   label: string;
   participantCount: number;
@@ -17,12 +27,19 @@ export type MonthlyActivitySummary = {
 
 export type MonthlyActivityDetail = ActivityLog & {
   participantNames: string[];
+  participantKnownMemberIds: string[];
 };
 
 export type MonthlyTopParticipant = {
   memberId: string;
   nickname: string;
   count: number;
+};
+
+export type MonthlyNewMember = {
+  id: string;
+  nickname: string;
+  joinedAt: string;
 };
 
 export type MonthlyConquestSummary = {
@@ -33,13 +50,12 @@ export type MonthlyConquestSummary = {
 export type MonthlyEventSummary = {
   id: string;
   date: string;
+  endDate?: string;
   displayDate: string;
   shareDate: string;
   title: string;
   participantCount: number;
   memo?: string;
-  imageUrl?: string;
-  imageDataUrl?: string;
 };
 
 export type MonthlyReport = {
@@ -61,6 +77,9 @@ export type MonthlyReport = {
   conquestSummaries: MonthlyConquestSummary[];
   eventSummaries: MonthlyEventSummary[];
   activitySummaries: MonthlyActivitySummary[];
+  newMembers: MonthlyNewMember[];
+  anniversaries: AnniversaryMilestone[];
+  calendarAnniversaries: AnniversaryMilestone[];
 };
 
 function getMonthKey(date: string) {
@@ -84,10 +103,6 @@ export function getMostParticipatedActivity<T extends ActivityLog>(
 
 function getDisplayDate(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", "/") : date;
-}
-
-function getShareDisplayDate(date: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5).replace("-", ".") : date;
 }
 
 function getMonthNumberLabel(month: string) {
@@ -138,6 +153,12 @@ export function getMonthlyReport(
       const dateOrder = a.date.localeCompare(b.date);
       return dateOrder === 0 ? a.id.localeCompare(b.id) : dateOrder;
     });
+  const countedParticipantIdsByActivityId = new Map(
+    monthlyActivities.map((activity) => [
+      activity.id,
+      getCountedActivityParticipantIds(activity.participantIds, membersById),
+    ]),
+  );
   const participationCountsByMemberId: Record<string, number> = {};
   const conquestCounts = Object.fromEntries(
     conquestTypes.map((conquestType) => [conquestType, 0]),
@@ -147,18 +168,32 @@ export function getMonthlyReport(
     members
       .filter(
         (member) =>
+          isCountedActivityMember(member) &&
           member.joinedAt <= periodEnd &&
           (!member.leftAt || member.leftAt >= monthStart),
       )
       .map((member) => member.id),
   );
+  const newMembers = members
+    .filter((member) => getMonthKey(member.joinedAt) === month)
+    .map((member) => ({
+      id: member.id,
+      nickname: member.nickname,
+      joinedAt: member.joinedAt,
+    }))
+    .sort((first, second) =>
+      first.joinedAt.localeCompare(second.joinedAt) ||
+      first.nickname.localeCompare(second.nickname, "ko"),
+    );
 
   const report = monthlyActivities.reduce(
     (summary, activity) => {
       const statsType = getActivityStatsType(activity.type);
 
       summary.totalActivities += 1;
-      summary.totalParticipationCount += activity.participantIds.length;
+      const participantIds =
+        countedParticipantIdsByActivityId.get(activity.id) ?? [];
+      summary.totalParticipationCount += participantIds.length;
 
       if (statsType === "siege") {
         summary.siegeCount += 1;
@@ -181,7 +216,7 @@ export function getMonthlyReport(
         summary.otherCount += 1;
       }
 
-      activity.participantIds.forEach((memberId) => {
+      participantIds.forEach((memberId) => {
         participantMemberIds.add(memberId);
         participationCountsByMemberId[memberId] =
           (participationCountsByMemberId[memberId] ?? 0) + 1;
@@ -206,7 +241,10 @@ export function getMonthlyReport(
     12,
   );
   const maxActivityParticipantCount = monthlyActivities.reduce(
-    (maxCount, activity) => Math.max(maxCount, activity.participantIds.length),
+    (maxCount, activity) => Math.max(
+      maxCount,
+      countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
+    ),
     0,
   );
   const topParticipants = Object.entries(participationCountsByMemberId)
@@ -231,20 +269,30 @@ export function getMonthlyReport(
     .map((activity) => ({
       id: activity.id,
       date: activity.date,
-      displayDate: getDisplayDate(activity.date),
-      shareDate: getShareDisplayDate(activity.date),
+      endDate: activity.endDate,
+      displayDate: formatDateRange(activity.date, activity.endDate),
+      shareDate: formatDateRange(activity.date, activity.endDate),
       title: activity.title?.trim() || "이벤트",
-      participantCount: activity.participantIds.length,
+      participantCount:
+        countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
       memo: activity.memo?.trim() || undefined,
-      imageUrl: activity.imageUrl,
-      imageDataUrl: activity.imageDataUrl,
     }));
-  const activityDetails = monthlyActivities.map((activity) => ({
-    ...activity,
-    participantNames: activity.participantIds.map(
-      (memberId) => membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
-    ),
-  }));
+  const activityDetails = monthlyActivities.map((activity) => {
+    const participantIds =
+      countedParticipantIdsByActivityId.get(activity.id) ?? [];
+
+    return {
+      ...activity,
+      participantIds,
+      participantNames: participantIds.map(
+        (memberId) =>
+          membersById.get(memberId)?.nickname ?? getUnknownMemberName(memberId),
+      ),
+      participantKnownMemberIds: participantIds.filter((memberId) =>
+        membersById.has(memberId),
+      ),
+    };
+  });
 
   return {
     month,
@@ -263,13 +311,21 @@ export function getMonthlyReport(
     activitySummaries: monthlyActivities.map((activity) => ({
       id: activity.id,
       date: activity.date,
-      displayDate: getDisplayDate(activity.date),
+      endDate: activity.endDate,
+      displayDate: activity.endDate
+        ? formatDateRange(activity.date, activity.endDate)
+        : getDisplayDate(activity.date),
       label: getMonthlyActivityLabel(activity),
-      participantCount: activity.participantIds.length,
+      participantCount:
+        countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0,
       isMostParticipated:
         maxActivityParticipantCount > 0 &&
-        activity.participantIds.length === maxActivityParticipantCount,
+        (countedParticipantIdsByActivityId.get(activity.id)?.length ?? 0) ===
+          maxActivityParticipantCount,
     })),
+    newMembers,
+    anniversaries: getMonthlyAnniversaries(members, month, periodEnd),
+    calendarAnniversaries: getMonthlyAnniversaries(members, month),
   };
 }
 

@@ -1,24 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #eff8fc;
-  --foreground: #0b1f3a;
-  --surface: #ffffff;
-  --surface-muted: #eaf5fb;
-  --text-primary: #0b1f3a;
-  --text-secondary: #52708f;
-  --brand: #9eddf6;
-  --brand-strong: #44688e;
-  --border: #cfe6f2;
-  --danger: #a33a3a;
-  --focus-ring: #65bfe5;
+  --color-bg-page: #eff8fc;
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: #eaf5fb;
+  --color-bg-interactive: #f5fbfe;
+  --color-bg-selected: #ddf2fa;
+  --color-text-primary: #0b1f3a;
+  --color-text-secondary: #3f5f7f;
+  --color-text-muted: #6b8299;
+  --color-text-inverse: #ffffff;
+  --color-text-accent: #44688e;
+  --color-border-default: #cfe6f2;
+  --color-border-subtle: #e3f0f6;
+  --color-border-interactive: #9eddf6;
+  --color-border-selected: #65bfe5;
+  --color-brand-primary: #9eddf6;
+  --color-brand-soft: #eaf5fb;
+  --color-brand-strong: #44688e;
+  --color-state-error: #a33a3a;
+  --color-state-warning: #946200;
+  --color-state-success: #28785a;
+
+  /* Compatibility aliases for existing public and admin styles. */
+  --background: var(--color-bg-page);
+  --foreground: var(--color-text-primary);
+  --surface: var(--color-bg-surface);
+  --surface-muted: var(--color-bg-muted);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --brand: var(--color-brand-primary);
+  --brand-strong: var(--color-brand-strong);
+  --border: var(--color-border-default);
+  --danger: var(--color-state-error);
+  --focus-ring: var(--color-border-selected);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
-  --space-8: 3rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
   --radius-control: 0.5rem;
   --radius-card: 0.5rem;
   --content-width: 67.5rem;
@@ -57,24 +79,221 @@ textarea {
     width: 100%;
     max-width: var(--content-width);
     flex-direction: column;
-    gap: var(--space-6);
+    gap: var(--space-8);
     padding: 2.5rem 1.25rem;
     color: var(--text-primary);
   }
 
   .ui-surface {
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-border-default);
     border-radius: var(--radius-card);
-    background: var(--surface);
+    background: var(--color-bg-surface);
+  }
+
+  .ui-surface-section {
+    padding: var(--space-4);
+    box-shadow: 0 1px 2px rgb(68 104 142 / 0.08);
+  }
+
+  .ui-surface-standard {
+    box-shadow: none;
   }
 
   .ui-surface-muted {
-    background: var(--surface-muted);
+    border-color: var(--color-border-subtle);
+    background: var(--color-bg-muted);
+    box-shadow: none;
   }
 
   .ui-focus-ring:focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid var(--color-border-selected);
     outline-offset: 2px;
+  }
+
+  .ui-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .ui-form-control {
+    min-height: 2.75rem;
+    width: 100%;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-bg-surface);
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+  }
+
+  .ui-form-control:focus {
+    border-color: var(--color-border-selected);
+  }
+
+  .ui-button-primary,
+  .ui-button-secondary,
+  .ui-button-ghost,
+  .ui-button-danger {
+    min-height: 2.75rem;
+    border-radius: var(--radius-control);
+    padding-inline: var(--space-4);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .ui-button-primary {
+    background: var(--color-brand-strong);
+    color: var(--color-text-inverse);
+  }
+
+  .ui-button-primary:hover {
+    filter: brightness(0.95);
+  }
+
+  .ui-button-ghost {
+    border: 1px solid var(--color-border-default);
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .ui-button-ghost:hover {
+    background: var(--color-bg-muted);
+  }
+
+  .ui-button-secondary {
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-surface);
+    color: var(--color-text-secondary);
+  }
+
+  .ui-button-secondary:hover {
+    border-color: var(--color-border-selected);
+    color: var(--color-text-primary);
+  }
+
+  .ui-button-danger {
+    border: 1px solid color-mix(in srgb, var(--color-state-error) 30%, white);
+    background: var(--color-bg-surface);
+    color: var(--color-state-error);
+  }
+
+  .ui-button-danger:hover {
+    background: color-mix(in srgb, var(--color-state-error) 6%, white);
+  }
+
+  .admin-member-form label {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .admin-member-form input,
+  .admin-member-form select,
+  .admin-member-form textarea {
+    width: 100%;
+    border-color: var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+  }
+
+  .admin-member-form input,
+  .admin-member-form select {
+    min-height: 2.75rem;
+  }
+
+  .admin-member-form button[type="submit"] {
+    min-height: 2.75rem;
+    border-radius: var(--radius-control);
+    background: var(--color-brand-strong);
+    color: var(--color-text-inverse);
+  }
+
+  .ui-page-title {
+    color: var(--color-text-primary);
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 2.25rem;
+  }
+
+  .ui-section-title {
+    color: var(--color-text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.75rem;
+  }
+
+  .ui-card-title {
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+  }
+
+  .ui-metric-hero {
+    color: var(--color-text-primary);
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 2.25rem;
+  }
+
+  .ui-metric-section {
+    color: var(--color-text-primary);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 2rem;
+  }
+
+  .ui-metric-inline {
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+  }
+
+  .ui-body-text {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .ui-supporting-text {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .ui-caption {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1rem;
+  }
+
+  .ui-empty-state {
+    border: 1px dashed var(--color-border-default);
+    border-radius: var(--radius-card);
+    background: var(--color-bg-muted);
+    padding: var(--space-8) var(--space-4);
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    text-align: center;
+  }
+
+  .ui-empty-state-surface {
+    background: var(--color-bg-surface);
+  }
+
+  @media (min-width: 40rem) {
+    .ui-surface-section {
+      padding: var(--space-6);
+    }
   }
 
   [data-admin-section="activity"] [data-admin-panel]:not([data-admin-panel="activity"]),

@@ -4,6 +4,7 @@ export type GuildMemberGender = "female" | "male" | "other";
 export interface GuildMember {
   id: string;
   nickname: string;
+  previousNicknames?: string[];
   status: GuildMemberStatus;
   joinedAt: string;
   leftAt: string | null;
@@ -13,7 +14,6 @@ export interface GuildMember {
 }
 
 export type MonthlyHighlightCategory =
-  | "game_update"
   | "game_event"
   | "guild_news"
   | "other";
@@ -23,8 +23,12 @@ export interface MonthlyHighlight {
   month: string;
   category: MonthlyHighlightCategory;
   title: string;
+  startDate?: string;
+  endDate?: string;
+  sourceActivityId?: string;
   dateText?: string;
   description?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -49,10 +53,13 @@ export interface ActivityLog {
   airshipType?: AirshipType;
   conquestTypes?: ConquestType[];
   date: string;
+  endDate?: string;
   title?: string;
   participantIds: string[];
   memo?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageUrl?: string;
+  /** Legacy backup/DB compatibility only. The application no longer uses images. */
   imageDataUrl?: string;
 }
 

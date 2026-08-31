@@ -12,13 +12,9 @@ import {
   getMonthlyArchiveSummaries,
 } from "@/src/lib/monthlyArchive";
 import { getMonthlyReport } from "@/src/lib/monthlyReport";
-import { validateActivityImageUrl } from "@/src/lib/activityImage";
-import type {
-  ImageDataMigrationItem,
-  ImageDataMigrationMode,
-} from "@/src/lib/imageDataMigration";
 import type { MonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
 import {
+  getMonthlyHighlightMonths,
   sortMonthlyHighlights,
   toPublicMonthlyHighlight,
 } from "@/src/lib/monthlyHighlights";
@@ -30,6 +26,7 @@ const D1_BINDING_MISSING_ERROR_MESSAGE =
 type MemberRow = {
   id: string;
   nickname: string;
+  previousNicknames: string | null;
   status: GuildMember["status"];
   joinedAt: string;
   leftAt: string | null;
@@ -42,11 +39,10 @@ type ActivityRow = {
   id: string;
   type: string;
   date: string;
+  endDate: string | null;
   title: string | null;
   memo: string | null;
   airshipType: string | null;
-  imageUrl: string | null;
-  imageDataUrl: string | null;
 };
 
 type ParticipantRow = {
@@ -59,19 +55,16 @@ type ConquestTypeRow = {
   conquestType: string;
 };
 
-type ActivityImageMigrationRow = {
-  id: string;
-  imageDataUrl: string | null;
-};
-
 type MonthlyHighlightRow = {
   id: string;
   month: string;
   category: MonthlyHighlightCategory;
   title: string;
+  startDate: string | null;
+  endDate: string | null;
+  sourceActivityId: string | null;
   dateText: string | null;
   description: string | null;
-  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -110,6 +103,11 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof member.nickname !== "string" ||
       typeof member.status !== "string" ||
       typeof member.joinedAt !== "string" ||
+      (member.previousNicknames !== undefined &&
+        (!Array.isArray(member.previousNicknames) ||
+          member.previousNicknames.some(
+            (nickname) => typeof nickname !== "string",
+          ))) ||
       (member.gender !== undefined &&
         member.gender !== "female" &&
         member.gender !== "male" &&
@@ -130,23 +128,12 @@ function validateBackupData(data: unknown): GuildArchiveBackup {
       typeof activity.id !== "string" ||
       typeof activity.type !== "string" ||
       typeof activity.date !== "string" ||
-      (activity.imageUrl !== undefined && typeof activity.imageUrl !== "string") ||
+      (activity.endDate !== undefined && typeof activity.endDate !== "string") ||
       !Array.isArray(activity.participantIds),
   );
 
   if (hasInvalidActivity) {
     throw new Error("일부 활동 기록 데이터에 필수 필드가 없습니다.");
-  }
-
-  const invalidImageUrlActivity = data.activityLogs.find(
-    (activity) =>
-      isPlainObject(activity) &&
-      typeof activity.imageUrl === "string" &&
-      !validateActivityImageUrl(activity.imageUrl).valid,
-  );
-
-  if (invalidImageUrlActivity) {
-    throw new Error("활동 이미지 URL은 비어 있거나 https:// 주소여야 합니다.");
   }
 
   return {
@@ -164,7 +151,6 @@ export async function importBackupJson(data: unknown) {
   const backup = validateBackupData(data);
   const db = await getDb();
   const importedAt = new Date().toISOString();
-
   const deleteStatements = [
     db.prepare("DELETE FROM activity_conquest_types"),
     db.prepare("DELETE FROM activity_participants"),
@@ -176,12 +162,15 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO members (
-          id, nickname, status, joinedAt, leftAt, memo, gender, birthYear, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, nickname, previousNicknames, status, joinedAt, leftAt, memo, gender, birthYear, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         member.id,
         member.nickname,
+        member.previousNicknames?.length
+          ? JSON.stringify(member.previousNicknames)
+          : null,
         member.status,
         member.joinedAt || null,
         member.leftAt ?? null,
@@ -197,19 +186,17 @@ export async function importBackupJson(data: unknown) {
     db
       .prepare(
         `INSERT INTO activities (
-          id, type, date, title, memo, airshipType, imageUrl, imageDataUrl, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, type, date, endDate, title, memo, airshipType, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         activity.id,
         activity.type,
         activity.date,
+        activity.endDate && activity.endDate !== activity.date ? activity.endDate : null,
         activity.title ?? null,
         activity.memo ?? null,
         activity.airshipType ?? null,
-        activity.imageUrl?.trim() || null,
-        // imageDataUrl은 D1에 저장하지 않고 항상 스킵합니다 (v1.8 SQLite와 동일한 정책).
-        null,
         importedAt,
         importedAt,
       ),
@@ -278,21 +265,32 @@ export async function importBackupJson(data: unknown) {
     activityCount: backup.activityLogs.length,
     participantCount,
     conquestTypeCount,
-    imageUrl: "stored",
-    imageDataUrl: "skipped",
   };
+}
+
+function parsePreviousNicknames(value: string | null) {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === "string")
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getServerMembers(): Promise<GuildMember[]> {
   const db = await getDb();
   const { results } = await db
     .prepare(
-      "SELECT id, nickname, status, joinedAt, leftAt, memo, gender, birthYear FROM members",
+      "SELECT id, nickname, previousNicknames, status, joinedAt, leftAt, memo, gender, birthYear FROM members",
     )
     .all<MemberRow>();
 
   return results.map((member) => ({
     ...member,
+    previousNicknames: parsePreviousNicknames(member.previousNicknames),
     leftAt: member.leftAt ?? null,
     memo: member.memo ?? undefined,
     gender: member.gender ?? undefined,
@@ -306,7 +304,7 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     await Promise.all([
       db
         .prepare(
-          `SELECT id, type, date, title, memo, airshipType, imageUrl, imageDataUrl
+          `SELECT id, type, date, endDate, title, memo, airshipType
            FROM activities
            ORDER BY date ASC, id ASC`,
         )
@@ -338,87 +336,15 @@ export async function getServerActivities(): Promise<ActivityLog[]> {
     id: activity.id,
     type: activity.type as ActivityLog["type"],
     date: activity.date,
+    endDate: activity.endDate ?? undefined,
     title: activity.title ?? undefined,
     memo: activity.memo ?? undefined,
     airshipType: activity.airshipType as ActivityLog["airshipType"],
-    imageUrl: activity.imageUrl ?? undefined,
-    imageDataUrl: activity.imageDataUrl ?? undefined,
     participantIds: participantsByActivityId.get(activity.id) ?? [],
     conquestTypes: conquestTypesByActivityId.get(activity.id) as
       | ActivityLog["conquestTypes"]
       | undefined,
   }));
-}
-
-export async function migrateActivityImageData(
-  mode: ImageDataMigrationMode,
-  images: ImageDataMigrationItem[],
-) {
-  const db = await getDb();
-  const placeholders = images.map(() => "?").join(", ");
-  const { results } = await db
-    .prepare(
-      `SELECT id, imageDataUrl
-       FROM activities
-       WHERE id IN (${placeholders})`,
-    )
-    .bind(...images.map((image) => image.id))
-    .all<ActivityImageMigrationRow>();
-  const rowsById = new Map(results.map((row) => [row.id, row]));
-  const missingIds: string[] = [];
-  const alreadyStoredIds: string[] = [];
-  const eligibleImages: ImageDataMigrationItem[] = [];
-
-  images.forEach((image) => {
-    const row = rowsById.get(image.id);
-
-    if (!row) {
-      missingIds.push(image.id);
-    } else if (row.imageDataUrl?.trim()) {
-      alreadyStoredIds.push(image.id);
-    } else {
-      eligibleImages.push(image);
-    }
-  });
-
-  if (mode === "preview" || eligibleImages.length === 0) {
-    return {
-      ok: true,
-      mode,
-      requestedCount: images.length,
-      eligibleCount: eligibleImages.length,
-      updatedCount: 0,
-      missingIds,
-      alreadyStoredIds,
-    };
-  }
-
-  const updateResults = await db.batch(
-    eligibleImages.map((image) =>
-      db
-        .prepare(
-          `UPDATE activities
-           SET imageDataUrl = ?
-           WHERE id = ?
-             AND (imageDataUrl IS NULL OR TRIM(imageDataUrl) = '')`,
-        )
-        .bind(image.imageDataUrl, image.id),
-    ),
-  );
-  const updatedCount = updateResults.reduce(
-    (sum, result) => sum + (result.meta.changes ?? 0),
-    0,
-  );
-
-  return {
-    ok: true,
-    mode,
-    requestedCount: images.length,
-    eligibleCount: eligibleImages.length,
-    updatedCount,
-    missingIds,
-    alreadyStoredIds,
-  };
 }
 
 function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
@@ -427,9 +353,11 @@ function toMonthlyHighlight(row: MonthlyHighlightRow): MonthlyHighlight {
     month: row.month,
     category: row.category,
     title: row.title,
+    startDate: row.startDate ?? undefined,
+    endDate: row.endDate ?? undefined,
+    sourceActivityId: row.sourceActivityId ?? undefined,
     dateText: row.dateText ?? undefined,
     description: row.description ?? undefined,
-    imageUrl: row.imageUrl ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -440,13 +368,14 @@ export async function getServerMonthlyHighlights(month?: string) {
   const statement = month
     ? db
         .prepare(
-          `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+          `SELECT id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
            FROM monthly_highlights
-           WHERE month = ?`,
+           WHERE (startDate IS NULL AND month = ?)
+              OR (startDate <= ? AND COALESCE(endDate, startDate) >= ?)`,
         )
-        .bind(month)
+        .bind(month, `${month}-31`, `${month}-01`)
     : db.prepare(
-        `SELECT id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
+        `SELECT id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
          FROM monthly_highlights`,
       );
   const { results } = await statement.all<MonthlyHighlightRow>();
@@ -458,6 +387,16 @@ export async function createServerMonthlyHighlight(
 ) {
   const db = await getDb();
   const now = new Date().toISOString();
+
+  if (input.sourceActivityId) {
+    const existing = await db
+      .prepare("SELECT id FROM monthly_highlights WHERE sourceActivityId = ?")
+      .bind(input.sourceActivityId)
+      .first<{ id: string }>();
+    if (existing) {
+      throw new Error("이미 주요 기록으로 추가된 이벤트입니다.");
+    }
+  }
   const highlight: MonthlyHighlight = {
     id: crypto.randomUUID(),
     ...input,
@@ -468,17 +407,19 @@ export async function createServerMonthlyHighlight(
   await db
     .prepare(
       `INSERT INTO monthly_highlights (
-        id, month, category, title, dateText, description, imageUrl, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, month, category, title, startDate, endDate, sourceActivityId, dateText, description, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       highlight.id,
       highlight.month,
       highlight.category,
       highlight.title,
+      highlight.startDate ?? null,
+      highlight.endDate ?? null,
+      highlight.sourceActivityId ?? null,
       highlight.dateText ?? null,
       highlight.description ?? null,
-      highlight.imageUrl ?? null,
       highlight.createdAt,
       highlight.updatedAt,
     )
@@ -496,17 +437,19 @@ export async function updateServerMonthlyHighlight(
   const result = await db
     .prepare(
       `UPDATE monthly_highlights
-       SET month = ?, category = ?, title = ?, dateText = ?, description = ?,
-           imageUrl = ?, updatedAt = ?
+       SET month = ?, category = ?, title = ?, startDate = ?, endDate = ?, sourceActivityId = ?, dateText = ?, description = ?,
+           updatedAt = ?
        WHERE id = ?`,
     )
     .bind(
       input.month,
       input.category,
       input.title,
+      input.startDate ?? null,
+      input.endDate ?? null,
+      input.sourceActivityId ?? null,
       input.dateText ?? null,
       input.description ?? null,
-      input.imageUrl ?? null,
       updatedAt,
       id,
     )
@@ -521,6 +464,14 @@ export async function updateServerMonthlyHighlight(
     ...input,
     updatedAt,
   };
+}
+
+export async function getServerMonthlyHighlightSourceActivityIds() {
+  const db = await getDb();
+  const { results } = await db
+    .prepare("SELECT sourceActivityId FROM monthly_highlights WHERE sourceActivityId IS NOT NULL")
+    .all<{ sourceActivityId: string }>();
+  return results.map((row) => row.sourceActivityId);
 }
 
 export async function deleteServerMonthlyHighlight(id: string) {
@@ -539,32 +490,42 @@ export async function getServerArchiveMonths() {
     getServerMonthlyHighlights(),
   ]);
   const summariesByMonth = new Map(
-    getMonthlyArchiveSummaries(activities).map((summary) => [
+    getMonthlyArchiveSummaries(activities, members).map((summary) => [
       summary.month,
       summary,
     ]),
   );
   const highlightsByMonth = new Map<string, MonthlyHighlight[]>();
+  const currentMonth = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 7);
 
   highlights.forEach((highlight) => {
-    highlightsByMonth.set(highlight.month, [
-      ...(highlightsByMonth.get(highlight.month) ?? []),
-      highlight,
-    ]);
+    getMonthlyHighlightMonths(highlight).forEach((highlightMonth) => {
+      if (highlightMonth > currentMonth) return;
 
-    if (!summariesByMonth.has(highlight.month)) {
-      summariesByMonth.set(highlight.month, {
-        month: highlight.month,
+      highlightsByMonth.set(highlightMonth, [
+        ...(highlightsByMonth.get(highlightMonth) ?? []),
+        highlight,
+      ]);
+
+      if (!summariesByMonth.has(highlightMonth)) {
+        summariesByMonth.set(highlightMonth, {
+        month: highlightMonth,
         activityCount: 0,
         eventCount: 0,
         participantMemberCount: 0,
         totalParticipationCount: 0,
+        auroraAverageParticipantCount: 0,
+        oceanAverageParticipantCount: 0,
         representativeEvents: [],
-      });
-    }
+        });
+      }
+    });
   });
 
   return Array.from(summariesByMonth.values())
+    .filter((summary) => summary.month <= currentMonth)
     .sort((a, b) => b.month.localeCompare(a.month))
     .map((summary) => {
       const monthHighlights = highlightsByMonth.get(summary.month) ?? [];
@@ -599,7 +560,11 @@ export async function getServerMonthlyReport(month: string) {
 
   return {
     month,
-    hasData: report.totalActivities > 0 || highlights.length > 0,
+    hasData:
+      report.totalActivities > 0 ||
+      highlights.length > 0 ||
+      report.newMembers.length > 0 ||
+      report.anniversaries.length > 0,
     report,
     highlights: highlights.map(toPublicMonthlyHighlight),
   };

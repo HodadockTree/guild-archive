@@ -44,8 +44,14 @@ function hasValidOptionalMemberDemographics(member: unknown) {
     (Number.isInteger(member.birthYear) &&
       (member.birthYear as number) >= 1900 &&
       (member.birthYear as number) <= new Date().getFullYear());
+  const previousNicknamesAreValid =
+    member.previousNicknames === undefined ||
+    (Array.isArray(member.previousNicknames) &&
+      member.previousNicknames.every(
+        (nickname) => typeof nickname === "string",
+      ));
 
-  return genderIsValid && birthYearIsValid;
+  return genderIsValid && birthYearIsValid && previousNicknamesAreValid;
 }
 
 function hasBasicActivityLogFields(activity: unknown) {
@@ -57,8 +63,17 @@ function hasBasicActivityLogFields(activity: unknown) {
     typeof activity.id === "string" &&
     typeof activity.type === "string" &&
     typeof activity.date === "string" &&
+    (activity.endDate === undefined || typeof activity.endDate === "string") &&
     Array.isArray(activity.participantIds)
   );
+}
+
+function withoutLegacyActivityImages(activity: ActivityLog): ActivityLog {
+  const textActivity = { ...activity };
+  delete textActivity.imageUrl;
+  delete textActivity.imageDataUrl;
+
+  return textActivity;
 }
 
 export function createBackup(
@@ -71,7 +86,7 @@ export function createBackup(
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     members,
-    activityLogs,
+    activityLogs: activityLogs.map(withoutLegacyActivityImages),
   };
 }
 
@@ -138,5 +153,8 @@ export function validateBackupData(data: unknown): BackupValidationResult {
 
 export function restoreBackup(backup: GuildArchiveBackup) {
   writeStorageList(MEMBERS_STORAGE_KEY, backup.members);
-  writeStorageList(ACTIVITIES_STORAGE_KEY, backup.activityLogs);
+  writeStorageList(
+    ACTIVITIES_STORAGE_KEY,
+    backup.activityLogs.map(withoutLegacyActivityImages),
+  );
 }

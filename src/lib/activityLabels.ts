@@ -56,3 +56,19 @@ export function getMonthlyActivityLabel(activity: ActivityLog) {
 
   return "이벤트";
 }
+
+export function getActivityDisplayTitle(activity: ActivityLog) {
+  const title = activity.title?.trim() || getMonthlyActivityLabel(activity);
+
+  if (getActivityStatsType(activity.type) !== "siege") {
+    return title;
+  }
+
+  const conquestLabel = getKnownConquestTypes(activity.conquestTypes).join(" · ");
+
+  if (!conquestLabel || title.includes(conquestLabel)) {
+    return title;
+  }
+
+  return `${title} · ${conquestLabel}`;
+}
