@@ -6,7 +6,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 declare global {
   interface CloudflareEnv {
     DB: D1Database;
-    // POST /api/import/json 보호용 관리자 토큰. wrangler secret 또는 .dev.vars로 설정합니다.
+    // 관리자 로그인 비밀번호 및 세션 서명용 Secret. wrangler secret 또는 .dev.vars로 설정합니다.
     ADMIN_IMPORT_TOKEN?: string;
   }
 }

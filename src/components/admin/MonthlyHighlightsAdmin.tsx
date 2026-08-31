@@ -10,7 +10,6 @@ import {
   validateMonthlyHighlightInput,
 } from "@/src/lib/monthlyHighlights";
 
-const TOKEN_SESSION_KEY = "guild-archive:monthly-highlights-admin-token";
 type Status =
   | { type: "idle" }
   | { type: "loading" | "success" | "error"; message: string };
@@ -54,8 +53,6 @@ export function MonthlyHighlightsAdmin({
   const [sourceActivityId, setSourceActivityId] = useState(draft?.sourceActivityId ?? "");
   const [dateText, setDateText] = useState("");
   const [description, setDescription] = useState(draft?.description ?? "");
-  const [adminToken, setAdminToken] = useState("");
-  const [tokenReady, setTokenReady] = useState(false);
   const [highlights, setHighlights] = useState<MonthlyHighlight[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(Boolean(draft));
@@ -74,30 +71,12 @@ export function MonthlyHighlightsAdmin({
     setIsFormOpen(false);
   }, []);
 
-  useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      const storedToken = window.sessionStorage.getItem(TOKEN_SESSION_KEY);
-      if (storedToken) {
-        setAdminToken(storedToken);
-        setTokenReady(true);
-      }
-    }, 0);
-    return () => window.clearTimeout(timerId);
-  }, []);
-
-  const loadHighlights = useCallback(async (targetMonth: string, token: string) => {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) {
-      setTokenReady(false);
-      setStatus({ type: "error", message: "월별 주요 기록을 관리하려면 관리자 토큰을 입력해 주세요." });
-      return false;
-    }
-
+  const loadHighlights = useCallback(async (targetMonth: string) => {
     setStatus({ type: "loading", message: "주요 기록을 불러오는 중입니다." });
     try {
       const response = await fetch(
         `/api/admin/monthly-highlights?month=${encodeURIComponent(targetMonth)}`,
-        { headers: { Authorization: `Bearer ${trimmedToken}` }, cache: "no-store" },
+        { cache: "no-store" },
       );
       const result = (await response.json()) as {
         ok?: boolean;
@@ -105,23 +84,17 @@ export function MonthlyHighlightsAdmin({
         highlights?: MonthlyHighlight[];
       };
       if (response.status === 401) {
-        throw new Error("관리자 토큰이 올바르지 않습니다.");
+        throw new Error("관리자 세션이 만료되었습니다. 화면을 새로고침해 다시 로그인해 주세요.");
       }
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "주요 기록을 불러오지 못했습니다.");
       }
 
       setHighlights(result.highlights ?? []);
-      setTokenReady(true);
-      window.sessionStorage.setItem(TOKEN_SESSION_KEY, trimmedToken);
       setStatus({ type: "idle" });
       return true;
     } catch (error) {
       setHighlights([]);
-      if (error instanceof Error && error.message === "관리자 토큰이 올바르지 않습니다.") {
-        window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
-        setTokenReady(false);
-      }
       setStatus({
         type: "error",
         message: error instanceof Error ? error.message : "주요 기록을 불러오지 못했습니다.",
@@ -130,11 +103,8 @@ export function MonthlyHighlightsAdmin({
     }
   }, []);
 
-  const loadSourceActivityIds = useCallback(async (token: string) => {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) return;
+  const loadSourceActivityIds = useCallback(async () => {
     const response = await fetch("/api/admin/monthly-highlights?sources=1", {
-      headers: { Authorization: `Bearer ${trimmedToken}` },
       cache: "no-store",
     });
     const result = (await response.json()) as {
@@ -147,28 +117,20 @@ export function MonthlyHighlightsAdmin({
   }, [onSourceActivityIdsChange]);
 
   useEffect(() => {
-    if (!isActive || !tokenReady) return;
+    if (!isActive) return;
     const timerId = window.setTimeout(() => {
-      void loadHighlights(month, adminToken);
+      void loadHighlights(month);
     }, 0);
     return () => window.clearTimeout(timerId);
-  }, [adminToken, isActive, loadHighlights, month, tokenReady]);
+  }, [isActive, loadHighlights, month]);
 
   useEffect(() => {
-    if (!tokenReady) return;
-    void loadSourceActivityIds(adminToken);
-  }, [adminToken, loadSourceActivityIds, tokenReady]);
+    void loadSourceActivityIds();
+  }, [loadSourceActivityIds]);
 
   const requestHeaders = () => ({
     "Content-Type": "application/json",
-    Authorization: `Bearer ${adminToken.trim()}`,
   });
-
-  const handleTokenSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await loadHighlights(month, adminToken);
-    await loadSourceActivityIds(adminToken);
-  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -191,9 +153,7 @@ export function MonthlyHighlightsAdmin({
       );
       const result = (await response.json()) as { ok?: boolean; error?: string };
       if (response.status === 401) {
-        window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
-        setTokenReady(false);
-        throw new Error("관리자 인증이 만료되었습니다. 토큰을 다시 입력해주세요.");
+        throw new Error("관리자 세션이 만료되었습니다. 화면을 새로고침해 다시 로그인해 주세요.");
       }
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "주요 기록을 저장하지 못했습니다.");
@@ -201,8 +161,8 @@ export function MonthlyHighlightsAdmin({
 
       const message = editingId ? "주요 기록을 수정했습니다." : "주요 기록을 추가했습니다.";
       resetForm();
-      const refreshed = await loadHighlights(month, adminToken);
-      await loadSourceActivityIds(adminToken);
+      const refreshed = await loadHighlights(month);
+      await loadSourceActivityIds();
       if (refreshed) setStatus({ type: "success", message });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "주요 기록을 저장하지 못했습니다." });
@@ -232,14 +192,12 @@ export function MonthlyHighlightsAdmin({
       });
       const result = (await response.json()) as { ok?: boolean; error?: string };
       if (response.status === 401) {
-        window.sessionStorage.removeItem(TOKEN_SESSION_KEY);
-        setTokenReady(false);
-        throw new Error("관리자 인증이 만료되었습니다. 토큰을 다시 입력해주세요.");
+        throw new Error("관리자 세션이 만료되었습니다. 화면을 새로고침해 다시 로그인해 주세요.");
       }
       if (!response.ok || !result.ok) throw new Error(result.error ?? "주요 기록을 삭제하지 못했습니다.");
       if (editingId === highlight.id) resetForm();
       setHighlights((items) => items.filter((item) => item.id !== highlight.id));
-      await loadSourceActivityIds(adminToken);
+      await loadSourceActivityIds();
       setStatus({ type: "success", message: "주요 기록을 삭제했습니다." });
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "주요 기록을 삭제하지 못했습니다." });
@@ -262,30 +220,16 @@ export function MonthlyHighlightsAdmin({
           }} required />
         </label>
 
-        {!tokenReady ? (
-          <form className="space-y-3" onSubmit={handleTokenSubmit}>
-            <div>
-              <h3 className="ui-card-title">관리자 인증이 필요합니다.</h3>
-              <p className="ui-supporting-text">정상 인증 후 이 브라우저 탭을 닫을 때까지만 관리자 토큰을 기억합니다.</p>
-            </div>
-            <label className="ui-form-field max-w-md">
-              <span>관리자 토큰</span>
-              <input autoComplete="off" className="ui-form-control" placeholder="ADMIN_IMPORT_TOKEN 값 입력" type="password" value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
-            </label>
-            <button className="ui-button-primary" disabled={isBusy} type="submit">인증하고 기록 조회</button>
-          </form>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="ui-card-title">등록된 주요 기록 {highlights.length}건</h3>
-              <p className="ui-caption">{monthLabel(month)} 기준</p>
-            </div>
-            <button className="ui-button-primary" disabled={isBusy} type="button" onClick={() => {
-              resetForm();
-              setIsFormOpen(true);
-            }}>+ 주요 기록 추가</button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="ui-card-title">등록된 주요 기록 {highlights.length}건</h3>
+            <p className="ui-caption">{monthLabel(month)} 기준</p>
           </div>
-        )}
+          <button className="ui-button-primary" disabled={isBusy} type="button" onClick={() => {
+            resetForm();
+            setIsFormOpen(true);
+          }}>+ 주요 기록 추가</button>
+        </div>
 
         {status.type !== "idle" ? (
           <p className={`rounded-md px-3 py-2 text-sm ${status.type === "error" ? "bg-red-50 text-[var(--danger)]" : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"}`}>
@@ -293,7 +237,7 @@ export function MonthlyHighlightsAdmin({
           </p>
         ) : null}
 
-        {tokenReady && status.type !== "loading" ? highlights.length === 0 ? (
+        {status.type !== "loading" ? highlights.length === 0 ? (
           <p className="ui-empty-state">{monthLabel(month)}에 등록된 주요 기록이 없습니다.</p>
         ) : (
           <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
@@ -319,7 +263,7 @@ export function MonthlyHighlightsAdmin({
         ) : null}
       </div>
 
-      {tokenReady && isFormOpen ? (
+      {isFormOpen ? (
         <form className="ui-surface ui-surface-section space-y-4" onSubmit={handleSubmit}>
           <div>
             <h3 className="ui-card-title">{editingId ? `${title || "선택한 주요 기록"} 수정 중` : "주요 기록 추가"}</h3>

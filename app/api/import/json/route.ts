@@ -1,31 +1,17 @@
 import { importBackupJson } from "@/src/lib/serverDb";
-import { getAdminImportToken, getBearerToken } from "@/src/lib/serverAuth";
+import { isAdminRequestAuthorized } from "@/src/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const requestToken = getBearerToken(request);
-
-  if (!requestToken) {
-    return Response.json(
-      {
-        ok: false,
-        error: "인증 토큰이 필요합니다.",
-      },
-      { status: 401 },
-    );
-  }
-
-  const adminToken = await getAdminImportToken();
-
-  if (!adminToken || requestToken !== adminToken) {
+  if (!(await isAdminRequestAuthorized(request))) {
     return Response.json(
       {
         ok: false,
         error: "인증에 실패했습니다.",
       },
-      { status: 403 },
+      { status: 401 },
     );
   }
 

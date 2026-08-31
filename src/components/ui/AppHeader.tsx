@@ -6,7 +6,6 @@ const navigation: Array<{ href: AppPath; label: string }> = [
   { href: "/", label: "홈" },
   { href: "/archive", label: "월별 기록" },
   { href: "/viewer", label: "월간 리포트" },
-  { href: "/admin", label: "관리 화면" },
 ];
 
 export function AppHeader({

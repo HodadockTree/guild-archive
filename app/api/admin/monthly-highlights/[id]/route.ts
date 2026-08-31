@@ -2,23 +2,17 @@ import {
   deleteServerMonthlyHighlight,
   updateServerMonthlyHighlight,
 } from "@/src/lib/serverDb";
-import { getAdminImportToken, getBearerToken } from "@/src/lib/serverAuth";
+import { isAdminRequestAuthorized } from "@/src/lib/serverAuth";
 import { validateMonthlyHighlightInput } from "@/src/lib/monthlyHighlights";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function isAuthorized(request: Request) {
-  const requestToken = getBearerToken(request);
-  const adminToken = await getAdminImportToken();
-  return Boolean(requestToken && adminToken && requestToken === adminToken);
-}
-
 export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAuthorized(request))) {
+  if (!(await isAdminRequestAuthorized(request))) {
     return Response.json(
       { ok: false, error: "인증에 실패했습니다." },
       { status: 401 },
@@ -56,7 +50,7 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAuthorized(request))) {
+  if (!(await isAdminRequestAuthorized(request))) {
     return Response.json(
       { ok: false, error: "인증에 실패했습니다." },
       { status: 401 },
